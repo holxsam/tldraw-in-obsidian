@@ -1,0 +1,19 @@
+@import "@tldraw/tldraw/tldraw.css";
+
+#tldraw-view-root {
+	width: 100%;
+	height: calc(100% - 28px);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+#tldraw-view-root button:not(.clickable-icon) {
+	background-color: initial;
+	box-shadow: initial;
+}
+
+#tldraw-view-root kbd {
+	background: inherit;
+	border-radius: inherit;
+	padding: inherit;
+}
