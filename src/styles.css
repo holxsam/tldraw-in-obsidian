@@ -5,6 +5,8 @@
 	height: calc(100% - 28px);
 	border-radius: 6px;
 	overflow: hidden;
+
+	transform: translate3d(0, 0, 0);
 }
 
 #tldraw-view-root button:not(.clickable-icon) {
