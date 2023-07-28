@@ -9,19 +9,22 @@ import {
 	ViewState,
 	WorkspaceLeaf,
 } from "obsidian";
-import {
-	VIEW_TYPE_TLDRAW,
-	OtldrawView,
-	VIEW_TYPE_MARKDOWN,
-} from "./OtldrawView";
+import { TldrawView } from "./TldrawView";
 import {
 	DEFAULT_SETTINGS,
 	TldrawPluginSettings,
 	TldrawSettingTab,
 } from "./settings";
-
-export const FILE_EXTENSION = "tldr";
-export const FRONTMATTER_KEY = "tldraw-plugin";
+import {
+	frontmatterTemplate,
+	tldrawDataTemplate,
+	tldrawMarkdownTemplate,
+} from "./utils";
+import {
+	FRONTMATTER_KEY,
+	VIEW_TYPE_MARKDOWN,
+	VIEW_TYPE_TLDRAW,
+} from "./constants";
 
 export default class TldrawPlugin extends Plugin {
 	settings: TldrawPluginSettings;
@@ -32,7 +35,7 @@ export default class TldrawPlugin extends Plugin {
 
 		this.registerView(
 			VIEW_TYPE_TLDRAW,
-			(leaf) => new OtldrawView(leaf, this)
+			(leaf) => new TldrawView(leaf, this)
 		);
 
 		await this.loadSettings();
@@ -141,16 +144,10 @@ export default class TldrawPlugin extends Plugin {
 		const paddedNum = `${rand}`.padStart(5, "0");
 		const filename = `tldraw-${paddedNum}.tldr.md`;
 
-		let frontmatter = "---\n\n";
-		frontmatter += `${FRONTMATTER_KEY}: parsed\n`;
-		frontmatter += "tags: [tldraw]\n";
-		frontmatter += "\n---\n\n";
-
-		let tldrData = "";
-
-		let fileData = "";
-
-		fileData = frontmatter + tldrData;
+		// constructs the markdown content thats a template:
+		const frontmatter = frontmatterTemplate(`${FRONTMATTER_KEY}: parsed`);
+		const tldrData = tldrawDataTemplate(JSON.stringify({ a: 1, b: 2 }));
+		const fileData = tldrawMarkdownTemplate(frontmatter, tldrData);
 
 		// console.log("filename", filename);
 		// console.log(this.app.vault.getRoot().path);
@@ -161,7 +158,6 @@ export default class TldrawPlugin extends Plugin {
 
 	private switchToTldrawViewAfterLoad() {
 		console.log("switchToTldrawViewAfterLoad()");
-		const self = this;
 		this.app.workspace.onLayoutReady(() => {
 			console.log("ready");
 			let leaf: WorkspaceLeaf;

@@ -7,14 +7,12 @@ import {
 } from "obsidian";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import { OtldrawApp } from "./OtldrawApp";
+import { TldrawApp } from "./TldrawApp";
 import { Root, createRoot } from "react-dom/client";
-import TldrawPlugin, { FRONTMATTER_KEY } from "./main";
+import TldrawPlugin from "./main";
+import { VIEW_TYPE_TLDRAW } from "./constants";
 
-export const VIEW_TYPE_TLDRAW = "otldraw-view"; // custom view type
-export const VIEW_TYPE_MARKDOWN = "markdown"; // NOT ACTUALLY A CUSTOM VIEW TYPE, its built in from obsidian
-
-export class OtldrawView extends TextFileView {
+export class TldrawView extends TextFileView {
 	plugin: TldrawPlugin;
 	reactRoot: Root;
 
@@ -33,7 +31,7 @@ export class OtldrawView extends TextFileView {
 		// this.reactRoot = createRoot(this.containerEl.children[1]);
 		this.reactRoot.render(
 			<React.StrictMode>
-				<OtldrawApp />
+				<TldrawApp />
 				{/* <div>{this.getViewData()}</div> */}
 			</React.StrictMode>
 		);

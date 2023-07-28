@@ -35,7 +35,7 @@ export const uiOverrides: TLUiOverrides = {
 	},
 };
 
-export const OtldrawApp = ({
+export const TldrawApp = ({
 	settings,
 }: {
 	settings?: TldrawPluginSettings;
