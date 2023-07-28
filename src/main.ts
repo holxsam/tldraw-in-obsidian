@@ -8,6 +8,7 @@ import {
 	TFile,
 	ViewState,
 	WorkspaceLeaf,
+	addIcon,
 } from "obsidian";
 import { TldrawView } from "./TldrawView";
 import {
@@ -22,6 +23,8 @@ import {
 } from "./utils";
 import {
 	FRONTMATTER_KEY,
+	TLDRAW_ICON,
+	TLDRAW_ICON_NAME,
 	VIEW_TYPE_MARKDOWN,
 	VIEW_TYPE_TLDRAW,
 } from "./constants";
@@ -40,10 +43,16 @@ export default class TldrawPlugin extends Plugin {
 
 		await this.loadSettings();
 
+		addIcon(TLDRAW_ICON_NAME, TLDRAW_ICON);
+
 		// this creates an icon in the left ribbon.
-		this.addRibbonIcon("dice", "New tldraw file", async (e: MouseEvent) => {
-			this.createTldrFile();
-		});
+		this.addRibbonIcon(
+			TLDRAW_ICON_NAME,
+			"New tldraw file",
+			async (e: MouseEvent) => {
+				this.createTldrFile();
+			}
+		);
 
 		// registers events:
 		this.registerEvent(
@@ -57,7 +66,7 @@ export default class TldrawPlugin extends Plugin {
 				if (viewMode === VIEW_TYPE_TLDRAW) {
 					menu.addItem((item) => {
 						item.setTitle("View as Markdown")
-							.setIcon("dice")
+							.setIcon(TLDRAW_ICON_NAME)
 							.setSection("close")
 							.onClick(() => {
 								this.setTabFileViewMode(VIEW_TYPE_MARKDOWN);
@@ -67,7 +76,7 @@ export default class TldrawPlugin extends Plugin {
 				} else {
 					menu.addItem((item) => {
 						item.setTitle("View as Tldraw")
-							.setIcon("dice")
+							.setIcon(TLDRAW_ICON_NAME)
 							.setSection("close")
 							.onClick(() => {
 								this.setTabFileViewMode(VIEW_TYPE_TLDRAW);
