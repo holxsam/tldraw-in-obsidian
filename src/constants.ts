@@ -1,4 +1,5 @@
-export const VIEW_TYPE_TLDRAW = "otldraw-view"; // custom view type
+export type ViewTypes = typeof VIEW_TYPE_TLDRAW | typeof VIEW_TYPE_MARKDOWN;
+export const VIEW_TYPE_TLDRAW = "tldraw-view"; // custom view type
 export const VIEW_TYPE_MARKDOWN = "markdown"; // NOT ACTUALLY A CUSTOM VIEW TYPE, its built in from obsidian
 
 export const FILE_EXTENSION = "tldr";

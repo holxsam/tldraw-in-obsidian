@@ -18,6 +18,7 @@ import {
 } from "./settings";
 import {
 	frontmatterTemplate,
+	removeAllChildNodes,
 	tldrawDataTemplate,
 	tldrawMarkdownTemplate,
 } from "./utils";
@@ -27,11 +28,13 @@ import {
 	TLDRAW_ICON_NAME,
 	VIEW_TYPE_MARKDOWN,
 	VIEW_TYPE_TLDRAW,
+	ViewTypes,
 } from "./constants";
 
 export default class TldrawPlugin extends Plugin {
+	statusBar: HTMLElement;
 	settings: TldrawPluginSettings;
-	file_view_modes: { [filename: string]: string } = {};
+	file_view_modes: { [filename: string]: ViewTypes } = {};
 
 	async onload() {
 		console.log("main.ts onload()");
@@ -54,36 +57,42 @@ export default class TldrawPlugin extends Plugin {
 			}
 		);
 
+		this.addRibbonIcon("dice", "debug", async () => {
+			console.log("--------------------");
+			console.log("active leaf", this.app.workspace.getLeaf(false).id);
+			console.log(this.file_view_modes);
+		});
+
+		// status bar:
+		this.statusBar = this.addStatusBarItem();
+
 		// registers events:
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file, source, leaf) => {
 				if (!leaf || !(file instanceof TFile)) return;
 				if (!this.isTldrawFile(file)) return;
 
-				const id = this.getTabFileId(file);
-				const viewMode = this.file_view_modes[id] ?? VIEW_TYPE_TLDRAW;
+				const { type } = leaf.getViewState();
+				const viewMode = this.getViewMode(leaf, file) || type;
 
-				if (viewMode === VIEW_TYPE_TLDRAW) {
-					menu.addItem((item) => {
-						item.setTitle("View as Markdown")
-							.setIcon(TLDRAW_ICON_NAME)
-							.setSection("close")
-							.onClick(() => {
-								this.setTabFileViewMode(VIEW_TYPE_MARKDOWN);
-								this.setMarkdownView(leaf);
-							});
-					});
-				} else {
-					menu.addItem((item) => {
-						item.setTitle("View as Tldraw")
-							.setIcon(TLDRAW_ICON_NAME)
-							.setSection("close")
-							.onClick(() => {
-								this.setTabFileViewMode(VIEW_TYPE_TLDRAW);
-								this.setTldrawView(leaf);
-							});
-					});
-				}
+				const oppositeViewMode =
+					viewMode === VIEW_TYPE_TLDRAW
+						? VIEW_TYPE_MARKDOWN
+						: VIEW_TYPE_TLDRAW;
+
+				const title =
+					viewMode === VIEW_TYPE_TLDRAW
+						? "View as Markdown"
+						: "View as Tldraw";
+
+				menu.addItem((item) => {
+					item.setIcon(TLDRAW_ICON_NAME)
+						.setSection("close")
+						.setTitle(title)
+						.onClick(() => {
+							this.updateViewMode(oppositeViewMode, leaf, file);
+						});
+				});
 
 				// @ts -ignore: unexposed type declarations (this api may change and break this code)
 				// menu.items.unshift(menu.items.pop()); // add the menu item on top
@@ -92,28 +101,40 @@ export default class TldrawPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on("editor-menu", () => {
-				console.log("editor-menu");
+				console.log("EDITOR-MENU");
 			})
 		);
 
 		this.registerEvent(
 			this.app.workspace.on("file-open", (file) => {
-				console.log("file-open");
+				console.log("FILE-OPEN");
+			})
+		);
 
-				if (!file || !this.isTldrawFile(file)) return;
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", (leaf) => {
+				if (!leaf) return;
 
-				const id = this.getTabFileId(file);
-				const viewMode = this.file_view_modes[id];
+				const { type, state } = leaf.getViewState();
+				const validViewType =
+					type === VIEW_TYPE_TLDRAW || type === VIEW_TYPE_MARKDOWN;
 
-				if (viewMode === VIEW_TYPE_MARKDOWN) {
-					console.log("MARKDOWN VIEW");
-					this.setTabFileViewMode(VIEW_TYPE_MARKDOWN);
-					this.setMarkdownView(this.app.workspace.getLeaf(false));
-				} else {
-					console.log("TLDRAW VIEW");
-					this.setTabFileViewMode(VIEW_TYPE_TLDRAW);
-					this.setTldrawView(this.app.workspace.getLeaf(false));
-				}
+				if (!validViewType) return;
+
+				const fileFromState = state.file;
+				const file = this.app.workspace.getActiveFile();
+
+				if (
+					!file ||
+					!fileFromState ||
+					fileFromState !== file.path || // is the same file
+					!this.isTldrawFile(file)
+				)
+					return;
+
+				const viewMode = this.getViewMode(leaf, file);
+
+				this.updateViewMode(viewMode);
 			})
 		);
 
@@ -129,26 +150,107 @@ export default class TldrawPlugin extends Plugin {
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_TLDRAW);
 	}
 
-	public getTabFileId(file?: TFile) {
-		const leaf = this.app.workspace.getLeaf(false);
+	public updateStatusBarViewMode(view: ViewTypes) {
+		removeAllChildNodes(this.statusBar);
+		const container = this.statusBar.createEl("div", {
+			cls: "otldraw-status-bar-view-mode-container",
+		});
 
-		// @ts-ignore: leaf.id exists but the typescript declarations don't say so
-		const tabId = leaf.id as string;
+		container.createEl("label", { text: "View:", cls: "" });
 
-		const filePath = file
-			? file.path
-			: this.app.workspace.getActiveFile()?.path ?? "";
+		const tldrawBtn = container.createEl("button", {
+			type: "button",
+			cls: `otldraw-status-bar-button ${
+				view === VIEW_TYPE_TLDRAW ? "view-mode-highlight" : ""
+			}`,
+			text: "DRAW",
+		});
+
+		tldrawBtn.addEventListener("click", () => {
+			this.updateViewMode(view);
+		});
+
+		const mdBtn = container.createEl("button", {
+			type: "button",
+			cls: `otldraw-status-bar-button ${
+				view === VIEW_TYPE_MARKDOWN ? "view-mode-highlight" : ""
+			}`,
+			text: "MD",
+		});
+
+		mdBtn.addEventListener("click", () => {
+			this.updateViewMode(view);
+		});
+	}
+
+	public async setMarkdownView(leaf: WorkspaceLeaf) {
+		// const state = leaf.view.getState();
+		// await leaf.setViewState({
+		// 	type: VIEW_TYPE_TLDRAW,
+		// 	state: { file: null },
+		// });
+		await leaf.setViewState(
+			{
+				type: VIEW_TYPE_MARKDOWN,
+				state: leaf.view.getState(),
+				popstate: true,
+			} as ViewState,
+			{ focus: true }
+		);
+	}
+
+	public async setTldrawView(leaf: WorkspaceLeaf) {
+		await leaf.setViewState({
+			type: VIEW_TYPE_TLDRAW,
+			state: leaf.view.getState(),
+			popstate: true,
+		} as ViewState);
+	}
+
+	public getLeafFileId(leaf?: WorkspaceLeaf, file?: TFile) {
+		const activeLeaf = leaf ?? this.app.workspace.getLeaf(false);
+		const activeFile = file ?? this.app.workspace.getActiveFile();
+
+		// @ts-ignore: activeLeaf.id exists but the typescript declarations don't say so
+		const tabId = activeLeaf.id as string;
+		const filePath = activeFile?.path ?? "";
 
 		return `${tabId}-${filePath}`;
 	}
 
-	public setTabFileViewMode(viewMode: string) {
-		const tabFileId = this.getTabFileId();
-		this.file_view_modes[tabFileId] = viewMode;
+	public getViewMode(leaf?: WorkspaceLeaf, file?: TFile) {
+		const id = this.getLeafFileId(leaf, file);
+		const viewMode = this.file_view_modes[id];
+		return viewMode;
+	}
+
+	public setLeafFileViewMode(
+		viewMode: ViewTypes,
+		leaf?: WorkspaceLeaf,
+		file?: TFile
+	) {
+		const id = this.getLeafFileId(leaf, file);
+		this.file_view_modes[id] = viewMode;
+	}
+
+	public updateViewMode(view: ViewTypes, leaf?: WorkspaceLeaf, file?: TFile) {
+		view ??= VIEW_TYPE_TLDRAW;
+		const activeLeaf = leaf ?? this.app.workspace.getLeaf(false);
+
+		// update state:
+		this.setLeafFileViewMode(view, activeLeaf, file);
+		this.updateStatusBarViewMode(view);
+
+		// guard clause to prevent changing the view if the view is already correct:
+		const { type } = activeLeaf?.getViewState();
+		if (type === view) return;
+
+		// these functions will actually change the view mode:
+		if (view === VIEW_TYPE_TLDRAW) this.setTldrawView(activeLeaf);
+		else this.setMarkdownView(activeLeaf);
 	}
 
 	async createTldrFile() {
-		console.log("createTldrFile");
 		const rand = Math.floor(Math.random() * 10000);
 		const paddedNum = `${rand}`.padStart(5, "0");
 		const filename = `tldraw-${paddedNum}.tldr.md`;
@@ -166,17 +268,13 @@ export default class TldrawPlugin extends Plugin {
 	}
 
 	private switchToTldrawViewAfterLoad() {
-		console.log("switchToTldrawViewAfterLoad()");
 		this.app.workspace.onLayoutReady(() => {
-			console.log("ready");
-			let leaf: WorkspaceLeaf;
-			for (leaf of this.app.workspace.getLeavesOfType("markdown")) {
+			for (let leaf of this.app.workspace.getLeavesOfType("markdown")) {
 				if (
 					leaf.view instanceof MarkdownView &&
 					this.isTldrawFile(leaf.view.file)
 				) {
-					this.setTabFileViewMode(VIEW_TYPE_TLDRAW);
-					this.setTldrawView(leaf);
+					this.updateViewMode(VIEW_TYPE_TLDRAW, leaf);
 				}
 			}
 		});
@@ -190,35 +288,7 @@ export default class TldrawPlugin extends Plugin {
 		);
 	}
 
-	public async setMarkdownView(leaf: WorkspaceLeaf) {
-		const state = leaf.view.getState();
-
-		await leaf.setViewState({
-			type: VIEW_TYPE_TLDRAW,
-			state: { file: null },
-		});
-
-		await leaf.setViewState(
-			{
-				type: VIEW_TYPE_MARKDOWN,
-				state,
-				popstate: true,
-			} as ViewState,
-			{ focus: true }
-		);
-	}
-
-	public async setTldrawView(leaf: WorkspaceLeaf) {
-		await leaf.setViewState({
-			type: VIEW_TYPE_TLDRAW,
-			state: leaf.view.getState(),
-			popstate: true,
-		} as ViewState);
-	}
-
 	async activateView() {
-		// this.app.workspace.detachLeavesOfType(OTLDRAW_VIEW_TYPE);
-
 		await this.app.workspace.getLeaf(false).setViewState({
 			type: VIEW_TYPE_TLDRAW,
 			active: true,

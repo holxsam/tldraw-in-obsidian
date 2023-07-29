@@ -30,3 +30,9 @@ export const tldrawMarkdownTemplate = (
 	str += tldrawData;
 	return str;
 };
+
+export const removeAllChildNodes = (parent: HTMLElement) => {
+	while (parent.firstChild) {
+		parent.removeChild(parent.firstChild);
+	}
+};

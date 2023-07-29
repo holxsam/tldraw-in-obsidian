@@ -19,3 +19,24 @@
 	border-radius: inherit;
 	padding: inherit;
 }
+
+.otldraw-status-bar-view-mode-container {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.plugin-tldraw-in-obsidian
+	.otldraw-status-bar-view-mode-container
+	.otldraw-status-bar-button {
+	background-color: transparent;
+	padding: 0 4px;
+	height: min-content;
+	box-shadow: none;
+}
+
+.plugin-tldraw-in-obsidian
+	.otldraw-status-bar-view-mode-container
+	.otldraw-status-bar-button.view-mode-highlight {
+	background-color: hsl(var(--accent-h), var(--accent-s), var(--accent-l));
+}
