@@ -1,27 +1,22 @@
 import {
-	App,
-	Editor,
 	MarkdownView,
-	Menu,
-	Modal,
 	Plugin,
 	TFile,
 	ViewState,
 	WorkspaceLeaf,
 	addIcon,
 } from "obsidian";
-import { TldrawView } from "./TldrawView";
+import { TldrawView } from "./obsidian/TldrawView";
 import {
 	DEFAULT_SETTINGS,
 	TldrawPluginSettings,
-	TldrawSettingTab,
-} from "./settings";
+	SettingsTab,
+} from "./obsidian/SettingsTab";
 import {
 	frontmatterTemplate,
-	removeAllChildNodes,
 	tldrawDataTemplate,
 	tldrawMarkdownTemplate,
-} from "./utils";
+} from "./utils/utils";
 import {
 	FRONTMATTER_KEY,
 	TLDRAW_ICON,
@@ -29,12 +24,15 @@ import {
 	VIEW_TYPE_MARKDOWN,
 	VIEW_TYPE_TLDRAW,
 	ViewTypes,
-} from "./constants";
+} from "./utils/constants";
+import { createReactStatusBarViewMode } from "./components/StatusBarViewMode";
+import { useStatusBarState } from "./utils/zustand-stores";
 
 export default class TldrawPlugin extends Plugin {
-	statusBar: HTMLElement;
+	statusBarRoot: HTMLElement;
 	settings: TldrawPluginSettings;
-	file_view_modes: { [filename: string]: ViewTypes } = {};
+	leafFileViewModes: { [filename: string]: ViewTypes } = {};
+	unsubscribeToViewModeState: () => void;
 
 	async onload() {
 		console.log("main.ts onload()");
@@ -48,6 +46,13 @@ export default class TldrawPlugin extends Plugin {
 
 		addIcon(TLDRAW_ICON_NAME, TLDRAW_ICON);
 
+		this.unsubscribeToViewModeState = useStatusBarState.subscribe(
+			(state) => state.viewMode,
+			(viewMode, prevViewMode) => {
+				if (viewMode !== prevViewMode) this.updateViewMode(viewMode);
+			}
+		);
+
 		// this creates an icon in the left ribbon.
 		this.addRibbonIcon(
 			TLDRAW_ICON_NAME,
@@ -59,12 +64,14 @@ export default class TldrawPlugin extends Plugin {
 
 		this.addRibbonIcon("dice", "debug", async () => {
 			console.log("--------------------");
-			console.log("active leaf", this.app.workspace.getLeaf(false).id);
-			console.log(this.file_view_modes);
+			// console.log("active leaf", this.app.workspace.getLeaf(false).id);
+			// console.log(this.leafFileViewModes);
 		});
 
 		// status bar:
-		this.statusBar = this.addStatusBarItem();
+		this.statusBarRoot = this.addStatusBarItem();
+		createReactStatusBarViewMode(this.statusBarRoot);
+		this.setStatusBarViewModeVisibility(false);
 
 		// registers events:
 		this.registerEvent(
@@ -73,7 +80,7 @@ export default class TldrawPlugin extends Plugin {
 				if (!this.isTldrawFile(file)) return;
 
 				const { type } = leaf.getViewState();
-				const viewMode = this.getViewMode(leaf, file) || type;
+				const viewMode = this.getLeafFileViewMode(leaf, file) || type;
 
 				const oppositeViewMode =
 					viewMode === VIEW_TYPE_TLDRAW
@@ -93,9 +100,6 @@ export default class TldrawPlugin extends Plugin {
 							this.updateViewMode(oppositeViewMode, leaf, file);
 						});
 				});
-
-				// @ts -ignore: unexposed type declarations (this api may change and break this code)
-				// menu.items.unshift(menu.items.pop()); // add the menu item on top
 			})
 		);
 
@@ -113,33 +117,34 @@ export default class TldrawPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", (leaf) => {
+				this.setStatusBarViewModeVisibility(false);
+
+				// guard clause:
 				if (!leaf) return;
 
 				const { type, state } = leaf.getViewState();
 				const validViewType =
 					type === VIEW_TYPE_TLDRAW || type === VIEW_TYPE_MARKDOWN;
 
+				// guard clause:
 				if (!validViewType) return;
 
 				const fileFromState = state.file;
 				const file = this.app.workspace.getActiveFile();
 
-				if (
-					!file ||
-					!fileFromState ||
-					fileFromState !== file.path || // is the same file
-					!this.isTldrawFile(file)
-				)
+				// guard clauses:
+				if (!file || !fileFromState) return;
+				if (fileFromState !== file.path || !this.isTldrawFile(file))
 					return;
 
-				const viewMode = this.getViewMode(leaf, file);
-
+				this.setStatusBarViewModeVisibility(true);
+				const viewMode = this.getLeafFileViewMode(leaf, file);
 				this.updateViewMode(viewMode);
 			})
 		);
 
 		// this adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new TldrawSettingTab(this.app, this));
+		this.addSettingTab(new SettingsTab(this.app, this));
 
 		// switches to the tldraw view mode on initial launch
 		this.switchToTldrawViewAfterLoad();
@@ -147,44 +152,22 @@ export default class TldrawPlugin extends Plugin {
 
 	onunload() {
 		console.log("main.ts unonload()");
+		this.unsubscribeToViewModeState();
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_TLDRAW);
 	}
 
+	public setStatusBarViewModeVisibility(visible: boolean) {
+		if (visible)
+			this.statusBarRoot.removeClass("hide-status-bar-view-mode");
+		else this.statusBarRoot.addClass("hide-status-bar-view-mode");
+	}
+
 	public updateStatusBarViewMode(view: ViewTypes) {
-		removeAllChildNodes(this.statusBar);
-		const container = this.statusBar.createEl("div", {
-			cls: "otldraw-status-bar-view-mode-container",
-		});
-
-		container.createEl("label", { text: "View:", cls: "" });
-
-		const tldrawBtn = container.createEl("button", {
-			type: "button",
-			cls: `otldraw-status-bar-button ${
-				view === VIEW_TYPE_TLDRAW ? "view-mode-highlight" : ""
-			}`,
-			text: "DRAW",
-		});
-
-		tldrawBtn.addEventListener("click", () => {
-			this.updateViewMode(view);
-		});
-
-		const mdBtn = container.createEl("button", {
-			type: "button",
-			cls: `otldraw-status-bar-button ${
-				view === VIEW_TYPE_MARKDOWN ? "view-mode-highlight" : ""
-			}`,
-			text: "MD",
-		});
-
-		mdBtn.addEventListener("click", () => {
-			this.updateViewMode(view);
-		});
+		useStatusBarState.setState({ viewMode: view });
 	}
 
 	public async setMarkdownView(leaf: WorkspaceLeaf) {
-		// const state = leaf.view.getState();
+		// still not sure why this piece code was here but I feel like it might be something I overlooked but since I don't fully understand it, I'm just going to comment it out
 		// await leaf.setViewState({
 		// 	type: VIEW_TYPE_TLDRAW,
 		// 	state: { file: null },
@@ -207,20 +190,26 @@ export default class TldrawPlugin extends Plugin {
 		} as ViewState);
 	}
 
-	public getLeafFileId(leaf?: WorkspaceLeaf, file?: TFile) {
-		const activeLeaf = leaf ?? this.app.workspace.getLeaf(false);
-		const activeFile = file ?? this.app.workspace.getActiveFile();
+	/**
+	 * the leafFileViewMode ID is a combination of the leaf (or tab) id and the file in that tab's path. This is how we can look up what view mode each leaf-file combo has been set.
+	 * @param leaf
+	 * @param file
+	 * @returns
+	 */
+	public getLeafFileId(leaf?: WorkspaceLeaf, file?: TFile | null) {
+		leaf ??= this.app.workspace.getLeaf(false);
+		file ??= this.app.workspace.getActiveFile();
 
-		// @ts-ignore: activeLeaf.id exists but the typescript declarations don't say so
-		const tabId = activeLeaf.id as string;
-		const filePath = activeFile?.path ?? "";
+		// @ts-ignore: leaf.id exists but the typescript declarations don't say so
+		const leafId = leaf.id as string;
+		const filePath = file?.path ?? "";
 
-		return `${tabId}-${filePath}`;
+		return `${leafId}-${filePath}`;
 	}
 
-	public getViewMode(leaf?: WorkspaceLeaf, file?: TFile) {
+	public getLeafFileViewMode(leaf?: WorkspaceLeaf, file?: TFile) {
 		const id = this.getLeafFileId(leaf, file);
-		const viewMode = this.file_view_modes[id];
+		const viewMode = this.leafFileViewModes[id];
 		return viewMode;
 	}
 
@@ -230,24 +219,24 @@ export default class TldrawPlugin extends Plugin {
 		file?: TFile
 	) {
 		const id = this.getLeafFileId(leaf, file);
-		this.file_view_modes[id] = viewMode;
+		this.leafFileViewModes[id] = viewMode;
 	}
 
 	public updateViewMode(view: ViewTypes, leaf?: WorkspaceLeaf, file?: TFile) {
 		view ??= VIEW_TYPE_TLDRAW;
-		const activeLeaf = leaf ?? this.app.workspace.getLeaf(false);
+		leaf ??= this.app.workspace.getLeaf(false);
 
 		// update state:
-		this.setLeafFileViewMode(view, activeLeaf, file);
+		this.setLeafFileViewMode(view, leaf, file);
 		this.updateStatusBarViewMode(view);
 
 		// guard clause to prevent changing the view if the view is already correct:
-		const { type } = activeLeaf?.getViewState();
+		const { type } = leaf?.getViewState();
 		if (type === view) return;
 
 		// these functions will actually change the view mode:
-		if (view === VIEW_TYPE_TLDRAW) this.setTldrawView(activeLeaf);
-		else this.setMarkdownView(activeLeaf);
+		if (view === VIEW_TYPE_TLDRAW) this.setTldrawView(leaf);
+		else this.setMarkdownView(leaf);
 	}
 
 	async createTldrFile() {

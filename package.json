@@ -19,6 +19,7 @@
 		"@typescript-eslint/parser": "5.29.0",
 		"builtin-modules": "3.3.0",
 		"esbuild": "0.17.3",
+		"esbuild-plugin-svgr": "^2.0.0",
 		"obsidian": "latest",
 		"tslib": "2.4.0",
 		"typescript": "4.7.4"
@@ -26,6 +27,7 @@
 	"dependencies": {
 		"@tldraw/tldraw": "^2.0.0-alpha.14",
 		"react": "^18.2.0",
-		"react-dom": "^18.2.0"
+		"react-dom": "^18.2.0",
+		"zustand": "^4.3.9"
 	}
 }

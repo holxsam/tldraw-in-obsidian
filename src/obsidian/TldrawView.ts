@@ -1,16 +1,8 @@
-import {
-	ItemView,
-	MarkdownView,
-	TFile,
-	TextFileView,
-	WorkspaceLeaf,
-} from "obsidian";
-import * as React from "react";
-import * as ReactDOM from "react-dom";
-import { TldrawApp } from "./TldrawApp";
-import { Root, createRoot } from "react-dom/client";
-import TldrawPlugin from "./main";
-import { VIEW_TYPE_TLDRAW } from "./constants";
+import { TextFileView, WorkspaceLeaf } from "obsidian";
+import { Root } from "react-dom/client";
+import { VIEW_TYPE_TLDRAW } from "../utils/constants";
+import { createRootAndRenderTldrawApp } from "../components/TldrawApp";
+import TldrawPlugin from "../main";
 
 export class TldrawView extends TextFileView {
 	plugin: TldrawPlugin;
@@ -20,25 +12,17 @@ export class TldrawView extends TextFileView {
 		console.log("OTLdrawView contructor");
 		super(leaf);
 		this.plugin = plugin;
-
-		const entryPoint = this.containerEl.children[1];
-		this.reactRoot = createRoot(entryPoint);
 	}
 
 	onload() {
-		console.log("OTLdrawView onload()");
+		console.log("TLdrawView onload()");
 
-		// this.reactRoot = createRoot(this.containerEl.children[1]);
-		this.reactRoot.render(
-			<React.StrictMode>
-				<TldrawApp />
-				{/* <div>{this.getViewData()}</div> */}
-			</React.StrictMode>
-		);
+		const entryPoint = this.containerEl.children[1];
+		this.reactRoot = createRootAndRenderTldrawApp(entryPoint);
 	}
 
 	onunload(): void {
-		console.log("OTLdrawView onunload()");
+		console.log("TLdrawView onunload()");
 
 		this.reactRoot.unmount();
 	}
@@ -48,11 +32,6 @@ export class TldrawView extends TextFileView {
 	}
 
 	getDisplayText() {
-		// let basename = "";
-		// if (this.file?.basename) {
-		// 	basename = this.file.basename;
-		// }
-
 		return this.file ? this.file.basename : "";
 	}
 

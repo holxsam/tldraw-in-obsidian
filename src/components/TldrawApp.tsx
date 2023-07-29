@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createRoot } from "react-dom/client";
 import { Tldraw } from "@tldraw/tldraw";
 import {
 	TLUiMenuGroup,
@@ -6,7 +7,7 @@ import {
 	menuItem,
 	toolbarItem,
 } from "@tldraw/tldraw";
-import { TldrawPluginSettings } from "./settings";
+import { TldrawPluginSettings } from "../obsidian/SettingsTab";
 
 export const uiOverrides: TLUiOverrides = {
 	tools(editor, tools) {
@@ -35,11 +36,7 @@ export const uiOverrides: TLUiOverrides = {
 	},
 };
 
-export const TldrawApp = ({
-	settings,
-}: {
-	settings?: TldrawPluginSettings;
-}) => {
+const TldrawApp = ({ settings }: { settings?: TldrawPluginSettings }) => {
 	return (
 		<div id="tldraw-view-root">
 			<Tldraw overrides={uiOverrides} />
@@ -47,3 +44,17 @@ export const TldrawApp = ({
 		</div>
 	);
 };
+
+export const createRootAndRenderTldrawApp = (node: Element) => {
+	const root = createRoot(node);
+
+	root.render(
+		<React.StrictMode>
+			<TldrawApp />
+		</React.StrictMode>
+	);
+
+	return root;
+};
+
+export default TldrawApp;

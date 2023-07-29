@@ -31,12 +31,26 @@
 	.otldraw-status-bar-button {
 	background-color: transparent;
 	padding: 0 4px;
-	height: min-content;
+	height: 12px;
 	box-shadow: none;
+	border-radius: 2px;
+
+	display: grid;
+	place-items: center;
+
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 10px;
+
+	cursor: pointer;
 }
 
 .plugin-tldraw-in-obsidian
 	.otldraw-status-bar-view-mode-container
 	.otldraw-status-bar-button.view-mode-highlight {
 	background-color: hsl(var(--accent-h), var(--accent-s), var(--accent-l));
+}
+
+.hide-status-bar-view-mode {
+	display: none;
 }

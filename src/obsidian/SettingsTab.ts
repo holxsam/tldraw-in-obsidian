@@ -1,4 +1,4 @@
-import TldrawPlugin from "./main";
+import TldrawPlugin from "../main";
 import { App, PluginSettingTab, Setting } from "obsidian";
 
 export type ThemePreference = "match-theme" | "dark" | "light";
@@ -17,7 +17,7 @@ export const DEFAULT_SETTINGS: TldrawPluginSettings = {
 	debugMode: false,
 };
 
-export class TldrawSettingTab extends PluginSettingTab {
+export class SettingsTab extends PluginSettingTab {
 	plugin: TldrawPlugin;
 
 	constructor(app: App, plugin: TldrawPlugin) {
