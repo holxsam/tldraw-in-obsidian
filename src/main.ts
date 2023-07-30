@@ -5,6 +5,8 @@ import {
 	ViewState,
 	WorkspaceLeaf,
 	addIcon,
+	normalizePath,
+	moment,
 } from "obsidian";
 import { TldrawView } from "./obsidian/TldrawView";
 import {
@@ -13,12 +15,16 @@ import {
 	SettingsTab,
 } from "./obsidian/SettingsTab";
 import {
+	checkAndCreateFolder,
 	frontmatterTemplate,
+	getNewUniqueFilepath,
 	tldrawDataTemplate,
 	tldrawMarkdownTemplate,
 } from "./utils/utils";
 import {
+	FILE_EXTENSION,
 	FRONTMATTER_KEY,
+	RIBBON_NEW_FILE,
 	TLDRAW_ICON,
 	TLDRAW_ICON_NAME,
 	VIEW_TYPE_MARKDOWN,
@@ -56,16 +62,12 @@ export default class TldrawPlugin extends Plugin {
 		// this creates an icon in the left ribbon.
 		this.addRibbonIcon(
 			TLDRAW_ICON_NAME,
-			"New tldraw file",
-			async (e: MouseEvent) => {
-				this.createTldrFile();
-			}
+			RIBBON_NEW_FILE,
+			this.createAndOpenUntitledTldrFile
 		);
 
 		this.addRibbonIcon("dice", "debug", async () => {
 			console.log("--------------------");
-			// console.log("active leaf", this.app.workspace.getLeaf(false).id);
-			// console.log(this.leafFileViewModes);
 		});
 
 		// status bar:
@@ -239,22 +241,49 @@ export default class TldrawPlugin extends Plugin {
 		else this.setMarkdownView(leaf);
 	}
 
-	async createTldrFile() {
-		const rand = Math.floor(Math.random() * 10000);
-		const paddedNum = `${rand}`.padStart(5, "0");
-		const filename = `tldraw-${paddedNum}.tldr.md`;
+	public async createFile(
+		filename: string,
+		foldername?: string,
+		data?: string
+	): Promise<TFile> {
+		const folderpath = normalizePath(foldername || this.settings.folder);
+		await checkAndCreateFolder(folderpath, this.app.vault); //create folder if it does not exist
+		const fname = getNewUniqueFilepath(
+			this.app.vault,
+			filename,
+			folderpath
+		);
+
+		return await this.app.vault.create(fname, data ?? "");
+	}
+
+	public createTldrFile = async (filename: string, foldername?: string) => {
+		// adds the markdown extension if the filename does not already include it:
+		filename = filename.endsWith(FILE_EXTENSION)
+			? filename
+			: filename + FILE_EXTENSION;
 
 		// constructs the markdown content thats a template:
 		const frontmatter = frontmatterTemplate(`${FRONTMATTER_KEY}: parsed`);
 		const tldrData = tldrawDataTemplate(null);
 		const fileData = tldrawMarkdownTemplate(frontmatter, tldrData);
 
-		// console.log("filename", filename);
-		// console.log(this.app.vault.getRoot().path);
+		return await this.createFile(filename, foldername, fileData);
+	};
 
-		const file = await this.app.vault.create(filename, fileData);
-		return file;
-	}
+	public createUntitledTldrFile = async () => {
+		const { newFilePrefix, newFileTimeFormat, folder } = this.settings;
+		const date = moment().format(newFileTimeFormat);
+		const filename = newFilePrefix + date;
+		return await this.createTldrFile(filename, folder);
+	};
+
+	public createAndOpenUntitledTldrFile = async () => {
+		const file = await this.createUntitledTldrFile();
+		const leaf = this.app.workspace.getLeaf();
+		await leaf.openFile(file);
+		this.updateViewMode(VIEW_TYPE_TLDRAW, leaf, file);
+	};
 
 	private switchToTldrawViewAfterLoad() {
 		this.app.workspace.onLayoutReady(() => {
@@ -274,17 +303,6 @@ export default class TldrawPlugin extends Plugin {
 		const fileCache = f ? this.app.metadataCache.getFileCache(f) : null;
 		return (
 			!!fileCache?.frontmatter && !!fileCache.frontmatter[FRONTMATTER_KEY]
-		);
-	}
-
-	async activateView() {
-		await this.app.workspace.getLeaf(false).setViewState({
-			type: VIEW_TYPE_TLDRAW,
-			active: true,
-		});
-
-		this.app.workspace.revealLeaf(
-			this.app.workspace.getLeavesOfType(VIEW_TYPE_TLDRAW)[0]
 		);
 	}
 

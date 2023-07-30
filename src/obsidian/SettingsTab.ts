@@ -7,6 +7,8 @@ export interface TldrawPluginSettings {
 	folder: string;
 	newFileTheme: ThemePreference;
 	newFileGrid: boolean;
+	newFilePrefix: string;
+	newFileTimeFormat: string;
 	debugMode: boolean;
 }
 
@@ -14,6 +16,8 @@ export const DEFAULT_SETTINGS: TldrawPluginSettings = {
 	newFileTheme: "match-theme",
 	newFileGrid: false,
 	folder: "tldraw",
+	newFilePrefix: "Tldraw ",
+	newFileTimeFormat: "YYYY-MM-DD h.mmA",
 	debugMode: false,
 };
 
@@ -31,7 +35,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Save Folder")
-			.setDesc("The directory that .tldraw files will be created in.")
+			.setDesc("The directory that tldraw files will be created in.")
 			.addText((text) =>
 				text
 					.setPlaceholder("root")
@@ -46,7 +50,7 @@ export class SettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("New File Theme")
 			.setDesc(
-				"When creating a new .tldraw file, this settings decides what theme should be applied."
+				"When creating a new tldraw file, this settings decides what theme should be applied."
 			)
 			.addDropdown((cb) => {
 				cb.addOption("match-theme", "Match Theme")
@@ -63,7 +67,7 @@ export class SettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("New File Grid Mode")
 			.setDesc(
-				"When creating a new .tldraw file, this setting decides whether grid mode should be on or off."
+				"When creating a new tldraw file, this setting decides whether grid mode should be on or off."
 			)
 			.addToggle((cb) => {
 				cb.setValue(this.plugin.settings.newFileGrid);
@@ -72,6 +76,36 @@ export class SettingsTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+
+		new Setting(containerEl)
+			.setName("New File Prefix")
+			.setDesc(
+				"When creating a new tldraw file, the file name will automatically prepend the prefix. If left empty then 'Tldraw' will be used."
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("No time will be shown")
+					.setValue(this.plugin.settings.newFilePrefix)
+					.onChange(async (value) => {
+						this.plugin.settings.newFilePrefix = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("New File Time Format")
+			.setDesc(
+				"When creating a new tldraw file, this represents the time format that will get appended to the file name. You can find the what each token mean here: https://momentjs.com/docs/#/displaying/format/"
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("No time will be shown")
+					.setValue(this.plugin.settings.newFileTimeFormat)
+					.onChange(async (value) => {
+						this.plugin.settings.newFileTimeFormat = value;
+						await this.plugin.saveSettings();
+					})
+			);
 
 		new Setting(containerEl)
 			.setName("Debug Mode")
