@@ -26,7 +26,7 @@ import {
 	ViewTypes,
 } from "./utils/constants";
 import { createReactStatusBarViewMode } from "./components/StatusBarViewMode";
-import { useStatusBarState } from "./utils/zustand-stores";
+import { useStatusBarState } from "./utils/stores";
 
 export default class TldrawPlugin extends Plugin {
 	statusBarRoot: HTMLElement;

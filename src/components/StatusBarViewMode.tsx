@@ -1,7 +1,7 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { VIEW_TYPE_MARKDOWN, VIEW_TYPE_TLDRAW } from "../utils/constants";
-import { useStatusBarState } from "../utils/zustand-stores";
+import { useStatusBarState } from "../utils/stores";
 import TldrawIcon from "./TldrawIcon";
 
 const StatusBarViewMode = () => {
