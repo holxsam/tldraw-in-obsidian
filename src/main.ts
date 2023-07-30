@@ -246,7 +246,7 @@ export default class TldrawPlugin extends Plugin {
 
 		// constructs the markdown content thats a template:
 		const frontmatter = frontmatterTemplate(`${FRONTMATTER_KEY}: parsed`);
-		const tldrData = tldrawDataTemplate(JSON.stringify({ a: 1, b: 2 }));
+		const tldrData = tldrawDataTemplate(null);
 		const fileData = tldrawMarkdownTemplate(frontmatter, tldrData);
 
 		// console.log("filename", filename);

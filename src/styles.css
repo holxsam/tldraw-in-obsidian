@@ -26,6 +26,7 @@
 	gap: 4px;
 }
 
+/* specificity war with obsidian: */
 .plugin-tldraw-in-obsidian
 	.otldraw-status-bar-view-mode-container
 	.otldraw-status-bar-button {
@@ -53,4 +54,10 @@
 
 .hide-status-bar-view-mode {
 	display: none;
+}
+
+.tldraw-obs-button-container {
+	display: flex;
+	align-items: center;
+	gap: 2px;
 }

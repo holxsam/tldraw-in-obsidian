@@ -1,8 +1,16 @@
 import { TextFileView, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
-import { VIEW_TYPE_TLDRAW } from "../utils/constants";
+import {
+	TLDRAW_DATA_DELIMITER_END,
+	TLDRAW_DATA_DELIMITER_START,
+	VIEW_TYPE_TLDRAW,
+} from "../utils/constants";
 import { createRootAndRenderTldrawApp } from "../components/TldrawApp";
 import TldrawPlugin from "../main";
+import {
+	extractDataBetweenKeywords,
+	replaceBetweenKeywords,
+} from "src/utils/utils";
 
 export class TldrawView extends TextFileView {
 	plugin: TldrawPlugin;
@@ -16,15 +24,11 @@ export class TldrawView extends TextFileView {
 
 	onload() {
 		console.log("TLdrawView onload()");
-
-		const entryPoint = this.containerEl.children[1];
-		this.reactRoot = createRootAndRenderTldrawApp(entryPoint);
 	}
 
 	onunload(): void {
 		console.log("TLdrawView onunload()");
-
-		this.reactRoot.unmount();
+		this.reactRoot?.unmount();
 	}
 
 	getViewType() {
@@ -37,23 +41,53 @@ export class TldrawView extends TextFileView {
 
 	getViewData(): string {
 		console.log("getViewData()");
-
-		// const t = this.app.metadataCache.getFileCache(this.file);
-		// console.log(t);
-
-		// throw new Error("Method not implemented.");
-
 		return this.data;
 	}
 
 	setViewData(data: string, clear: boolean): void {
-		// throw new Error("Method not implemented.");
-
 		console.log("setViewData()");
+
+		// All this initialization is done here because this.data is null in onload() and the constructor().
+		// However, setViewData() gets called by obsidian right after onload() with its data parameter having the file's data (yay)
+		// so we can somewhat safely do initialization stuff in this function.
+		// Its worth nothing that at this point this.data is also available but it does not hurt to use what is given
+		// Also be aware to NOT call this function DIRECTLY because it will create multiple react trees for one view
+		const entryPoint = this.containerEl.children[1];
+		const initialData = this.getTldrawData(data);
+		this.reactRoot = createRootAndRenderTldrawApp(
+			entryPoint,
+			initialData,
+			this.updateFileData
+		);
 	}
 
 	clear(): void {
 		console.log("clear()");
-		// throw new Error("Method not implemented.");
 	}
+
+	getTldrawData = (rawFileData?: string) => {
+		rawFileData ??= this.data;
+
+		const extracted = extractDataBetweenKeywords(
+			rawFileData,
+			TLDRAW_DATA_DELIMITER_START,
+			TLDRAW_DATA_DELIMITER_END
+		);
+
+		return extracted ? JSON.parse(extracted) : {};
+	};
+
+	updateFileData = (data: string) => {
+		console.log("updateFileData()");
+
+		const result = replaceBetweenKeywords(
+			this.data,
+			TLDRAW_DATA_DELIMITER_START,
+			TLDRAW_DATA_DELIMITER_END,
+			data
+		);
+
+		// saves the new data to file:
+		this.data = result;
+	};
 }

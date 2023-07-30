@@ -1,10 +1,6 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
-import {
-	VIEW_TYPE_MARKDOWN,
-	VIEW_TYPE_TLDRAW,
-	ViewTypes,
-} from "../utils/constants";
+import { VIEW_TYPE_MARKDOWN, VIEW_TYPE_TLDRAW } from "../utils/constants";
 import { useStatusBarState } from "../utils/zustand-stores";
 import TldrawIcon from "./TldrawIcon";
 
@@ -21,21 +17,23 @@ const StatusBarViewMode = () => {
 	return (
 		<div className={`otldraw-status-bar-view-mode-container`}>
 			<span>View:</span>
-			<button
-				type="button"
-				className={`otldraw-status-bar-button ${a}`}
-				onClick={setTldrawView}
-			>
-				DR
-				{/* <TldrawIcon /> */}
-			</button>
-			<button
-				type="button"
-				className={`otldraw-status-bar-button ${b}`}
-				onClick={setMarkdownView}
-			>
-				MD
-			</button>
+			<div className="tldraw-obs-button-container">
+				<button
+					type="button"
+					className={`otldraw-status-bar-button ${a}`}
+					onClick={setTldrawView}
+				>
+					DR
+					{/* <TldrawIcon /> */}
+				</button>
+				<button
+					type="button"
+					className={`otldraw-status-bar-button ${b}`}
+					onClick={setMarkdownView}
+				>
+					MD
+				</button>
+			</div>
 		</div>
 	);
 };

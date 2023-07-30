@@ -1,4 +1,7 @@
-import { TLDRAW_DATA_DELIMITER } from "./constants";
+import {
+	TLDRAW_DATA_DELIMITER_END,
+	TLDRAW_DATA_DELIMITER_START,
+} from "./constants";
 
 export const frontmatterTemplate = (data: string) => {
 	let str = "";
@@ -11,12 +14,12 @@ export const frontmatterTemplate = (data: string) => {
 	return str;
 };
 
-export const tldrawDataTemplate = (data: string) => {
+export const tldrawDataTemplate = (data: any) => {
 	let str = "";
-	str += `\`\`\`json ${TLDRAW_DATA_DELIMITER}`;
+	str += "```json" + ` ${TLDRAW_DATA_DELIMITER_START}`;
 	str += "\n";
-	str += `${data}\n`;
-	str += "```";
+	str += `${JSON.stringify(data)}\n`;
+	str += `${TLDRAW_DATA_DELIMITER_END} ` + "```";
 	return str;
 };
 
@@ -35,4 +38,24 @@ export const removeAllChildNodes = (parent: HTMLElement) => {
 	while (parent.firstChild) {
 		parent.removeChild(parent.firstChild);
 	}
+};
+
+export const extractDataBetweenKeywords = (
+	input: string,
+	keyword1: string,
+	keyword2: string
+) => {
+	const pattern = new RegExp(`${keyword1}(.*?)${keyword2}`, "s");
+	const match = input.match(pattern);
+	return match ? match[1] : null;
+};
+
+export const replaceBetweenKeywords = (
+	input: string,
+	keyword1: string,
+	keyword2: string,
+	replacement: string
+) => {
+	const regex = new RegExp(`${keyword1}[\\s\\S]*?${keyword2}`, "g");
+	return input.replace(regex, `${keyword1}\n${replacement}\n${keyword2}`);
 };
