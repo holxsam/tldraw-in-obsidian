@@ -5,29 +5,29 @@ import {
 	Tldraw,
 	createTLStore,
 	defaultShapes,
-	useTLStore,
 } from "@tldraw/tldraw";
 import { TLUiOverrides } from "@tldraw/tldraw";
 import { TldrawPluginSettings } from "../obsidian/SettingsTab";
 import { useDebouncedCallback } from "use-debounce";
+import { isObsidianThemeDark } from "src/utils/utils";
 
 export const uiOverrides: TLUiOverrides = {
 	tools(editor, tools) {
-		tools.draw = {
-			...tools.draw,
-			kbd: "!q",
-		};
+		// // this is how you would override the kbd shortcuts
+		// tools.draw = {
+		// 	...tools.draw,
+		// 	kbd: "!q",
+		// };
 		return tools;
 	},
 	actions(editor, schema, helpers) {
 		// console.log(schema);
-
 		return schema;
 	},
-	// toolbar(_app, toolbar, { tools }) {
-	// 	toolbar.splice(4, 0, toolbarItem(tools.card))
-	// 	return toolbar
-	// },
+	toolbar(_app, toolbar, { tools }) {
+		// toolbar.splice(4, 0, toolbarItem(tools.card))
+		return toolbar;
+	},
 	keyboardShortcutsMenu(_app, keyboardShortcutsMenu, { tools }) {
 		// console.log(keyboardShortcutsMenu);
 		// const toolsGroup = keyboardShortcutsMenu.find(
@@ -43,7 +43,7 @@ const TldrawApp = ({
 	initialData,
 	setFileData,
 }: {
-	settings?: TldrawPluginSettings;
+	settings: TldrawPluginSettings;
 	initialData: any;
 	setFileData: (data: string) => void;
 }) => {
@@ -53,12 +53,13 @@ const TldrawApp = ({
 			initialData,
 		})
 	);
+	
 
-	const debouncedSaveDataToFile = useDebouncedCallback(() => {
+	const debouncedSaveDataToFile = useDebouncedCallback((e: any) => {
 		// if you do not use `null, "\t"` as arguments for stringify(),
 		// obsidian will lag when you try to open the file in markdown view
 		setFileData(JSON.stringify(store.serialize(), null, "\t"));
-	}, 1000);
+	}, settings.saveFileDelayInMs);
 
 	useEffect(() => {
 		const removeListener = store.listen(debouncedSaveDataToFile, {
@@ -72,7 +73,29 @@ const TldrawApp = ({
 
 	return (
 		<div id="tldraw-view-root">
-			<Tldraw overrides={uiOverrides} store={store} />
+			<Tldraw
+				overrides={uiOverrides}
+				store={store}
+				onMount={(editor) => {
+					const { themeMode, gridMode, debugMode, snapMode } =
+						settings;
+
+					let darkMode = true;
+					if (themeMode === "dark") darkMode = true;
+					else if (themeMode === "light") darkMode = false;
+					else darkMode = isObsidianThemeDark();
+
+					editor.user.updateUserPreferences({
+						isDarkMode: darkMode,
+						isSnapMode: snapMode,
+					});
+
+					editor.updateInstanceState({
+						isGridMode: gridMode,
+						isDebugMode: debugMode,
+					});
+				}}
+			/>
 		</div>
 	);
 };
@@ -80,13 +103,18 @@ const TldrawApp = ({
 export const createRootAndRenderTldrawApp = (
 	node: Element,
 	initialData: any,
-	updateFileData: (data: any) => void
+	updateFileData: (data: any) => void,
+	settings: TldrawPluginSettings
 ) => {
 	const root = createRoot(node);
 
 	root.render(
 		<React.StrictMode>
-			<TldrawApp setFileData={updateFileData} initialData={initialData} />
+			<TldrawApp
+				setFileData={updateFileData}
+				initialData={initialData}
+				settings={settings}
+			/>
 		</React.StrictMode>
 	);
 

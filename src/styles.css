@@ -61,3 +61,18 @@
 	align-items: center;
 	gap: 2px;
 }
+
+.theme-term {
+	margin-top: 6px;
+	margin-bottom: 3px;
+	font-weight: 700;
+}
+
+.theme-definition {
+	margin-left: 5px;
+}
+
+.tldraw-settings-header {
+	font-size: 32px;
+	margin: 0;
+}

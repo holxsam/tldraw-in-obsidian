@@ -57,7 +57,8 @@ export class TldrawView extends TextFileView {
 		this.reactRoot = createRootAndRenderTldrawApp(
 			entryPoint,
 			initialData,
-			this.updateFileData
+			this.updateFileData,
+			this.plugin.settings
 		);
 	}
 

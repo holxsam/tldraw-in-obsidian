@@ -1,11 +1,11 @@
 {
 	"id": "tldraw-in-obsidian",
-	"name": "tldraw",
+	"name": "Tldraw",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "This plugin integrates tldraw into obsidian.",
 	"author": "holxsam",
-	"authorUrl": "",
+	"authorUrl": "https://github.com/holxsam",
 	"fundingUrl": "",
 	"isDesktopOnly": false
 }

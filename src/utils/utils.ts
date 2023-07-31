@@ -118,3 +118,9 @@ export function getNewUniqueFilepath(
 	}
 	return fname;
 }
+
+export const isObsidianThemeDark = () =>
+	document.body.classList.contains("theme-dark");
+
+export const clamp = (num: number, min: number, max: number) =>
+	Math.max(min, Math.min(num, max));
