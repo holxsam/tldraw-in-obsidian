@@ -46,6 +46,8 @@ export const createReactStatusBarViewMode = (htmlElement: HTMLElement) => {
 			<StatusBarViewMode />
 		</React.StrictMode>
 	);
+
+	return root;
 };
 
 export default StatusBarViewMode;

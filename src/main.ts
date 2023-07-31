@@ -33,15 +33,17 @@ import {
 } from "./utils/constants";
 import { createReactStatusBarViewMode } from "./components/StatusBarViewMode";
 import { useStatusBarState } from "./utils/stores";
+import { Root } from "react-dom/client";
 
 export default class TldrawPlugin extends Plugin {
 	statusBarRoot: HTMLElement;
+	statusBarViewModeReactRoot: Root;
 	settings: TldrawPluginSettings;
 	leafFileViewModes: { [filename: string]: ViewTypes } = {};
 	unsubscribeToViewModeState: () => void;
 
 	async onload() {
-		console.log("main.ts onload()");
+		// console.log("main.ts onload()");
 
 		this.registerView(
 			VIEW_TYPE_TLDRAW,
@@ -72,7 +74,9 @@ export default class TldrawPlugin extends Plugin {
 
 		// status bar:
 		this.statusBarRoot = this.addStatusBarItem();
-		createReactStatusBarViewMode(this.statusBarRoot);
+		this.statusBarViewModeReactRoot = createReactStatusBarViewMode(
+			this.statusBarRoot
+		);
 		this.setStatusBarViewModeVisibility(false);
 
 		// registers events:
@@ -106,32 +110,58 @@ export default class TldrawPlugin extends Plugin {
 		);
 
 		this.registerEvent(
-			this.app.workspace.on("editor-menu", () => {
-				console.log("EDITOR-MENU");
-			})
-		);
-
-		this.registerEvent(
-			this.app.workspace.on("file-open", (file) => {
-				console.log("FILE-OPEN");
-			})
-		);
-
-		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", (leaf) => {
+				// always set this to false on a leaf change to prevent it from showing on non tldr files
 				this.setStatusBarViewModeVisibility(false);
 
 				// guard clause:
 				if (!leaf) return;
 
-				const { type, state } = leaf.getViewState();
+				const leafViewState = leaf.getViewState();
+				const leafViewMode = leafViewState.type;
+
+				// recent leaf, is the most recently active leaf before this "leaf" (the one passed in by the function)
+				const recentLeaf = this.app.workspace.getMostRecentLeaf();
+				const recentFile = this.app.workspace.getActiveFile();
+
+				// These nested if statements is a crude attempt to solve a bug caused by clicking
+				// on a tldraw file more than once in a row in the file explorer.
+				// For example, clicking a tldraw file named "file 1" twice in a row in the file explorer (without clicking other files or any where else) would cause the the file to display in the markdown view mode even if it was supposed to be displayed in the tldraw view mode. Focus the tab that the file would correct this issue but may be confusing/disorienting to users.
+				// Note that clicking "file 1" then "file 2" then back to "file 1" would NOT cause this bug.
+				// The solution is to find as many conditions that the bug happens on
+				// then force focus the leaf that contains the file when those conditions pass.
+				if (recentLeaf && recentFile) {
+					const recentLeafViewState = recentLeaf.getViewState();
+
+					const correctViewMode = this.getLeafFileViewMode(
+						recentLeaf,
+						recentFile
+					);
+
+					if (
+						// this bug only pops up when leafViewMode is "file-explorer":
+						leafViewMode === "file-explorer" &&
+						// to guard against falsy values because the correctViewMode could be undefined the first time a file is opened:
+						correctViewMode &&
+						// when theres a mismatch this what the view should be versus what is current is
+						correctViewMode !== recentLeafViewState.type
+					) {
+						console.warn("__________________");
+						// simply focus the leaf again to correct the view mode:
+						this.app.workspace.setActiveLeaf(recentLeaf, {
+							focus: true,
+						});
+					}
+				}
+
 				const validViewType =
-					type === VIEW_TYPE_TLDRAW || type === VIEW_TYPE_MARKDOWN;
+					leafViewMode === VIEW_TYPE_TLDRAW ||
+					leafViewMode === VIEW_TYPE_MARKDOWN;
 
 				// guard clause:
 				if (!validViewType) return;
 
-				const fileFromState = state.file;
+				const fileFromState = leafViewState.state.file as string;
 				const file = this.app.workspace.getActiveFile();
 
 				// guard clauses:
@@ -153,8 +183,9 @@ export default class TldrawPlugin extends Plugin {
 	}
 
 	onunload() {
-		console.log("main.ts unonload()");
+		// console.log("main.ts unonload()");
 		this.unsubscribeToViewModeState();
+		this.statusBarViewModeReactRoot.unmount();
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_TLDRAW);
 	}
 
@@ -169,26 +200,16 @@ export default class TldrawPlugin extends Plugin {
 	}
 
 	public async setMarkdownView(leaf: WorkspaceLeaf) {
-		// still not sure why this piece code was here but I feel like it might be something I overlooked but since I don't fully understand it, I'm just going to comment it out
-		// await leaf.setViewState({
-		// 	type: VIEW_TYPE_TLDRAW,
-		// 	state: { file: null },
-		// });
-		await leaf.setViewState(
-			{
-				type: VIEW_TYPE_MARKDOWN,
-				state: leaf.view.getState(),
-				popstate: true,
-			} as ViewState,
-			{ focus: true }
-		);
+		await leaf.setViewState({
+			type: VIEW_TYPE_MARKDOWN,
+			state: leaf.view.getState(),
+		} as ViewState);
 	}
 
 	public async setTldrawView(leaf: WorkspaceLeaf) {
 		await leaf.setViewState({
 			type: VIEW_TYPE_TLDRAW,
 			state: leaf.view.getState(),
-			popstate: true,
 		} as ViewState);
 	}
 
@@ -298,9 +319,11 @@ export default class TldrawPlugin extends Plugin {
 		});
 	}
 
-	public isTldrawFile(f: TFile) {
-		if (!f) return false;
-		const fileCache = f ? this.app.metadataCache.getFileCache(f) : null;
+	public isTldrawFile(file: TFile) {
+		if (!file) return false;
+		const fileCache = file
+			? this.app.metadataCache.getFileCache(file)
+			: null;
 		return (
 			!!fileCache?.frontmatter && !!fileCache.frontmatter[FRONTMATTER_KEY]
 		);
