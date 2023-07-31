@@ -24,6 +24,7 @@ import {
 import {
 	FILE_EXTENSION,
 	FRONTMATTER_KEY,
+	PaneTarget,
 	RIBBON_NEW_FILE,
 	TLDRAW_ICON,
 	TLDRAW_ICON_NAME,
@@ -62,10 +63,8 @@ export default class TldrawPlugin extends Plugin {
 		);
 
 		// this creates an icon in the left ribbon.
-		this.addRibbonIcon(
-			TLDRAW_ICON_NAME,
-			RIBBON_NEW_FILE,
-			this.createAndOpenUntitledTldrFile
+		this.addRibbonIcon(TLDRAW_ICON_NAME, RIBBON_NEW_FILE, () =>
+			this.createAndOpenUntitledTldrFile("current-tab")
 		);
 
 		this.addRibbonIcon("dice", "debug", async () => {
@@ -79,7 +78,7 @@ export default class TldrawPlugin extends Plugin {
 		);
 		this.setStatusBarViewModeVisibility(false);
 
-		// registers events:
+		// REGISTER EVENTS:
 		this.registerEvent(
 			this.app.workspace.on("editor-menu", (menu, editor, source) => {
 				const file = source.file;
@@ -192,6 +191,60 @@ export default class TldrawPlugin extends Plugin {
 				this.updateViewMode(viewMode);
 			})
 		);
+
+		// REGISTER COMMANDS:
+		this.addCommand({
+			id: "toggle-view-mode",
+			name: "Toggle View Mode",
+			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "d" }],
+			checkCallback: (checking) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!file) return false;
+
+				const fileIsTldraw = this.isTldrawFile(file);
+				if (checking) return fileIsTldraw;
+
+				const leaf = this.app.workspace.getLeaf(false);
+				const currentViewMode = this.getLeafFileViewMode(leaf, file);
+				const oppositeViewMode =
+					currentViewMode === VIEW_TYPE_MARKDOWN
+						? VIEW_TYPE_TLDRAW
+						: VIEW_TYPE_MARKDOWN;
+				this.updateViewMode(oppositeViewMode, leaf, file);
+			},
+		});
+
+		this.addCommand({
+			id: "new-tldraw-file-current-tab",
+			name: "Create New Tldrawing in CURRENT TAB",
+			callback: async () => {
+				await this.createAndOpenUntitledTldrFile("current-tab");
+			},
+		});
+
+		this.addCommand({
+			id: "new-tldraw-file-new-tab",
+			name: "Create New Tldrawing in NEW TAB",
+			callback: async () => {
+				await this.createAndOpenUntitledTldrFile("new-tab");
+			},
+		});
+
+		this.addCommand({
+			id: "new-tldraw-file-split-tab ",
+			name: "Create New Tldrawing in SPLIT TAB",
+			callback: async () => {
+				await this.createAndOpenUntitledTldrFile("split-tab");
+			},
+		});
+
+		this.addCommand({
+			id: "new-tldraw-file-new-window",
+			name: "Create New Tldrawing in NEW WINDOW",
+			callback: async () => {
+				await this.createAndOpenUntitledTldrFile("new-window");
+			},
+		});
 
 		// this adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SettingsTab(this.app, this));
@@ -317,11 +370,27 @@ export default class TldrawPlugin extends Plugin {
 		return await this.createTldrFile(filename, folder);
 	};
 
-	public createAndOpenUntitledTldrFile = async () => {
-		const file = await this.createUntitledTldrFile();
-		const leaf = this.app.workspace.getLeaf();
+	public openTldrFile = async (file: TFile, location: PaneTarget) => {
+		let leaf: WorkspaceLeaf;
+
+		if (location === "current-tab")
+			leaf = this.app.workspace.getLeaf(false);
+		else if (location === "new-tab")
+			leaf = this.app.workspace.getLeaf(true);
+		else if (location === "new-window")
+			leaf = this.app.workspace.getLeaf("window");
+		else if (location === "split-tab")
+			leaf = this.app.workspace.getLeaf("split");
+		else leaf = this.app.workspace.getLeaf(false);
+
 		await leaf.openFile(file);
+
 		this.updateViewMode(VIEW_TYPE_TLDRAW, leaf, file);
+	};
+
+	public createAndOpenUntitledTldrFile = async (location: PaneTarget) => {
+		const file = await this.createUntitledTldrFile();
+		this.openTldrFile(file, location);
 	};
 
 	private switchToTldrawViewAfterLoad() {
