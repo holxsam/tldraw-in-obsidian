@@ -14,13 +14,7 @@ import {
 	TldrawPluginSettings,
 	SettingsTab,
 } from "./obsidian/SettingsTab";
-import {
-	checkAndCreateFolder,
-	// frontmatterTemplate,
-	getNewUniqueFilepath,
-	// tldrawDataTemplate,
-	// tldrawMarkdownTemplate,
-} from "./utils/utils";
+import { checkAndCreateFolder, getNewUniqueFilepath } from "./utils/utils";
 import {
 	FILE_EXTENSION,
 	FRONTMATTER_KEY,
