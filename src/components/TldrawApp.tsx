@@ -8,6 +8,9 @@ import {
 	defaultShapes,
 } from "@tldraw/tldraw";
 import { TLUiOverrides } from "@tldraw/tldraw";
+import { SerializedStore } from "@tldraw/store";
+import { TLRecord } from "@tldraw/tldraw";
+
 import { TldrawPluginSettings } from "../obsidian/SettingsTab";
 import { useDebouncedCallback } from "use-debounce";
 import { isObsidianThemeDark } from "src/utils/utils";
@@ -23,7 +26,6 @@ export const uiOverrides: TLUiOverrides = {
 	},
 	actions(editor, schema, helpers) {
 		// console.log(schema);
-
 		return schema;
 	},
 	toolbar(_app, toolbar, { tools }) {
@@ -45,15 +47,13 @@ export const uiOverrides: TLUiOverrides = {
 	},
 };
 
-const TldrawApp = ({
-	settings,
-	initialData,
-	setFileData,
-}: {
+export type TldrawAppProps = {
 	settings: TldrawPluginSettings;
-	initialData: any;
-	setFileData: (data: string) => void;
-}) => {
+	initialData: SerializedStore<TLRecord>;
+	setFileData: (data: SerializedStore<TLRecord>) => void;
+};
+
+const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
 	const [store] = useState(() =>
 		createTLStore({
 			shapes: defaultShapes,
@@ -62,9 +62,7 @@ const TldrawApp = ({
 	);
 
 	const debouncedSaveDataToFile = useDebouncedCallback((e: any) => {
-		// if you do not use `null, "\t"` as arguments for stringify(),
-		// obsidian will lag when you try to open the file in markdown view
-		setFileData(JSON.stringify(store.serialize(), null, "\t"));
+		setFileData(store.serialize());
 	}, settings.saveFileDelayInMs);
 
 	useEffect(() => {
@@ -83,6 +81,7 @@ const TldrawApp = ({
 				overrides={uiOverrides}
 				store={store}
 				onMount={(editor) => {
+					editor.focus();
 					const { themeMode, gridMode, debugMode, snapMode } =
 						settings;
 
@@ -108,8 +107,8 @@ const TldrawApp = ({
 
 export const createRootAndRenderTldrawApp = (
 	node: Element,
-	initialData: any,
-	updateFileData: (data: any) => void,
+	initialData: SerializedStore<TLRecord>,
+	setFileData: (data: SerializedStore<TLRecord>) => void,
 	settings: TldrawPluginSettings
 ) => {
 	const root = createRoot(node);
@@ -117,7 +116,7 @@ export const createRootAndRenderTldrawApp = (
 	root.render(
 		<React.StrictMode>
 			<TldrawApp
-				setFileData={updateFileData}
+				setFileData={setFileData}
 				initialData={initialData}
 				settings={settings}
 			/>

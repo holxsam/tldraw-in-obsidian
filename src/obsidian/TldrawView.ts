@@ -1,8 +1,8 @@
 import { TextFileView, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
 import {
-	TLDRAW_DATA_DELIMITER_END,
-	TLDRAW_DATA_DELIMITER_START,
+	TLDATA_DELIMITER_END,
+	TLDATA_DELIMITER_START,
 	VIEW_TYPE_TLDRAW,
 } from "../utils/constants";
 import { createRootAndRenderTldrawApp } from "../components/TldrawApp";
@@ -11,6 +11,9 @@ import {
 	extractDataBetweenKeywords,
 	replaceBetweenKeywords,
 } from "src/utils/utils";
+import { SerializedStore } from "@tldraw/store";
+import { TLRecord } from "@tldraw/tldraw";
+import { TLData, getTLDataTemplate } from "src/utils/document";
 
 export class TldrawView extends TextFileView {
 	plugin: TldrawPlugin;
@@ -54,11 +57,11 @@ export class TldrawView extends TextFileView {
 		// Its worth nothing that at this point this.data is also available but it does not hurt to use what is given
 		// Also be aware to NOT call this function DIRECTLY because it will create multiple react trees for one view
 		const entryPoint = this.containerEl.children[1];
-		const initialData = this.getTldrawData(data);
+		const initialData = this.getTldrawData(data).raw;
 		this.reactRoot = createRootAndRenderTldrawApp(
 			entryPoint,
 			initialData,
-			this.updateFileData,
+			this.setFileData,
 			this.plugin.settings
 		);
 	}
@@ -67,24 +70,38 @@ export class TldrawView extends TextFileView {
 		// console.log("clear()");
 	}
 
-	getTldrawData = (rawFileData?: string) => {
+	getTldrawData = (rawFileData?: string): TLData => {
 		rawFileData ??= this.data;
 
 		const extracted = extractDataBetweenKeywords(
 			rawFileData,
-			TLDRAW_DATA_DELIMITER_START,
-			TLDRAW_DATA_DELIMITER_END
+			TLDATA_DELIMITER_START,
+			TLDATA_DELIMITER_END
 		);
 
-		return extracted ? JSON.parse(extracted) : {};
+		const parsedData: TLData = extracted
+			? JSON.parse(extracted)
+			: getTLDataTemplate(this.plugin.manifest.version, {});
+
+		return parsedData;
+		// return extracted ? JSON.parse(extracted) : {};
 	};
 
-	updateFileData = (data: string) => {
+	setFileData = (data: SerializedStore<TLRecord>) => {
+		const tldrawData = getTLDataTemplate(
+			this.plugin.manifest.version,
+			data
+		);
+
+		// if you do not use `null, "\t"` as arguments for stringify(),
+		// obsidian will lag when you try to open the file in markdown view
+		const stringifiedData = JSON.stringify(tldrawData, null, "\t");
+
 		const result = replaceBetweenKeywords(
 			this.data,
-			TLDRAW_DATA_DELIMITER_START,
-			TLDRAW_DATA_DELIMITER_END,
-			data
+			TLDATA_DELIMITER_START,
+			TLDATA_DELIMITER_END,
+			stringifiedData
 		);
 
 		// saves the new data to file:

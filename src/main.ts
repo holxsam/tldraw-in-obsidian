@@ -16,10 +16,10 @@ import {
 } from "./obsidian/SettingsTab";
 import {
 	checkAndCreateFolder,
-	frontmatterTemplate,
+	// frontmatterTemplate,
 	getNewUniqueFilepath,
-	tldrawDataTemplate,
-	tldrawMarkdownTemplate,
+	// tldrawDataTemplate,
+	// tldrawMarkdownTemplate,
 } from "./utils/utils";
 import {
 	FILE_EXTENSION,
@@ -35,6 +35,12 @@ import {
 import { createReactStatusBarViewMode } from "./components/StatusBarViewMode";
 import { useStatusBarState } from "./utils/stores";
 import { Root } from "react-dom/client";
+import {
+	frontmatterTemplate,
+	getTLDataTemplate,
+	codeBlockTemplate,
+	tlFileTemplate,
+} from "./utils/document";
 
 export default class TldrawPlugin extends Plugin {
 	statusBarRoot: HTMLElement;
@@ -46,6 +52,7 @@ export default class TldrawPlugin extends Plugin {
 	async onload() {
 		// console.log("main.ts onload()");
 
+		this.manifest.version;
 		this.registerView(
 			VIEW_TYPE_TLDRAW,
 			(leaf) => new TldrawView(leaf, this)
@@ -356,9 +363,10 @@ export default class TldrawPlugin extends Plugin {
 			: filename + FILE_EXTENSION;
 
 		// constructs the markdown content thats a template:
-		const frontmatter = frontmatterTemplate(`${FRONTMATTER_KEY}: parsed`);
-		const tldrData = tldrawDataTemplate(null);
-		const fileData = tldrawMarkdownTemplate(frontmatter, tldrData);
+		const tlData = getTLDataTemplate(this.manifest.version, {});
+		const frontmatter = frontmatterTemplate(`${FRONTMATTER_KEY}: true`);
+		const codeblock = codeBlockTemplate(tlData);
+		const fileData = tlFileTemplate(frontmatter, codeblock);
 
 		return await this.createFile(filename, foldername, fileData);
 	};

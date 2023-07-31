@@ -1,14 +1,14 @@
+export type PaneTarget = "new-window" | "new-tab" | "current-tab" | "split-tab";
 export type ViewTypes = typeof VIEW_TYPE_TLDRAW | typeof VIEW_TYPE_MARKDOWN;
 export const VIEW_TYPE_TLDRAW = "tldraw-view"; // custom view type
 export const VIEW_TYPE_MARKDOWN = "markdown"; // NOT ACTUALLY A CUSTOM VIEW TYPE, its built in from obsidian
 
-export type PaneTarget = "new-window" | "new-tab" | "current-tab" | "split-tab";
-
+export const TLDRAW_VERSION = "2.0.0-alpha.14";
 export const FILE_EXTENSION = ".md";
-export const FRONTMATTER_KEY = "tldraw-plugin";
-export const TLDRAW_DATA_DELIMITER_START =
+export const FRONTMATTER_KEY = "tldraw-file";
+export const TLDATA_DELIMITER_START =
 	"!!!_START_OF_TLDRAW_DATA__DO_NOT_CHANGE_THIS_PHRASE_!!!";
-export const TLDRAW_DATA_DELIMITER_END =
+export const TLDATA_DELIMITER_END =
 	"!!!_END_OF_TLDRAW_DATA__DO_NOT_CHANGE_THIS_PHRASE_!!!";
 
 export const RIBBON_NEW_FILE = "Create a new tldraw-ing";
