@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import {
+	TLUiCustomMenuItem,
 	Tldraw,
 	createTLStore,
 	defaultShapes,
@@ -22,6 +23,7 @@ export const uiOverrides: TLUiOverrides = {
 	},
 	actions(editor, schema, helpers) {
 		// console.log(schema);
+
 		return schema;
 	},
 	toolbar(_app, toolbar, { tools }) {
@@ -35,6 +37,11 @@ export const uiOverrides: TLUiOverrides = {
 		// ) as TLUiMenuGroup
 		// toolsGroup.children.push(menuItem(tools.card))
 		return keyboardShortcutsMenu;
+	},
+	contextMenu(editor, schema, helpers) {
+		// console.log({ schema });
+		// console.log(JSON.stringify(schema[0]));
+		return schema;
 	},
 };
 
@@ -53,7 +60,6 @@ const TldrawApp = ({
 			initialData,
 		})
 	);
-	
 
 	const debouncedSaveDataToFile = useDebouncedCallback((e: any) => {
 		// if you do not use `null, "\t"` as arguments for stringify(),

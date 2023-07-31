@@ -81,6 +81,25 @@ export default class TldrawPlugin extends Plugin {
 
 		// registers events:
 		this.registerEvent(
+			this.app.workspace.on("editor-menu", (menu, editor, source) => {
+				const file = source.file;
+				const leaf = this.app.workspace.getLeaf(false);
+
+				if (!leaf || !(file instanceof TFile)) return;
+				if (!this.isTldrawFile(file)) return;
+
+				menu.addItem((item) => {
+					item.setIcon(TLDRAW_ICON_NAME)
+						.setSection("close")
+						.setTitle("View as Tldraw")
+						.onClick(() => {
+							this.updateViewMode(VIEW_TYPE_TLDRAW, leaf, file);
+						});
+				});
+			})
+		);
+
+		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file, source, leaf) => {
 				if (!leaf || !(file instanceof TFile)) return;
 				if (!this.isTldrawFile(file)) return;
@@ -146,7 +165,6 @@ export default class TldrawPlugin extends Plugin {
 						// when theres a mismatch this what the view should be versus what is current is
 						correctViewMode !== recentLeafViewState.type
 					) {
-						console.warn("__________________");
 						// simply focus the leaf again to correct the view mode:
 						this.app.workspace.setActiveLeaf(recentLeaf, {
 							focus: true,

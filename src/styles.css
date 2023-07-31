@@ -1,11 +1,11 @@
 @import "@tldraw/tldraw/tldraw.css";
 
 #tldraw-view-root {
+	position: relative;
 	width: 100%;
 	height: calc(100% - 28px);
-	border-radius: 6px;
-	overflow: hidden;
 
+	/* fixes some positioning problems that tldraw has due to bringing embedded into another app */
 	transform: translate3d(0, 0, 0);
 }
 
@@ -18,6 +18,10 @@
 	background: inherit;
 	border-radius: inherit;
 	padding: inherit;
+}
+
+div[data-type="tldraw-view"] > .view-content {
+	padding: 0;
 }
 
 .otldraw-status-bar-view-mode-container {
