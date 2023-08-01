@@ -249,13 +249,12 @@ export default class TldrawPlugin extends Plugin {
 	onunload() {
 		this.unsubscribeToViewModeState();
 		this.statusBarViewModeReactRoot.unmount();
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE_TLDRAW);
 	}
 
 	public setStatusBarViewModeVisibility(visible: boolean) {
 		if (visible)
-			this.statusBarRoot.removeClass("hide-status-bar-view-mode");
-		else this.statusBarRoot.addClass("hide-status-bar-view-mode");
+			this.statusBarRoot.removeClass("ptl-hide-statusbar-viewmode");
+		else this.statusBarRoot.addClass("ptl-hide-statusbar-viewmode");
 	}
 
 	public updateStatusBarViewMode(view: ViewTypes) {

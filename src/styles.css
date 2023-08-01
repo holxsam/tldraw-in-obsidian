@@ -1,19 +1,42 @@
 @import "@tldraw/tldraw/tldraw.css";
 
+/* 
+	!!! Please prefix all custom classes with 'ptl' !!!
+
+	Any classes prefixed with 'ptl' is a custom class (stands for plugin-tldraw).
+	Any classes prefixed with 'tl' or 'tlui' is a class from the official Tldraw app.
+	Any other classes is most likely from Obsidian.
+
+	Obsidian's button:not(.clickable-icon) is a troublesome selector/style. Since we do
+	not have control of Tldraw's underlying components and styles, we cannot just add
+	".clickable-icon" to all of Tldraw's buttons. We could add the classes manually using 
+	native javascript APIs but we would be affecting the DOM directly which could cause problems
+	with Tldraw's react tree. The only solution I see is when there's a problematic override of
+	Tldraw's styles by Obsidian's button:not(.clickable-icon) is find the styles that are
+	affected (usually only background-color, box-shadow, and padding) and find what those styles 
+	should be (classes prefixed with 'tl' or 'tlui' then find a way to increase the specificity over button:not(.clickable-icon) using selectors and paste in those styles. Look for the comments that start with 'OVERRIDING'.
+*/
+
 #tldraw-view-root {
 	touch-action: none;
 	position: relative;
 	width: 100%;
 	height: 100%;
-	padding-bottom: 28px;
 
 	/* fixes some positioning problems that tldraw has due to bringing embedded into another app */
 	transform: translate3d(0, 0, 0);
 }
 
-#tldraw-view-root button:not(.clickable-icon) {
-	background-color: initial;
-	box-shadow: initial;
+/* OVERRIDING button:not(.clickable-icon) back to tldraw's original styles: */
+#tldraw-view-root .tlui-button {
+	background-color: transparent;
+	padding: 0px 13px;
+	box-shadow: none;
+}
+
+/* OVERRIDING button:not(.clickable-icon) */
+#tldraw-view-root .tlui-button.tlui-help-menu__button {
+	background-color: var(--color-low);
 }
 
 #tldraw-view-root kbd {
@@ -22,23 +45,34 @@
 	padding: inherit;
 }
 
-div[data-type="tldraw-view"] > .view-content {
+div[data-type="tldraw-view"] .view-content.tldraw-view-content {
+	/* gets rid of the padding so the canvas can bleed against the edges */
 	padding: 0;
+	/* creates a space at the bottom so that the status bar isn't covering the canvas */
+	padding-bottom: var(--size-4-8);
 }
 
-.otldraw-status-bar-view-mode-container {
+.is-mobile div[data-type="tldraw-view"] .view-content.tldraw-view-content {
+	/* if there is just .is-mobile (without .is-phone) the mobile-navbar isn't present so we can take up more space  */
+	padding-bottom: 0;
+}
+
+.is-phone div[data-type="tldraw-view"] .view-content.tldraw-view-content {
+	/* creates a space at the bottom so that the .is-phone mobile-navbar isn't covering the canvas  */
+	padding-bottom: var(--size-4-12);
+}
+
+.ptl-statusbar-viewmode-box {
 	display: flex;
 	align-items: center;
 	gap: 4px;
 }
 
-/* specificity war with obsidian: */
-.plugin-tldraw
-	.otldraw-status-bar-view-mode-container
-	.otldraw-status-bar-button {
+.plugin-tldraw .ptl-statusbar-viewmode-box .ptl-viewmode-btn {
 	background-color: transparent;
 	padding: 0 4px;
 	height: 12px;
+	width: 22px;
 	box-shadow: none;
 	border-radius: 2px;
 
@@ -57,38 +91,27 @@ div[data-type="tldraw-view"] > .view-content {
 }
 
 .plugin-tldraw
-	.otldraw-status-bar-view-mode-container
-	.otldraw-status-bar-button.view-mode-highlight {
+	.ptl-statusbar-viewmode-box
+	.ptl-viewmode-btn.ptl-viewmode-active {
 	box-shadow: inset 0px 0px 0px 1px currentColor;
 	border-radius: 4px;
 }
 
-.hide-status-bar-view-mode {
+.ptl-hide-statusbar-viewmode {
 	display: none;
 }
 
-.tldraw-obs-button-container {
+.ptl-statusbar-viewmode-btn-box {
 	display: flex;
 	align-items: center;
 	gap: 2px;
 }
 
-.theme-term {
-	margin-top: 6px;
-	margin-bottom: 3px;
-	font-weight: 700;
-}
-
-.theme-definition {
-	margin-left: 5px;
-}
-
-.tldraw-settings-header {
-	font-size: 32px;
-	margin: 0;
-}
-
-.default-code {
+.ptl-default-code {
 	margin-top: 6px;
 	display: block;
+}
+
+.tl-background {
+	touch-action: none;
 }

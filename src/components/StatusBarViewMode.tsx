@@ -7,28 +7,28 @@ const StatusBarViewMode = () => {
 	const viewMode = useStatusBarState((state) => state.viewMode);
 	const setViewMode = useStatusBarState((state) => state.updateViewMode);
 
-	const a = viewMode === VIEW_TYPE_TLDRAW ? "view-mode-highlight" : "";
-	const b = viewMode === VIEW_TYPE_MARKDOWN ? "view-mode-highlight" : "";
+	const a = viewMode === VIEW_TYPE_TLDRAW ? "ptl-viewmode-active" : "";
+	const b = viewMode === VIEW_TYPE_MARKDOWN ? "ptl-viewmode-active" : "";
 
 	const setTldrawView = () => setViewMode(VIEW_TYPE_TLDRAW);
 	const setMarkdownView = () => setViewMode(VIEW_TYPE_MARKDOWN);
 
 	return (
-		<div className={`otldraw-status-bar-view-mode-container`}>
+		<div className="ptl-statusbar-viewmode-box">
 			<span>View:</span>
-			<div className="tldraw-obs-button-container">
+			<div className="ptl-statusbar-viewmode-btn-box">
 				<button
 					type="button"
 					title="View as Tldraw"
-					className={`otldraw-status-bar-button ${a}`}
+					className={`ptl-viewmode-btn ${a}`}
 					onClick={setTldrawView}
 				>
-					DR
+					TL
 				</button>
 				<button
 					type="button"
 					title="View as Markdown"
-					className={`otldraw-status-bar-button ${b}`}
+					className={`ptl-viewmode-btn ${b}`}
 					onClick={setMarkdownView}
 				>
 					MD

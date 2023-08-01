@@ -50,7 +50,7 @@ export class SettingsTab extends PluginSettingTab {
 		this.containerEl.createEl("h1", { text: "File" });
 
 		new Setting(containerEl)
-			.setName("Save Folder")
+			.setName("Save folder")
 			.setDesc("The folder that tldraw files will be created in.")
 			.addText((text) =>
 				text
@@ -68,7 +68,7 @@ export class SettingsTab extends PluginSettingTab {
 		const maxDelay = msToSeconds(MAX_SAVE_DELAY);
 
 		const saveDelaySetting = new Setting(containerEl)
-			.setName("Save Delay")
+			.setName("Save delay")
 			.setDesc(
 				`The delay in seconds to automatically save after a change has been made to a tlraw drawing. Must be a value between ${minDelay} and ${maxDelay} (1 hour). Requires reloading any tldraw files you may have open in a tab.`
 			)
@@ -90,14 +90,14 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		saveDelaySetting.descEl.createEl("code", {
-			cls: "default-code",
+			cls: "ptl-default-code",
 			text: `DEFAULT: [${DEFAULT_SETTINGS.saveFileDelay}]`,
 		});
 
 		const filePrefixSettings = new Setting(containerEl)
-			.setName("New File Prefix")
+			.setName("New file prefix")
 			.setDesc(
-				"When creating a new tldraw file, the file name will automatically prepend the prefix. Can be left empty, however if both the Prefix and Time Format are empty, it will use the defaults to name the file."
+				"When creating a new tldraw file, the file name will automatically prepend the prefix. Can be left empty, however if both the prefix and time format are empty, it will use the defaults to name the file."
 			)
 			.addText((text) =>
 				text
@@ -111,13 +111,13 @@ export class SettingsTab extends PluginSettingTab {
 
 		filePrefixSettings.descEl.createEl("code", {
 			text: `DEFAULT: [${DEFAULT_SETTINGS.newFilePrefix} ]`,
-			cls: "default-code",
+			cls: "ptl-default-code",
 		});
 
 		const timeFormatSetting = new Setting(containerEl)
-			.setName("New File Time Format")
+			.setName("New file time format")
 			.setDesc(
-				"When creating a new tldraw file, this represents the time format that will get appended to the file name. Can be left empty, however if both the Prefix and Time Format are empty, it will use the defaults to name the file. The meanings of each token can be found here: "
+				"When creating a new tldraw file, this represents the time format that will get appended to the file name. Can be left empty, however if both the Prefix and Time Format are empty, it will use the defaults to name the file. The meanings of each token can be found on "
 			)
 			.addText((text) =>
 				text
@@ -131,15 +131,15 @@ export class SettingsTab extends PluginSettingTab {
 
 		timeFormatSetting.descEl.createEl("a", {
 			href: "https://momentjs.com/docs/#/displaying/format/",
-			text: "https://momentjs.com/docs/#/displaying/format/",
+			text: "moment.js.",
 		});
 
 		timeFormatSetting.descEl.createEl("code", {
-			cls: "default-code",
+			cls: "ptl-default-code",
 			text: `DEFAULT: [${DEFAULT_SETTINGS.newFileTimeFormat}]`,
 		});
 
-		this.containerEl.createEl("h1", { text: "Start Up" });
+		this.containerEl.createEl("h1", { text: "Start up" });
 
 		new Setting(containerEl)
 			.setName("Theme")
@@ -147,9 +147,9 @@ export class SettingsTab extends PluginSettingTab {
 				"When opening a tldraw file, this setting decides what theme should be applied."
 			)
 			.addDropdown((cb) => {
-				cb.addOption("light", "Light Theme")
-					.addOption("dark", "Dark Theme")
-					.addOption("match-theme", "Match Theme")
+				cb.addOption("light", "Light theme")
+					.addOption("dark", "Dark theme")
+					.addOption("match-theme", "Match theme")
 					.setValue(this.plugin.settings.themeMode)
 					.onChange(async (value) => {
 						this.plugin.settings.themeMode =
@@ -159,7 +159,7 @@ export class SettingsTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Default Tool")
+			.setName("Default tool")
 			.setDesc(
 				"When opening a tldraw file, this setting decides which tool should be selected."
 			)
@@ -181,7 +181,7 @@ export class SettingsTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Grid Mode")
+			.setName("Grid mode")
 			.setDesc(
 				"When opening tldraw files, this setting determines whether grid mode is enabled. Keep in mind that enabling grid mode will both show a grid and enforce snap-to-grid functionality."
 			)
@@ -207,7 +207,7 @@ export class SettingsTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Focus Mode")
+			.setName("Focus mode")
 			.setDesc(
 				"When opening tldraw files, this setting determines whether to launch tldraw in focus mode. Great if you like to use tldraw to quickly jot something down."
 			)
@@ -220,7 +220,7 @@ export class SettingsTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Debug Mode")
+			.setName("Debug mode")
 			.setDesc(
 				"When opening tldraw files, this setting toggles the tldraw debug mode. Debug mode is useful for the developer."
 			)

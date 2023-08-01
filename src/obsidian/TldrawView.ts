@@ -24,9 +24,13 @@ export class TldrawView extends TextFileView {
 		this.plugin = plugin;
 	}
 
-	onload() {}
+	onload() {
+		this.contentEl.addClass("tldraw-view-content");
+	}
 
 	onunload(): void {
+		this.contentEl.removeClass("tldraw-view-content");
+
 		this.reactRoot?.unmount();
 	}
 
