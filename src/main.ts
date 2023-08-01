@@ -44,9 +44,6 @@ export default class TldrawPlugin extends Plugin {
 	unsubscribeToViewModeState: () => void;
 
 	async onload() {
-		// console.log("main.ts onload()");
-
-		this.manifest.version;
 		this.registerView(
 			VIEW_TYPE_TLDRAW,
 			(leaf) => new TldrawView(leaf, this)
@@ -251,7 +248,6 @@ export default class TldrawPlugin extends Plugin {
 	}
 
 	onunload() {
-		// console.log("main.ts unonload()");
 		this.unsubscribeToViewModeState();
 		this.statusBarViewModeReactRoot.unmount();
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_TLDRAW);

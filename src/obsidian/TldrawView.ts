@@ -20,37 +20,29 @@ export class TldrawView extends TextFileView {
 	reactRoot: Root;
 
 	constructor(leaf: WorkspaceLeaf, plugin: TldrawPlugin) {
-		// console.log("TLdrawView contructor");
 		super(leaf);
 		this.plugin = plugin;
 	}
 
-	onload() {
-		// console.log("TLdrawView onload()");
-	}
+	onload() {}
 
 	onunload(): void {
-		// console.log("TLdrawView onunload()");
 		this.reactRoot?.unmount();
 	}
 
 	getViewType() {
-		// console.log("getViewType()");
 		return VIEW_TYPE_TLDRAW;
 	}
 
 	getDisplayText() {
-		// console.log("getDisplayText()");
 		return this.file ? this.file.basename : "";
 	}
 
 	getViewData(): string {
-		// console.log("getViewData()");
 		return this.data;
 	}
 
 	setViewData(data: string, clear: boolean): void {
-		// console.log("setViewData()");
 		// All this initialization is done here because this.data is null in onload() and the constructor().
 		// However, setViewData() gets called by obsidian right after onload() with its data parameter having the file's data (yay)
 		// so we can somewhat safely do initialization stuff in this function.
@@ -66,9 +58,7 @@ export class TldrawView extends TextFileView {
 		);
 	}
 
-	clear(): void {
-		// console.log("clear()");
-	}
+	clear(): void {}
 
 	getTldrawData = (rawFileData?: string): TLData => {
 		rawFileData ??= this.data;
@@ -84,7 +74,6 @@ export class TldrawView extends TextFileView {
 			: getTLDataTemplate(this.plugin.manifest.version, {});
 
 		return parsedData;
-		// return extracted ? JSON.parse(extracted) : {};
 	};
 
 	setFileData = (data: SerializedStore<TLRecord>) => {

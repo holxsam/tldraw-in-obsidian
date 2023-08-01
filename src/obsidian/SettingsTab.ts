@@ -1,4 +1,4 @@
-import { clamp, msToSeconds, safeSecondsToMs } from "src/utils/utils";
+import { clamp, msToSeconds } from "src/utils/utils";
 import TldrawPlugin from "../main";
 import { App, PluginSettingTab, Setting } from "obsidian";
 import {
@@ -47,16 +47,11 @@ export class SettingsTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		const header = new Setting(containerEl).infoEl;
-
-		header.createEl("h4", {
-			text: "Tldraw Settings",
-			cls: "tldraw-settings-header",
-		});
+		this.containerEl.createEl("h1", { text: "File" });
 
 		new Setting(containerEl)
 			.setName("Save Folder")
-			.setDesc("The directory that tldraw files will be created in.")
+			.setDesc("The folder that tldraw files will be created in.")
 			.addText((text) =>
 				text
 					.setPlaceholder("root")
@@ -144,10 +139,12 @@ export class SettingsTab extends PluginSettingTab {
 			text: `DEFAULT: [${DEFAULT_SETTINGS.newFileTimeFormat}]`,
 		});
 
-		const themeSetting = new Setting(containerEl)
+		this.containerEl.createEl("h1", { text: "Start Up" });
+
+		new Setting(containerEl)
 			.setName("Theme")
 			.setDesc(
-				"When opening a tldraw file, this setting decides what theme should be applied. Make sure you pick well as this setting also determines your personality."
+				"When opening a tldraw file, this setting decides what theme should be applied."
 			)
 			.addDropdown((cb) => {
 				cb.addOption("light", "Light Theme")
@@ -160,29 +157,6 @@ export class SettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 			});
-
-		const descriptionEl = themeSetting.descEl.createEl("dl");
-		descriptionEl.createEl("dt", {
-			text: "Light Theme",
-			cls: "theme-term",
-		});
-		descriptionEl.createEl("dd", {
-			text: "The default theme which looks like a whiteboard for those who enjoy the smell of markers.",
-			cls: "theme-definition",
-		});
-		descriptionEl.createEl("dt", { text: "Dark Theme", cls: "theme-term" });
-		descriptionEl.createEl("dd", {
-			text: "The dark theme looks like the a blackboard for those who don't mind white chalk on their hands.",
-			cls: "theme-definition",
-		});
-		descriptionEl.createEl("dt", {
-			text: "Match Theme",
-			cls: "theme-term",
-		});
-		descriptionEl.createEl("dd", {
-			text: "Matches the tldraw's theme with obsidian's theme for those who prefer consistency above all else.",
-			cls: "theme-definition",
-		});
 
 		new Setting(containerEl)
 			.setName("Default Tool")
