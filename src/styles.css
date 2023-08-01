@@ -1,6 +1,7 @@
 @import "@tldraw/tldraw/tldraw.css";
 
 #tldraw-view-root {
+	touch-action: none;
 	position: relative;
 	width: 100%;
 	height: calc(100% - 28px);
