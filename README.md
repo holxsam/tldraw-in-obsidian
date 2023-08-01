@@ -33,3 +33,7 @@ The main goals of this plugin and repo is to keep up to date with the Tldraw's l
 ## Contributions
 
 -   This plugin is open to contributions. If you have a feature idea or want to report a bug, you can create an issue. If you are a developer wanting to fix a bug or add a feature to feel free to submit pull requests.
+
+## License and Attribution
+
+All Tldraw's code is theirs and I did not change any of it.

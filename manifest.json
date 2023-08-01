@@ -1,11 +1,10 @@
 {
-	"id": "tldraw-in-obsidian",
+	"id": "tldraw",
 	"name": "Tldraw",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "This plugin integrates Tldraw into Obsidian, allowing users to edit Tldraw drawings and saving the data as a plain markdown file.",
+	"description": "Integrates Tldraw into Obsidian, allowing users to draw and edit content on a virtual whiteboard.",
 	"author": "Sam Alhaqab",
 	"authorUrl": "https://github.com/holxsam",
-	"fundingUrl": "",
 	"isDesktopOnly": false
 }

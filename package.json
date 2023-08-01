@@ -1,7 +1,7 @@
 {
 	"name": "tldraw-in-obsidian",
 	"version": "0.15.0",
-	"description": "This plugin integrates Tldraw into Obsidian, allowing users to edit Tldraw drawings and saving the data as a plain markdown file.",
+	"description": "Integrates Tldraw into Obsidian, allowing users to draw and edit content on a virtual whiteboard.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
