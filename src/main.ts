@@ -190,7 +190,6 @@ export default class TldrawPlugin extends Plugin {
 		this.addCommand({
 			id: "toggle-view-mode",
 			name: "Toggle View Mode",
-			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "d" }],
 			checkCallback: (checking) => {
 				const file = this.app.workspace.getActiveFile();
 				if (!file) return false;
