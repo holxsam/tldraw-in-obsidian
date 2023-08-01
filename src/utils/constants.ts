@@ -11,7 +11,7 @@ export const TLDATA_DELIMITER_START =
 export const TLDATA_DELIMITER_END =
 	"!!!_END_OF_TLDRAW_DATA__DO_NOT_CHANGE_THIS_PHRASE_!!!";
 
-export const RIBBON_NEW_FILE = "Create a new tldraw-ing";
+export const RIBBON_NEW_FILE = "Create new tldrawing";
 
 export const DEFAULT_SAVE_DELAY = 500; // in ms
 export const MIN_SAVE_DELAY = 250; // in ms
