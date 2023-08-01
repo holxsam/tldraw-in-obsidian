@@ -4,7 +4,8 @@
 	touch-action: none;
 	position: relative;
 	width: 100%;
-	height: calc(100% - 28px);
+	height: 100%;
+	padding-bottom: 28px;
 
 	/* fixes some positioning problems that tldraw has due to bringing embedded into another app */
 	transform: translate3d(0, 0, 0);
@@ -32,7 +33,7 @@ div[data-type="tldraw-view"] > .view-content {
 }
 
 /* specificity war with obsidian: */
-.plugin-tldraw-in-obsidian
+.plugin-tldraw
 	.otldraw-status-bar-view-mode-container
 	.otldraw-status-bar-button {
 	background-color: transparent;
@@ -55,7 +56,7 @@ div[data-type="tldraw-view"] > .view-content {
 	}
 }
 
-.plugin-tldraw-in-obsidian
+.plugin-tldraw
 	.otldraw-status-bar-view-mode-container
 	.otldraw-status-bar-button.view-mode-highlight {
 	box-shadow: inset 0px 0px 0px 1px currentColor;

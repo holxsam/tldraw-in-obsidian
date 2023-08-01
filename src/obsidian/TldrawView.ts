@@ -95,5 +95,6 @@ export class TldrawView extends TextFileView {
 
 		// saves the new data to file:
 		this.data = result;
+		this.save();
 	};
 }
