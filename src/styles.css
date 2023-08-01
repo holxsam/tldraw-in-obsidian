@@ -43,17 +43,22 @@ div[data-type="tldraw-view"] > .view-content {
 	display: grid;
 	place-items: center;
 
-	font-size: 10px;
+	font-size: 8px;
 	font-weight: 700;
-	line-height: 10px;
+	line-height: 8px;
 
 	cursor: pointer;
+
+	&:hover {
+		background-color: var(--background-secondary-alt);
+	}
 }
 
 .plugin-tldraw-in-obsidian
 	.otldraw-status-bar-view-mode-container
 	.otldraw-status-bar-button.view-mode-highlight {
-	background-color: hsl(var(--accent-h), var(--accent-s), var(--accent-l));
+	box-shadow: inset 0px 0px 0px 1px currentColor;
+	border-radius: 4px;
 }
 
 .hide-status-bar-view-mode {

@@ -1,12 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
-import {
-	TLUiCustomMenuItem,
-	Tldraw,
-	createTLStore,
-	defaultShapes,
-} from "@tldraw/tldraw";
+import { Tldraw, createTLStore, defaultShapes } from "@tldraw/tldraw";
 import { TLUiOverrides } from "@tldraw/tldraw";
 import { SerializedStore } from "@tldraw/store";
 import { TLRecord } from "@tldraw/tldraw";
@@ -16,7 +11,8 @@ import { useDebouncedCallback } from "use-debounce";
 import { isObsidianThemeDark, safeSecondsToMs } from "src/utils/utils";
 
 export const uiOverrides: TLUiOverrides = {
-	tools(editor, tools) {
+	tools(editor, tools, helpers) {
+		// console.log(tools);
 		// // this is how you would override the kbd shortcuts
 		// tools.draw = {
 		// 	...tools.draw,
@@ -28,11 +24,12 @@ export const uiOverrides: TLUiOverrides = {
 		// console.log(schema);
 		return schema;
 	},
-	toolbar(_app, toolbar, { tools }) {
+	toolbar(editor, toolbar, { tools }) {
+		// console.log(toolbar);
 		// toolbar.splice(4, 0, toolbarItem(tools.card))
 		return toolbar;
 	},
-	keyboardShortcutsMenu(_app, keyboardShortcutsMenu, { tools }) {
+	keyboardShortcutsMenu(editor, keyboardShortcutsMenu, { tools }) {
 		// console.log(keyboardShortcutsMenu);
 		// const toolsGroup = keyboardShortcutsMenu.find(
 		// 	(group) => group.id === 'shortcuts-dialog.tools'
