@@ -13,7 +13,7 @@ import { TLRecord } from "@tldraw/tldraw";
 
 import { TldrawPluginSettings } from "../obsidian/SettingsTab";
 import { useDebouncedCallback } from "use-debounce";
-import { isObsidianThemeDark } from "src/utils/utils";
+import { isObsidianThemeDark, safeSecondsToMs } from "src/utils/utils";
 
 export const uiOverrides: TLUiOverrides = {
 	tools(editor, tools) {
@@ -54,6 +54,8 @@ export type TldrawAppProps = {
 };
 
 const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
+	const saveDelayInMs = safeSecondsToMs(settings.saveFileDelay);
+
 	const [store] = useState(() =>
 		createTLStore({
 			shapes: defaultShapes,
@@ -63,7 +65,7 @@ const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
 
 	const debouncedSaveDataToFile = useDebouncedCallback((e: any) => {
 		setFileData(store.serialize());
-	}, settings.saveFileDelayInMs);
+	}, saveDelayInMs);
 
 	useEffect(() => {
 		const removeListener = store.listen(debouncedSaveDataToFile, {
@@ -81,9 +83,17 @@ const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
 				overrides={uiOverrides}
 				store={store}
 				onMount={(editor) => {
+					const {
+						themeMode,
+						gridMode,
+						debugMode,
+						snapMode,
+						focusMode,
+						toolSelected,
+					} = settings;
+
 					editor.focus();
-					const { themeMode, gridMode, debugMode, snapMode } =
-						settings;
+					editor.setSelectedTool(toolSelected);
 
 					let darkMode = true;
 					if (themeMode === "dark") darkMode = true;
@@ -98,6 +108,7 @@ const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
 					editor.updateInstanceState({
 						isGridMode: gridMode,
 						isDebugMode: debugMode,
+						isFocusMode: focusMode,
 					});
 				}}
 			/>

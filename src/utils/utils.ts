@@ -6,42 +6,7 @@ import {
 	Vault,
 	normalizePath,
 } from "obsidian";
-import {
-	FILE_EXTENSION,
-	TLDATA_DELIMITER_END,
-	TLDATA_DELIMITER_START,
-} from "./constants";
-
-// export const frontmatterTemplate = (data: string) => {
-// 	let str = "";
-// 	str += "---\n";
-// 	str += "\n";
-// 	str += `${data}\n`;
-// 	str += "tags: [tldraw]\n";
-// 	str += "\n";
-// 	str += "---\n";
-// 	return str;
-// };
-
-// export const tldrawDataTemplate = (data: any) => {
-// 	let str = "";
-// 	str += "```json" + ` ${TLDRAW_DATA_DELIMITER_START}`;
-// 	str += "\n";
-// 	str += `${JSON.stringify(data, null, "\t")}\n`;
-// 	str += `${TLDRAW_DATA_DELIMITER_END} ` + "```";
-// 	return str;
-// };
-
-// export const tldrawMarkdownTemplate = (
-// 	frontmatter: string,
-// 	tldrawData: string
-// ) => {
-// 	let str = "";
-// 	str += frontmatter;
-// 	str += "\n";
-// 	str += tldrawData;
-// 	return str;
-// };
+import { FILE_EXTENSION } from "./constants";
 
 export const removeAllChildNodes = (parent: HTMLElement) => {
 	while (parent.firstChild) {
@@ -124,3 +89,6 @@ export const isObsidianThemeDark = () =>
 
 export const clamp = (num: number, min: number, max: number) =>
 	Math.max(min, Math.min(num, max));
+
+export const msToSeconds = (ms: number) => ms / 1000;
+export const safeSecondsToMs = (s: number) => Math.round(s * 1000);

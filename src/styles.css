@@ -80,3 +80,8 @@ div[data-type="tldraw-view"] > .view-content {
 	font-size: 32px;
 	margin: 0;
 }
+
+.default-code {
+	margin-top: 6px;
+	display: block;
+}

@@ -68,10 +68,6 @@ export default class TldrawPlugin extends Plugin {
 			this.createAndOpenUntitledTldrFile("current-tab")
 		);
 
-		this.addRibbonIcon("dice", "debug", async () => {
-			console.log("--------------------");
-		});
-
 		// status bar:
 		this.statusBarRoot = this.addStatusBarItem();
 		this.statusBarViewModeReactRoot = createReactStatusBarViewMode(
@@ -367,8 +363,20 @@ export default class TldrawPlugin extends Plugin {
 
 	public createUntitledTldrFile = async () => {
 		const { newFilePrefix, newFileTimeFormat, folder } = this.settings;
-		const date = moment().format(newFileTimeFormat);
-		const filename = newFilePrefix + date;
+
+		const date =
+			newFileTimeFormat.trim() !== ""
+				? moment().format(newFileTimeFormat)
+				: "";
+
+		// if both the prefix and the date is empty as contentation
+		// then we have to use the defaults to name the file
+		let filename = newFilePrefix + date;
+		if (filename.trim() === "")
+			filename =
+				DEFAULT_SETTINGS.newFilePrefix +
+				moment().format(DEFAULT_SETTINGS.newFileTimeFormat);
+
 		return await this.createTldrFile(filename, folder);
 	};
 
