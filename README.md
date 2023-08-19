@@ -12,7 +12,7 @@ The main goals of this plugin and repo is to keep up to date with the Tldraw's l
 -   Add markdown notes into tldraw.
 -   Export and import tools.
 
-## Manually Installing the Plugin
+## Installation
 
 ### Easy Way
 
@@ -46,4 +46,4 @@ The main goals of this plugin and repo is to keep up to date with the Tldraw's l
 
 ## License and Attribution
 
-All Tldraw's code is theirs and I did not change any of it.
+All [Tldraw's](https://github.com/tldraw/tldraw) code is theirs and I did not change any of it. Also shout out to the [Excalidraw plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin) for inspiration on how I should structure this Tldraw plugin.
