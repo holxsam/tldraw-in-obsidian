@@ -1,5 +1,7 @@
 # Tldraw in Obsidian Plugin
 
+https://github.com/holxsam/tldraw-in-obsidian/assets/41220650/3cf74e97-26d3-4ddd-bb09-0ad0ef0a9d3b
+
 This Obsidian plugin allows users to use [Tldraw](www.tldraw.com), which is a tiny little drawing app, inside of Obsidian. Users can draw, plan, and use all of Tldraw's tools to augment their Obsidian experience. The data for each drawing is stored as a regular markdown file similar to the Excalidraw plugin meaning users will always have access to their data in plain markdown. Users have the option to switch between the Tldraw view or the markdown view in case they wish to include backlinks, tags, or any other elements to facilitate linking their drawings with their existing knowledge base.
 
 TIP: You can toggle between the view modes, using the command palette, keyboard shortcuts, status bar toggle at the bottom right, file menu, and context menu. See the plugin settings tab for customization options as well.
