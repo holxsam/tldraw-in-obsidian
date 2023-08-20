@@ -1,7 +1,7 @@
 {
 	"id": "tldraw",
 	"name": "Tldraw",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"minAppVersion": "0.15.0",
 	"description": "Integrates Tldraw into Obsidian, allowing users to draw and edit content on a virtual whiteboard.",
 	"author": "Sam Alhaqab",
