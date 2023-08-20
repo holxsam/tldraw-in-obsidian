@@ -75,7 +75,15 @@ const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
 	}, [store]);
 
 	return (
-		<div id="tldraw-view-root">
+		<div
+			id="tldraw-view-root"
+			// e.stopPropagation(); this line should solve the mobile swipe menus bug but may introduce other bugs
+			// The bug only happens on the mobile version of Obsidian.
+			// When a user tries to interact with the tldraw canvas, Obsidian thinks they're swiping down, left, or right
+			// so it opens various menus. By preventing the event from propagating, we can prevent those actions menus
+			// from opening.
+			onTouchStart={(e) => e.stopPropagation()}
+		>
 			<Tldraw
 				overrides={uiOverrides}
 				store={store}
