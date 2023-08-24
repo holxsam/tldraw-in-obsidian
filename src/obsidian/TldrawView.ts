@@ -1,8 +1,12 @@
 import { TextFileView, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
 import {
+	MARKDOWN_ICON,
+	MARKDOWN_ICON_NAME,
 	TLDATA_DELIMITER_END,
 	TLDATA_DELIMITER_START,
+	TLDRAW_ICON_NAME,
+	VIEW_TYPE_MARKDOWN,
 	VIEW_TYPE_TLDRAW,
 } from "../utils/constants";
 import { createRootAndRenderTldrawApp } from "../components/TldrawApp";
@@ -22,15 +26,19 @@ export class TldrawView extends TextFileView {
 	constructor(leaf: WorkspaceLeaf, plugin: TldrawPlugin) {
 		super(leaf);
 		this.plugin = plugin;
+		this.navigation = true;
 	}
 
 	onload() {
 		this.contentEl.addClass("tldraw-view-content");
+
+		this.addAction(MARKDOWN_ICON_NAME, "View as markdown", () => {
+			this.plugin.updateViewMode(VIEW_TYPE_MARKDOWN);
+		});
 	}
 
 	onunload(): void {
 		this.contentEl.removeClass("tldraw-view-content");
-
 		this.reactRoot?.unmount();
 	}
 
@@ -39,7 +47,7 @@ export class TldrawView extends TextFileView {
 	}
 
 	getDisplayText() {
-		return this.file ? this.file.basename : "";
+		return this.file ? this.file.basename : "NO_FILE";
 	}
 
 	getViewData(): string {
@@ -80,7 +88,7 @@ export class TldrawView extends TextFileView {
 		return parsedData;
 	};
 
-	setFileData = (data: SerializedStore<TLRecord>) => {
+	setFileData = async (data: SerializedStore<TLRecord>) => {
 		const tldrawData = getTLDataTemplate(
 			this.plugin.manifest.version,
 			data
@@ -99,6 +107,6 @@ export class TldrawView extends TextFileView {
 
 		// saves the new data to file:
 		this.data = result;
-		this.save();
+		await this.save(false); // for some reason this line is needed or else the data doesn't update when clicking on other tldraw files
 	};
 }

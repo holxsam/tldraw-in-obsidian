@@ -115,3 +115,7 @@ div[data-type="tldraw-view"] .view-content.tldraw-view-content {
 .tl-background {
 	touch-action: none;
 }
+
+.status-bar-item.plugin-tldraw {
+	background-color: var(--background-modifier-border);
+}

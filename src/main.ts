@@ -7,6 +7,8 @@ import {
 	addIcon,
 	normalizePath,
 	moment,
+	App,
+	PluginManifest,
 } from "obsidian";
 import { TldrawView } from "./obsidian/TldrawView";
 import {
@@ -18,6 +20,8 @@ import { checkAndCreateFolder, getNewUniqueFilepath } from "./utils/utils";
 import {
 	FILE_EXTENSION,
 	FRONTMATTER_KEY,
+	MARKDOWN_ICON,
+	MARKDOWN_ICON_NAME,
 	PaneTarget,
 	RIBBON_NEW_FILE,
 	TLDRAW_ICON,
@@ -37,11 +41,18 @@ import {
 } from "./utils/document";
 
 export default class TldrawPlugin extends Plugin {
+	// status bar stuff:
 	statusBarRoot: HTMLElement;
 	statusBarViewModeReactRoot: Root;
-	settings: TldrawPluginSettings;
-	leafFileViewModes: { [filename: string]: ViewTypes } = {};
 	unsubscribeToViewModeState: () => void;
+
+	// misc:
+	settings: TldrawPluginSettings;
+	leafFileViewModes: { [leafFileId: string]: ViewTypes } = {};
+
+	constructor(app: App, manifest: PluginManifest) {
+		super(app, manifest);
+	}
 
 	async onload() {
 		this.registerView(
@@ -52,6 +63,7 @@ export default class TldrawPlugin extends Plugin {
 		await this.loadSettings();
 
 		addIcon(TLDRAW_ICON_NAME, TLDRAW_ICON);
+		addIcon(MARKDOWN_ICON_NAME, MARKDOWN_ICON);
 
 		this.unsubscribeToViewModeState = useStatusBarState.subscribe(
 			(state) => state.viewMode,
@@ -100,18 +112,21 @@ export default class TldrawPlugin extends Plugin {
 				const { type } = leaf.getViewState();
 				const viewMode = this.getLeafFileViewMode(leaf, file) || type;
 
-				const oppositeViewMode =
-					viewMode === VIEW_TYPE_TLDRAW
-						? VIEW_TYPE_MARKDOWN
-						: VIEW_TYPE_TLDRAW;
+				const isTldrawView = viewMode === VIEW_TYPE_TLDRAW;
+				const oppositeViewMode = isTldrawView
+					? VIEW_TYPE_MARKDOWN
+					: VIEW_TYPE_TLDRAW;
 
-				const title =
-					viewMode === VIEW_TYPE_TLDRAW
-						? "View as Markdown"
-						: "View as Tldraw";
+				const title = isTldrawView
+					? "View as Markdown"
+					: "View as Tldraw";
+
+				const icon = isTldrawView
+					? MARKDOWN_ICON_NAME
+					: TLDRAW_ICON_NAME;
 
 				menu.addItem((item) => {
-					item.setIcon(TLDRAW_ICON_NAME)
+					item.setIcon(icon)
 						.setSection("close")
 						.setTitle(title)
 						.onClick(() => {
@@ -412,12 +427,8 @@ export default class TldrawPlugin extends Plugin {
 
 	public isTldrawFile(file: TFile) {
 		if (!file) return false;
-		const fileCache = file
-			? this.app.metadataCache.getFileCache(file)
-			: null;
-		return (
-			!!fileCache?.frontmatter && !!fileCache.frontmatter[FRONTMATTER_KEY]
-		);
+		const fcache = file ? this.app.metadataCache.getFileCache(file) : null;
+		return !!fcache?.frontmatter && !!fcache.frontmatter[FRONTMATTER_KEY];
 	}
 
 	async loadSettings() {
