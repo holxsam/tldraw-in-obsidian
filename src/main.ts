@@ -138,6 +138,13 @@ export default class TldrawPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", (leaf) => {
+				// https://github.com/holxsam/tldraw-in-obsidian/issues/2
+				// When the react component <Tldraw/> gets rendered, for some unknown reason it modifies
+				// the global app object to Tldraw's Editor object, however, the internal this.app is correct.
+				// This causes issues with other plugins that use the global app object.
+				// This is a temporary fix because it may be discouraged by the Obsidian team.
+				window.app = this.app; // !!! may be a bad way to do fix this issue
+
 				// always set this to false on a leaf change to prevent it from showing on non tldr files
 				this.setStatusBarViewModeVisibility(false);
 
