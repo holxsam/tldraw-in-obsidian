@@ -1,27 +1,36 @@
 import { create } from "zustand";
 import { unstable_batchedUpdates } from "react-dom";
-import { VIEW_TYPE_TLDRAW, ViewTypes } from "./constants";
+import { VIEW_TYPE_TLDRAW, ViewType } from "./constants";
 import { subscribeWithSelector } from "zustand/middleware";
 
+export type StatusBarUpdateType = "react" | "plugin";
+
 export type StatusBarViewModeState = {
-	viewMode: ViewTypes;
+	view: {
+		mode: ViewType;
+		source: StatusBarUpdateType;
+	};
 };
 
 export type StatusBarViewModeAction = {
-	updateViewMode: (viewMode: ViewTypes) => void;
+	updateViewMode: (mode: ViewType, source: StatusBarUpdateType) => void;
 };
 
 export const useStatusBarState = create<
 	StatusBarViewModeState & StatusBarViewModeAction
 >()(
 	subscribeWithSelector((set) => ({
-		viewMode: VIEW_TYPE_TLDRAW,
-		updateViewMode: (viewMode: ViewTypes) => set(() => ({ viewMode })),
+		view: {
+			mode: VIEW_TYPE_TLDRAW,
+			source: "plugin",
+		},
+		updateViewMode: (mode: ViewType, source: StatusBarUpdateType) =>
+			set(() => ({ view: { mode, source } })),
 	}))
 );
 
-export const safeUpdateStatusBarViewMode = (viewMode: ViewTypes) => {
+export const safeUpdateStatusBarViewMode = (viewMode: ViewType) => {
 	unstable_batchedUpdates(() => {
-		useStatusBarState.getState().updateViewMode(viewMode);
+		useStatusBarState.getState().updateViewMode(viewMode, "plugin");
 	});
 };

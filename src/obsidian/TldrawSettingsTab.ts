@@ -35,7 +35,7 @@ export const DEFAULT_SETTINGS: TldrawPluginSettings = {
 	focusMode: false,
 };
 
-export class SettingsTab extends PluginSettingTab {
+export class TldrawSettingsTab extends PluginSettingTab {
 	plugin: TldrawPlugin;
 
 	constructor(app: App, plugin: TldrawPlugin) {

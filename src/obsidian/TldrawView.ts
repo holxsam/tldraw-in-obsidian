@@ -1,11 +1,9 @@
 import { TextFileView, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
 import {
-	MARKDOWN_ICON,
 	MARKDOWN_ICON_NAME,
 	TLDATA_DELIMITER_END,
 	TLDATA_DELIMITER_START,
-	TLDRAW_ICON_NAME,
 	VIEW_TYPE_MARKDOWN,
 	VIEW_TYPE_TLDRAW,
 } from "../utils/constants";
@@ -59,9 +57,11 @@ export class TldrawView extends TextFileView {
 		// However, setViewData() gets called by obsidian right after onload() with its data parameter having the file's data (yay)
 		// so we can somewhat safely do initialization stuff in this function.
 		// Its worth nothing that at this point this.data is also available but it does not hurt to use what is given
-		// Also be aware to NOT call this function DIRECTLY because it will create multiple react trees for one view
 		const entryPoint = this.containerEl.children[1];
 		const initialData = this.getTldrawData(data).raw;
+
+		if (this.reactRoot) this.reactRoot.unmount();
+
 		this.reactRoot = createRootAndRenderTldrawApp(
 			entryPoint,
 			initialData,
@@ -94,8 +94,10 @@ export class TldrawView extends TextFileView {
 			data
 		);
 
-		// if you do not use `null, "\t"` as arguments for stringify(),
-		// obsidian will lag when you try to open the file in markdown view
+		// If you do not use `null, "\t"` as arguments for stringify(),
+		// Obsidian will lag when you try to open the file in markdown view.
+		// It may have to do with if you don't format the string,
+		// it'll be a really long line and that lags the markdown view.
 		const stringifiedData = JSON.stringify(tldrawData, null, "\t");
 
 		const result = replaceBetweenKeywords(
@@ -106,7 +108,7 @@ export class TldrawView extends TextFileView {
 		);
 
 		// saves the new data to file:
-		this.data = result;
-		await this.save(false); // for some reason this line is needed or else the data doesn't update when clicking on other tldraw files
+		if (!this.file) return;
+		await this.app.vault.modify(this.file, result);
 	};
 }

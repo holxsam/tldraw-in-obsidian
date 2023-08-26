@@ -4,18 +4,19 @@ import { VIEW_TYPE_MARKDOWN, VIEW_TYPE_TLDRAW } from "../utils/constants";
 import { useStatusBarState } from "../utils/stores";
 
 const StatusBarViewMode = () => {
-	const viewMode = useStatusBarState((state) => state.viewMode);
+	const view = useStatusBarState((state) => state.view);
 	const setViewMode = useStatusBarState((state) => state.updateViewMode);
+
+	const viewMode = view.mode;
 
 	const a = viewMode === VIEW_TYPE_TLDRAW ? "ptl-viewmode-active" : "";
 	const b = viewMode === VIEW_TYPE_MARKDOWN ? "ptl-viewmode-active" : "";
 
-	const setTldrawView = () => setViewMode(VIEW_TYPE_TLDRAW);
-	const setMarkdownView = () => setViewMode(VIEW_TYPE_MARKDOWN);
+	const setTldrawView = () => setViewMode(VIEW_TYPE_TLDRAW, "react");
+	const setMarkdownView = () => setViewMode(VIEW_TYPE_MARKDOWN, "react");
 
 	return (
 		<div className="ptl-statusbar-viewmode-box">
-			<span>View:</span>
 			<div className="ptl-statusbar-viewmode-btn-box">
 				<button
 					type="button"

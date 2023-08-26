@@ -1,5 +1,5 @@
 export type PaneTarget = "new-window" | "new-tab" | "current-tab" | "split-tab";
-export type ViewTypes = typeof VIEW_TYPE_TLDRAW | typeof VIEW_TYPE_MARKDOWN;
+export type ViewType = typeof VIEW_TYPE_TLDRAW | typeof VIEW_TYPE_MARKDOWN;
 export const VIEW_TYPE_TLDRAW = "tldraw-view"; // custom view type
 export const VIEW_TYPE_MARKDOWN = "markdown"; // NOT ACTUALLY A CUSTOM VIEW TYPE, its built in from obsidian
 

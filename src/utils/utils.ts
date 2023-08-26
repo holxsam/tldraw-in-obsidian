@@ -6,7 +6,12 @@ import {
 	Vault,
 	normalizePath,
 } from "obsidian";
-import { FILE_EXTENSION } from "./constants";
+import {
+	FILE_EXTENSION,
+	VIEW_TYPE_MARKDOWN,
+	VIEW_TYPE_TLDRAW,
+	ViewType,
+} from "./constants";
 
 export const removeAllChildNodes = (parent: HTMLElement) => {
 	while (parent.firstChild) {
@@ -92,3 +97,7 @@ export const clamp = (num: number, min: number, max: number) =>
 
 export const msToSeconds = (ms: number) => ms / 1000;
 export const safeSecondsToMs = (s: number) => Math.round(s * 1000);
+
+export const isValidViewType = (str: string): str is ViewType => {
+	return str === VIEW_TYPE_MARKDOWN || str === VIEW_TYPE_TLDRAW;
+};

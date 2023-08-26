@@ -1,12 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
 import * as React from "react";
+import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Tldraw, createTLStore, defaultShapes } from "@tldraw/tldraw";
 import { TLUiOverrides } from "@tldraw/tldraw";
 import { SerializedStore } from "@tldraw/store";
 import { TLRecord } from "@tldraw/tldraw";
-
-import { TldrawPluginSettings } from "../obsidian/SettingsTab";
+import { TldrawPluginSettings } from "../obsidian/TldrawSettingsTab";
 import { useDebouncedCallback } from "use-debounce";
 import { isObsidianThemeDark, safeSecondsToMs } from "src/utils/utils";
 
@@ -79,9 +78,9 @@ const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
 			id="tldraw-view-root"
 			// e.stopPropagation(); this line should solve the mobile swipe menus bug
 			// The bug only happens on the mobile version of Obsidian.
-			// When a user tries to interact with the tldraw canvas, Obsidian thinks they're swiping down, left, or right
-			// so it opens various menus. By preventing the event from propagating, we can prevent those actions menus
-			// from opening.
+			// When a user tries to interact with the tldraw canvas,
+			// Obsidian thinks they're swiping down, left, or right so it opens various menus.
+			// By preventing the event from propagating, we can prevent those actions menus from opening.
 			onTouchStart={(e) => e.stopPropagation()}
 		>
 			<Tldraw
@@ -130,13 +129,11 @@ export const createRootAndRenderTldrawApp = (
 	const root = createRoot(node);
 
 	root.render(
-		<React.StrictMode>
-			<TldrawApp
-				setFileData={setFileData}
-				initialData={initialData}
-				settings={settings}
-			/>
-		</React.StrictMode>
+		<TldrawApp
+			setFileData={setFileData}
+			initialData={initialData}
+			settings={settings}
+		/>
 	);
 
 	return root;
