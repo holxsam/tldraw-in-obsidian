@@ -1,6 +1,11 @@
 import { clamp, msToSeconds } from "src/utils/utils";
 import TldrawPlugin from "../main";
-import { App, PluginSettingTab, Setting } from "obsidian";
+import {
+	App,
+	MomentFormatComponent,
+	PluginSettingTab,
+	Setting,
+} from "obsidian";
 import {
 	DEFAULT_SAVE_DELAY,
 	MAX_SAVE_DELAY,
@@ -114,29 +119,44 @@ export class TldrawSettingsTab extends PluginSettingTab {
 			cls: "ptl-default-code",
 		});
 
-		const timeFormatSetting = new Setting(containerEl)
+		let dateFormatSampleEl!: MomentFormatComponent;
+		const dateFormat = new Setting(containerEl)
 			.setName("New file time format")
 			.setDesc(
-				"When creating a new tldraw file, this represents the time format that will get appended to the file name. Can be left empty, however if both the Prefix and Time Format are empty, it will use the defaults to name the file. The meanings of each token can be found on "
+				"When creating a new tldraw file, this represents the time format that will get appended to the file name. It can be left empty, however if both the Prefix and Time Format are empty, it will use the defaults to name the file. "
 			)
-			.addText((text) =>
-				text
-					.setPlaceholder("Time Format")
+			.addMomentFormat((format: MomentFormatComponent) => {
+				dateFormatSampleEl = format
+					.setDefaultFormat(DEFAULT_SETTINGS.newFileTimeFormat)
+					.setPlaceholder(DEFAULT_SETTINGS.newFileTimeFormat)
 					.setValue(this.plugin.settings.newFileTimeFormat)
 					.onChange(async (value) => {
 						this.plugin.settings.newFileTimeFormat = value;
 						await this.plugin.saveSettings();
-					})
-			);
+					});
+			});
 
-		timeFormatSetting.descEl.createEl("a", {
-			href: "https://momentjs.com/docs/#/displaying/format/",
-			text: "moment.js.",
-		});
+		const referenceLink = dateFormat.descEl.createEl("a");
+		referenceLink.setText("Date Format Reference");
+		referenceLink.setAttr(
+			"href",
+			"https://momentjs.com/docs/#/displaying/format/"
+		);
 
-		timeFormatSetting.descEl.createEl("code", {
-			cls: "ptl-default-code",
-			text: `DEFAULT: [${DEFAULT_SETTINGS.newFileTimeFormat}]`,
+		const text = dateFormat.descEl.createDiv("text");
+		text.setText("Preview: ");
+		const sampleEl = text.createSpan("sample");
+		dateFormatSampleEl.setSampleEl(sampleEl);
+		dateFormat.addExtraButton((button) => {
+			button
+				.setIcon("reset")
+				.setTooltip("reset")
+				.onClick(async () => {
+					this.plugin.settings.newFileTimeFormat =
+						DEFAULT_SETTINGS.newFileTimeFormat;
+					await this.plugin.saveSettings();
+					this.display();
+				});
 		});
 
 		this.containerEl.createEl("h1", { text: "Start up" });

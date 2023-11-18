@@ -20,7 +20,7 @@ const StatusBarViewMode = () => {
 			<div className="ptl-statusbar-viewmode-btn-box">
 				<button
 					type="button"
-					title="View as Tldraw"
+					title="View as tldraw"
 					className={`ptl-viewmode-btn ${a}`}
 					onClick={setTldrawView}
 				>
@@ -28,7 +28,7 @@ const StatusBarViewMode = () => {
 				</button>
 				<button
 					type="button"
-					title="View as Markdown"
+					title="View as markdown"
 					className={`ptl-viewmode-btn ${b}`}
 					onClick={setMarkdownView}
 				>

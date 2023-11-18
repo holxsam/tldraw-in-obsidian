@@ -58,10 +58,6 @@ export default class TldrawPlugin extends Plugin {
 	// misc:
 	settings: TldrawPluginSettings;
 
-	constructor(app: App, manifest: PluginManifest) {
-		super(app, manifest);
-	}
-
 	async onload() {
 		this.registerView(
 			VIEW_TYPE_TLDRAW,
@@ -238,7 +234,7 @@ export default class TldrawPlugin extends Plugin {
 	private registerCommands() {
 		this.addCommand({
 			id: "toggle-view-mode",
-			name: "Toggle View Mode",
+			name: "Toggle view mode",
 			checkCallback: (checking) => {
 				const file = this.app.workspace.getActiveFile();
 				if (!file) return false;
@@ -258,7 +254,7 @@ export default class TldrawPlugin extends Plugin {
 
 		this.addCommand({
 			id: "new-tldraw-file-current-tab",
-			name: "Create New Tldrawing in CURRENT TAB",
+			name: "Create a new drawing in the current tab",
 			callback: async () => {
 				await this.createAndOpenUntitledTldrFile("current-tab");
 			},
@@ -266,7 +262,7 @@ export default class TldrawPlugin extends Plugin {
 
 		this.addCommand({
 			id: "new-tldraw-file-new-tab",
-			name: "Create New Tldrawing in NEW TAB",
+			name: "Create a new drawing in a new tab",
 			callback: async () => {
 				await this.createAndOpenUntitledTldrFile("new-tab");
 			},
@@ -274,7 +270,7 @@ export default class TldrawPlugin extends Plugin {
 
 		this.addCommand({
 			id: "new-tldraw-file-split-tab ",
-			name: "Create New Tldrawing in SPLIT TAB",
+			name: "Create a new drawing in split tab",
 			callback: async () => {
 				await this.createAndOpenUntitledTldrFile("split-tab");
 			},
@@ -282,7 +278,7 @@ export default class TldrawPlugin extends Plugin {
 
 		this.addCommand({
 			id: "new-tldraw-file-new-window",
-			name: "Create New Tldrawing in NEW WINDOW",
+			name: "Create a new drawing in a new window",
 			callback: async () => {
 				await this.createAndOpenUntitledTldrFile("new-window");
 			},
