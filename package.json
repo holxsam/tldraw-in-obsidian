@@ -19,7 +19,6 @@
 		"notes"
 	],
 	"author": "Sam Alhaqab",
-	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
 		"@types/react": "^18.2.15",
