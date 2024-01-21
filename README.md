@@ -16,7 +16,14 @@ The main goals of this plugin and repo is to keep up to date with the Tldraw's l
 
 ## Installation
 
-### Easy Way
+### Community Plugins (Recommended)
+
+Tldraw in Obsidian is now available on the official community plugins list! 
+
+- Here's a link that will take you to the plugin page: `obsidian://show-plugin?id=tldraw` (paste in your browser's address bar).
+- You can also find it by going into `Settings` > `Community plugins` > `Browse` > `Type 'tldraw'` > `Install`.
+
+### Using BRAT
 
 - Download `Obsidian42 - BRAT` from the community plugins.
 - Go into the settings for `Obsidian42 - Brat` and select `Add Beta Plugin`
@@ -24,7 +31,7 @@ The main goals of this plugin and repo is to keep up to date with the Tldraw's l
 - Go back `Community plugins` and make sure to enable `Tldraw`
 - This is also the only way to get Tldraw in Obsidian on the mobile app as far as I know.
 
-### Hard Way
+### Manual
 
 -   Head over to [releases](https://github.com/holxsam/tldraw-in-obsidian/releases) and download a release (latest is recommended).
 -   Navigate to your plugin folder in your prefered vault: `VaultFolder/.obsidian/plugins/`
