@@ -8,8 +8,7 @@ import {
 } from "obsidian";
 import {
 	FILE_EXTENSION,
-	VIEW_TYPE_MARKDOWN,
-	VIEW_TYPE_TLDRAW,
+	VIEW_TYPES,
 	ViewType,
 } from "./constants";
 
@@ -99,5 +98,5 @@ export const msToSeconds = (ms: number) => ms / 1000;
 export const safeSecondsToMs = (s: number) => Math.round(s * 1000);
 
 export const isValidViewType = (str: string): str is ViewType => {
-	return str === VIEW_TYPE_MARKDOWN || str === VIEW_TYPE_TLDRAW;
+	return (VIEW_TYPES as readonly string[]).includes(str);
 };

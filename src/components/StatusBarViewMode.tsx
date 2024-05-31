@@ -1,6 +1,6 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
-import { VIEW_TYPE_MARKDOWN, VIEW_TYPE_TLDRAW } from "../utils/constants";
+import { VIEW_TYPE_MARKDOWN, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_READ_ONLY } from "../utils/constants";
 import { useStatusBarState } from "../utils/stores";
 
 const StatusBarViewMode = () => {
@@ -11,9 +11,11 @@ const StatusBarViewMode = () => {
 
 	const a = viewMode === VIEW_TYPE_TLDRAW ? "ptl-viewmode-active" : "";
 	const b = viewMode === VIEW_TYPE_MARKDOWN ? "ptl-viewmode-active" : "";
+	const c = viewMode === VIEW_TYPE_TLDRAW_READ_ONLY ? "ptl-viewmode-active" : "";
 
 	const setTldrawView = () => setViewMode(VIEW_TYPE_TLDRAW, "react");
 	const setMarkdownView = () => setViewMode(VIEW_TYPE_MARKDOWN, "react");
+	const setTldrawReadOnly = () => setViewMode(VIEW_TYPE_TLDRAW_READ_ONLY, "react");
 
 	return (
 		<div className="ptl-statusbar-viewmode-box">
@@ -33,6 +35,14 @@ const StatusBarViewMode = () => {
 					onClick={setMarkdownView}
 				>
 					MD
+				</button>
+				<button
+					type="button"
+					title="View as read only"
+					className={`ptl-viewmode-btn ${c}`}
+					onClick={setTldrawReadOnly}
+				>
+					RO
 				</button>
 			</div>
 		</div>
