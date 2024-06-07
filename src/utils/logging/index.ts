@@ -10,3 +10,5 @@ export function logClass<
 export function logFn<T extends CallableFunction>(target: T, ...args: ConsoleLogParams) {
     console.log(`${target.name}:`, args[0], ...args.slice(1));
 }
+
+export const LOGGING_ENABLED = false;

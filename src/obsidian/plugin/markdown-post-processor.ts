@@ -2,7 +2,7 @@ import { MarkdownPostProcessorContext, TFile } from "obsidian";
 import { createRootAndRenderTldrawApp } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import { CustomMutationObserver } from "src/utils/debug-mutation-observer";
-import { ConsoleLogParams, logFn } from "src/utils/logging";
+import { ConsoleLogParams, LOGGING_ENABLED, logFn } from "src/utils/logging";
 import { parseTLData } from "src/utils/parse";
 
 /**
@@ -13,7 +13,7 @@ import { parseTLData } from "src/utils/parse";
  * @returns 
  */
 export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLElement, context: MarkdownPostProcessorContext) {
-    const log = (...args: ConsoleLogParams) => logFn(markdownPostProcessor, args[0], ...args.slice(1));
+    const log = (...args: ConsoleLogParams) => !LOGGING_ENABLED ? () => { } : logFn(markdownPostProcessor, args[0], ...args.slice(1));
     log();
 
     // https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/94fbac38bfc5036187a81c7883c03830a622bc1d/src/MarkdownPostProcessor.ts#L739
