@@ -7,8 +7,6 @@ import {
 	addIcon,
 	normalizePath,
 	moment,
-	App,
-	PluginManifest,
 } from "obsidian";
 import { TldrawView } from "./obsidian/TldrawView";
 import {
@@ -46,7 +44,10 @@ import {
 } from "./utils/document";
 import { around } from "monkey-around";
 import { TldrawReadonly } from "./obsidian/TldrawReadonly";
+import { pluginBuild } from "./utils/decorators/plugin";
+import { markdownPostProcessor } from "./obsidian/plugin/markdown-post-processor";
 
+@pluginBuild
 export default class TldrawPlugin extends Plugin {
 	// status bar stuff:
 	statusBarRoot: HTMLElement;
@@ -111,6 +112,9 @@ export default class TldrawPlugin extends Plugin {
 
 		// switches to the tldraw view mode on initial launch
 		this.switchToTldrawViewAfterLoad();
+
+		// Change how tldraw files are displayed when reading the document, e.g. when it is embed in another Obsidian document.
+		this.registerMarkdownPostProcessor((e, c) => markdownPostProcessor(this, e, c))
 	}
 
 	onunload() {

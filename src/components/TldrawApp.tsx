@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Tldraw, createTLSchema, createTLStore, defaultShapeSchemas, defaultShapeUtils } from "@tldraw/tldraw";
+import { Tldraw, createTLStore, defaultShapeUtils } from "@tldraw/tldraw";
 import { TLUiOverrides } from "@tldraw/tldraw";
 import { SerializedStore } from "@tldraw/store";
 import { TLRecord } from "@tldraw/tldraw";
