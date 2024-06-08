@@ -5,6 +5,8 @@ import TldrawPlugin from "src/main";
 import { TLDRAW_ICON_NAME, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_READ_ONLY } from "src/utils/constants";
 import { parseTLData } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
+import { TLData } from "src/utils/document";
+import { logFn } from "src/utils/logging";
 
 export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     plugin: TldrawPlugin;
@@ -33,17 +35,17 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     }
 
     async onLoadFile(file: TFile): Promise<void> {
-        const entryPoint = this.containerEl.children[1];
         const fileData = await this.app.vault.read(file);
         const parsedData = parseTLData(this.plugin.manifest.version, fileData);
+        await this.setTlData(parsedData);
+    }
 
-        if (this.reactRoot) this.reactRoot.unmount();
-
-        this.reactRoot = createRootAndRenderTldrawApp(
+    protected createReactRoot(entryPoint: Element, tldata: TLData): Root {
+        return createRootAndRenderTldrawApp(
             entryPoint,
-            parsedData.raw,
-            (_) => {
-                console.log('Ignore saving file due to read only mode.');
+            tldata.raw,
+            function readonlyIgnoreSave(_) {
+                logFn(readonlyIgnoreSave, 'Ignore saving file due to read only mode.');
             },
             this.plugin.settings,
             {

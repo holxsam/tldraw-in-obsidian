@@ -41,14 +41,14 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 		// However, setViewData() gets called by obsidian right after onload() with its data parameter having the file's data (yay)
 		// so we can somewhat safely do initialization stuff in this function.
 		// Its worth nothing that at this point this.data is also available but it does not hurt to use what is given
-		const entryPoint = this.containerEl.children[1];
-		const initialData = this.getTldrawData(data).raw;
+		const initialData = this.getTldrawData(data);
+		this.setTlData(initialData);
+	}
 
-		if (this.reactRoot) this.reactRoot.unmount();
-
-		this.reactRoot = createRootAndRenderTldrawApp(
+	protected createReactRoot(entryPoint: HTMLElement, tldata: TLData): Root {
+		return createRootAndRenderTldrawApp(
 			entryPoint,
-			initialData,
+			tldata.raw,
 			this.setFileData,
 			this.plugin.settings
 		);
