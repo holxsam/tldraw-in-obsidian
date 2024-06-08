@@ -48,9 +48,10 @@ export type TldrawAppProps = {
 	initialData: SerializedStore<TLRecord>;
 	setFileData: (data: SerializedStore<TLRecord>) => void;
 	isReadonly?: boolean,
+	autoFocus?: boolean
 };
 
-const TldrawApp = ({ settings, initialData, setFileData, isReadonly }: TldrawAppProps) => {
+const TldrawApp = ({ settings, initialData, setFileData, isReadonly, autoFocus }: TldrawAppProps) => {
 	const saveDelayInMs = safeSecondsToMs(settings.saveFileDelay);
 
 	const [store] = useState(() => createTLStore({
@@ -86,6 +87,8 @@ const TldrawApp = ({ settings, initialData, setFileData, isReadonly }: TldrawApp
 			<Tldraw
 				overrides={uiOverrides}
 				store={store}
+				// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
+				autoFocus={autoFocus ?? true}
 				onMount={(editor) => {
 					const {
 						themeMode,
@@ -128,7 +131,8 @@ export const createRootAndRenderTldrawApp = (
 	setFileData: (data: SerializedStore<TLRecord>) => void,
 	settings: TldrawPluginSettings,
 	options?: {
-		isReadonly?: true
+		isReadonly?: boolean,
+		autoFocus?: boolean
 	}
 ) => {
 	const root = createRoot(node);
@@ -139,6 +143,7 @@ export const createRootAndRenderTldrawApp = (
 			initialData={initialData}
 			settings={settings}
 			isReadonly={options?.isReadonly}
+			autoFocus={options?.autoFocus}
 		/>
 	);
 

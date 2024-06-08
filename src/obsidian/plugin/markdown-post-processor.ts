@@ -151,7 +151,8 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             },
             plugin.settings,
             {
-                isReadonly: true
+                isReadonly: true,
+                autoFocus: false
             }
         );
 
