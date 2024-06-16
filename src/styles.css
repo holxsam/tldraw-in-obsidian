@@ -45,7 +45,8 @@
 	padding: inherit;
 }
 
-div[data-type="tldraw-view"] .view-content.tldraw-view-content {
+div[data-type="tldraw-view"] .view-content.tldraw-view-content,
+div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 	/* gets rid of the padding so the canvas can bleed against the edges */
 	padding: 0;
 	/* creates a space at the bottom so that the status bar isn't covering the canvas */

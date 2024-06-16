@@ -7,8 +7,6 @@ import {
 	addIcon,
 	normalizePath,
 	moment,
-	App,
-	PluginManifest,
 } from "obsidian";
 import { TldrawView } from "./obsidian/TldrawView";
 import {
@@ -32,6 +30,7 @@ import {
 	TLDRAW_ICON_NAME,
 	VIEW_TYPE_MARKDOWN,
 	VIEW_TYPE_TLDRAW,
+	VIEW_TYPE_TLDRAW_READ_ONLY,
 	ViewType,
 } from "./utils/constants";
 import { createReactStatusBarViewMode } from "./components/StatusBarViewMode";
@@ -44,7 +43,11 @@ import {
 	tlFileTemplate,
 } from "./utils/document";
 import { around } from "monkey-around";
+import { TldrawReadonly } from "./obsidian/TldrawReadonly";
+import { pluginBuild } from "./utils/decorators/plugin";
+import { markdownPostProcessor } from "./obsidian/plugin/markdown-post-processor";
 
+@pluginBuild
 export default class TldrawPlugin extends Plugin {
 	// status bar stuff:
 	statusBarRoot: HTMLElement;
@@ -62,6 +65,11 @@ export default class TldrawPlugin extends Plugin {
 		this.registerView(
 			VIEW_TYPE_TLDRAW,
 			(leaf) => new TldrawView(leaf, this)
+		);
+
+		this.registerView(
+			VIEW_TYPE_TLDRAW_READ_ONLY,
+			(leaf) => new TldrawReadonly(leaf, this)
 		);
 
 		// settings:
@@ -104,6 +112,9 @@ export default class TldrawPlugin extends Plugin {
 
 		// switches to the tldraw view mode on initial launch
 		this.switchToTldrawViewAfterLoad();
+
+		// Change how tldraw files are displayed when reading the document, e.g. when it is embed in another Obsidian document.
+		this.registerMarkdownPostProcessor((e, c) => markdownPostProcessor(this, e, c))
 	}
 
 	onunload() {
@@ -309,6 +320,13 @@ export default class TldrawPlugin extends Plugin {
 		} as ViewState);
 	};
 
+	public setTldrawViewPreview = async (leaf: WorkspaceLeaf) => {
+		await leaf.setViewState({
+			type: VIEW_TYPE_TLDRAW_READ_ONLY,
+			state: { ...leaf.view.getState(), manuallyTriggered: true },
+		} as ViewState);
+	};
+
 	/**
 	 * the leafFileViewMode ID is a combination of the leaf (or tab) id and the file in that tab's path. This is how we can look up what view mode each leaf-file combo has been set.
 	 * @param leaf
@@ -350,8 +368,16 @@ export default class TldrawPlugin extends Plugin {
 		if (type === view) return;
 
 		// these functions will actually change the view mode:
-		if (view === VIEW_TYPE_TLDRAW) await this.setTldrawView(leaf);
-		else await this.setMarkdownView(leaf);
+		switch(view) {
+			case VIEW_TYPE_TLDRAW:
+				await this.setTldrawView(leaf)
+			break;
+			case VIEW_TYPE_TLDRAW_READ_ONLY:
+				await this.setTldrawViewPreview(leaf)
+			break;
+			default: 
+				await this.setMarkdownView(leaf);
+		}
 	}
 
 	public async createFile(

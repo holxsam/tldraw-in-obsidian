@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Tldraw, createTLStore, defaultShapes } from "@tldraw/tldraw";
+import { Tldraw, createTLStore, defaultShapeUtils } from "@tldraw/tldraw";
 import { TLUiOverrides } from "@tldraw/tldraw";
 import { SerializedStore } from "@tldraw/store";
 import { TLRecord } from "@tldraw/tldraw";
@@ -23,40 +23,41 @@ export const uiOverrides: TLUiOverrides = {
 		// console.log(schema);
 		return schema;
 	},
-	toolbar(editor, toolbar, { tools }) {
-		// console.log(toolbar);
-		// toolbar.splice(4, 0, toolbarItem(tools.card))
-		return toolbar;
-	},
-	keyboardShortcutsMenu(editor, keyboardShortcutsMenu, { tools }) {
-		// console.log(keyboardShortcutsMenu);
-		// const toolsGroup = keyboardShortcutsMenu.find(
-		// 	(group) => group.id === 'shortcuts-dialog.tools'
-		// ) as TLUiMenuGroup
-		// toolsGroup.children.push(menuItem(tools.card))
-		return keyboardShortcutsMenu;
-	},
-	contextMenu(editor, schema, helpers) {
-		// console.log({ schema });
-		// console.log(JSON.stringify(schema[0]));
-		return schema;
-	},
+	// toolbar(editor, toolbar, { tools }) {
+	// 	// console.log(toolbar);
+	// 	// toolbar.splice(4, 0, toolbarItem(tools.card))
+	// 	return toolbar;
+	// },
+	// keyboardShortcutsMenu(editor, keyboardShortcutsMenu, { tools }) {
+	// 	// console.log(keyboardShortcutsMenu);
+	// 	// const toolsGroup = keyboardShortcutsMenu.find(
+	// 	// 	(group) => group.id === 'shortcuts-dialog.tools'
+	// 	// ) as TLUiMenuGroup
+	// 	// toolsGroup.children.push(menuItem(tools.card))
+	// 	return keyboardShortcutsMenu;
+	// },
+	// contextMenu(editor, schema, helpers) {
+	// 	// console.log({ schema });
+	// 	// console.log(JSON.stringify(schema[0]));
+	// 	return schema;
+	// },
 };
 
 export type TldrawAppProps = {
 	settings: TldrawPluginSettings;
 	initialData: SerializedStore<TLRecord>;
 	setFileData: (data: SerializedStore<TLRecord>) => void;
+	isReadonly?: boolean,
+	autoFocus?: boolean
 };
 
-const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
+const TldrawApp = ({ settings, initialData, setFileData, isReadonly, autoFocus }: TldrawAppProps) => {
 	const saveDelayInMs = safeSecondsToMs(settings.saveFileDelay);
 
-	const [store] = useState(() =>
-		createTLStore({
-			shapes: defaultShapes,
-			initialData,
-		})
+	const [store] = useState(() => createTLStore({
+		shapeUtils: defaultShapeUtils,
+		initialData,
+	})
 	);
 
 	const debouncedSaveDataToFile = useDebouncedCallback((e: any) => {
@@ -86,6 +87,8 @@ const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
 			<Tldraw
 				overrides={uiOverrides}
 				store={store}
+				// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
+				autoFocus={autoFocus ?? true}
 				onMount={(editor) => {
 					const {
 						themeMode,
@@ -96,8 +99,9 @@ const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
 						toolSelected,
 					} = settings;
 
-					editor.focus();
-					editor.setSelectedTool(toolSelected);
+					// NOTE: The API broke when updating Tldraw version and I don't know what to replace it with.
+					// editor.focus();
+					editor.setCurrentTool(toolSelected)
 
 					let darkMode = true;
 					if (themeMode === "dark") darkMode = true;
@@ -110,6 +114,7 @@ const TldrawApp = ({ settings, initialData, setFileData }: TldrawAppProps) => {
 					});
 
 					editor.updateInstanceState({
+						isReadonly: isReadonly ?? false,
 						isGridMode: gridMode,
 						isDebugMode: debugMode,
 						isFocusMode: focusMode,
@@ -124,7 +129,11 @@ export const createRootAndRenderTldrawApp = (
 	node: Element,
 	initialData: SerializedStore<TLRecord>,
 	setFileData: (data: SerializedStore<TLRecord>) => void,
-	settings: TldrawPluginSettings
+	settings: TldrawPluginSettings,
+	options?: {
+		isReadonly?: boolean,
+		autoFocus?: boolean
+	}
 ) => {
 	const root = createRoot(node);
 
@@ -133,6 +142,8 @@ export const createRootAndRenderTldrawApp = (
 			setFileData={setFileData}
 			initialData={initialData}
 			settings={settings}
+			isReadonly={options?.isReadonly}
+			autoFocus={options?.autoFocus}
 		/>
 	);
 

@@ -1,43 +1,27 @@
 import { TextFileView, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
 import {
-	MARKDOWN_ICON_NAME,
 	TLDATA_DELIMITER_END,
 	TLDATA_DELIMITER_START,
-	VIEW_TYPE_MARKDOWN,
 	VIEW_TYPE_TLDRAW,
 } from "../utils/constants";
 import { createRootAndRenderTldrawApp } from "../components/TldrawApp";
 import TldrawPlugin from "../main";
-import {
-	extractDataBetweenKeywords,
-	replaceBetweenKeywords,
-} from "src/utils/utils";
+import { replaceBetweenKeywords } from "src/utils/utils";
 import { SerializedStore } from "@tldraw/store";
 import { TLRecord } from "@tldraw/tldraw";
 import { TLData, getTLDataTemplate } from "src/utils/document";
+import { parseTLData } from "src/utils/parse";
+import { TldrawLoadableMixin } from "./TldrawMixins";
 
-export class TldrawView extends TextFileView {
+export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 	plugin: TldrawPlugin;
-	reactRoot: Root;
+	reactRoot?: Root;
 
 	constructor(leaf: WorkspaceLeaf, plugin: TldrawPlugin) {
 		super(leaf);
 		this.plugin = plugin;
 		this.navigation = true;
-	}
-
-	onload() {
-		this.contentEl.addClass("tldraw-view-content");
-
-		this.addAction(MARKDOWN_ICON_NAME, "View as markdown", () => {
-			this.plugin.updateViewMode(VIEW_TYPE_MARKDOWN);
-		});
-	}
-
-	onunload(): void {
-		this.contentEl.removeClass("tldraw-view-content");
-		this.reactRoot?.unmount();
 	}
 
 	getViewType() {
@@ -57,35 +41,25 @@ export class TldrawView extends TextFileView {
 		// However, setViewData() gets called by obsidian right after onload() with its data parameter having the file's data (yay)
 		// so we can somewhat safely do initialization stuff in this function.
 		// Its worth nothing that at this point this.data is also available but it does not hurt to use what is given
-		const entryPoint = this.containerEl.children[1];
-		const initialData = this.getTldrawData(data).raw;
+		const initialData = this.getTldrawData(data);
+		this.setTlData(initialData);
+	}
 
-		if (this.reactRoot) this.reactRoot.unmount();
-
-		this.reactRoot = createRootAndRenderTldrawApp(
+	protected createReactRoot(entryPoint: HTMLElement, tldata: TLData): Root {
+		return createRootAndRenderTldrawApp(
 			entryPoint,
-			initialData,
+			tldata.raw,
 			this.setFileData,
 			this.plugin.settings
 		);
 	}
 
-	clear(): void {}
+	clear(): void { }
 
 	getTldrawData = (rawFileData?: string): TLData => {
 		rawFileData ??= this.data;
 
-		const extracted = extractDataBetweenKeywords(
-			rawFileData,
-			TLDATA_DELIMITER_START,
-			TLDATA_DELIMITER_END
-		);
-
-		const parsedData: TLData = extracted
-			? JSON.parse(extracted)
-			: getTLDataTemplate(this.plugin.manifest.version, {});
-
-		return parsedData;
+		return parseTLData(this.plugin.manifest.version, rawFileData);
 	};
 
 	setFileData = async (data: SerializedStore<TLRecord>) => {
