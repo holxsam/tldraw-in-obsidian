@@ -26,7 +26,6 @@ export function getSaveFileCopyAction(
 		id: SAVE_FILE_COPY_ACTION,
 		label: "action.save-copy",
 		readonlyOk: true,
-		kbd: "$s",
 		async onSelect() {
 			const defaultName = `${defaultDocumentName}${TLDRAW_FILE_EXTENSION}`;
 
