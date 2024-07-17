@@ -1,12 +1,23 @@
 import * as React from "react";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Tldraw, createTLStore, defaultShapeUtils } from "@tldraw/tldraw";
+import {
+	DefaultMainMenu,
+	DefaultMainMenuContent,
+	TLComponents,
+	Tldraw,
+	TldrawUiMenuItem,
+	TldrawUiMenuSubmenu,
+	createTLStore,
+	defaultShapeUtils,
+	useActions,
+} from "@tldraw/tldraw";
 import { TLUiOverrides } from "@tldraw/tldraw";
 import { SerializedStore } from "@tldraw/store";
 import { TLRecord } from "@tldraw/tldraw";
 import { TldrawPluginSettings } from "../obsidian/TldrawSettingsTab";
 import { useDebouncedCallback } from "use-debounce";
+import { getSaveFileCopyAction, SAVE_FILE_COPY_ACTION } from "src/utils/file";
 import { isObsidianThemeDark, safeSecondsToMs } from "src/utils/utils";
 
 export const uiOverrides: TLUiOverrides = {
@@ -19,9 +30,13 @@ export const uiOverrides: TLUiOverrides = {
 		// };
 		return tools;
 	},
-	actions(editor, schema, helpers) {
-		// console.log(schema);
-		return schema;
+	actions(editor, actions, { msg }) {
+		actions[SAVE_FILE_COPY_ACTION] = getSaveFileCopyAction(
+			editor,
+			msg("document.default-name")
+		);
+
+		return actions;
 	},
 	// toolbar(editor, toolbar, { tools }) {
 	// 	// console.log(toolbar);
@@ -50,6 +65,26 @@ export type TldrawAppProps = {
 	isReadonly?: boolean,
 	autoFocus?: boolean
 };
+
+// https://github.com/tldraw/tldraw/blob/58890dcfce698802f745253ca42584731d126cc3/apps/examples/src/examples/custom-main-menu/CustomMainMenuExample.tsx
+const components: TLComponents = {
+	MainMenu: () => (
+		<DefaultMainMenu>
+			<LocalFileMenu />
+			<DefaultMainMenuContent />
+		</DefaultMainMenu>
+	),
+};
+
+function LocalFileMenu() {
+	const actions = useActions();
+
+	return (
+		<TldrawUiMenuSubmenu id="file" label="menu.file">
+			<TldrawUiMenuItem {...actions[SAVE_FILE_COPY_ACTION]} />
+		</TldrawUiMenuSubmenu>
+	);
+}
 
 const TldrawApp = ({ settings, initialData, setFileData, isReadonly, autoFocus }: TldrawAppProps) => {
 	const saveDelayInMs = safeSecondsToMs(settings.saveFileDelay);
@@ -87,6 +122,7 @@ const TldrawApp = ({ settings, initialData, setFileData, isReadonly, autoFocus }
 			<Tldraw
 				overrides={uiOverrides}
 				store={store}
+				components={components}
 				// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
 				autoFocus={autoFocus ?? true}
 				onMount={(editor) => {
