@@ -152,7 +152,8 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             plugin.settings,
             {
                 isReadonly: true,
-                autoFocus: false
+                autoFocus: false,
+                zoomToBounds: true,
             }
         );
 

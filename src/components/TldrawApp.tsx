@@ -58,12 +58,20 @@ export const uiOverrides: TLUiOverrides = {
 	// },
 };
 
+type TldrawAppOptions = {
+	isReadonly?: boolean,
+	autoFocus?: boolean,
+	/**
+	 * Whether or not to initially zoom to the bounds of the document when the component is mounted.
+	 */
+	zoomToBounds?: boolean,
+};
+
 export type TldrawAppProps = {
 	settings: TldrawPluginSettings;
 	initialData: SerializedStore<TLRecord>;
 	setFileData: (data: SerializedStore<TLRecord>) => void;
-	isReadonly?: boolean,
-	autoFocus?: boolean
+	options: TldrawAppOptions
 };
 
 // https://github.com/tldraw/tldraw/blob/58890dcfce698802f745253ca42584731d126cc3/apps/examples/src/examples/custom-main-menu/CustomMainMenuExample.tsx
@@ -86,7 +94,11 @@ function LocalFileMenu() {
 	);
 }
 
-const TldrawApp = ({ settings, initialData, setFileData, isReadonly, autoFocus }: TldrawAppProps) => {
+const TldrawApp = ({ settings, initialData, setFileData, options: {
+	autoFocus = true,
+	isReadonly = false,
+	zoomToBounds = false
+} }: TldrawAppProps) => {
 	const saveDelayInMs = safeSecondsToMs(settings.saveFileDelay);
 
 	const [store] = useState(() => createTLStore({
@@ -124,7 +136,7 @@ const TldrawApp = ({ settings, initialData, setFileData, isReadonly, autoFocus }
 				store={store}
 				components={components}
 				// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
-				autoFocus={autoFocus ?? true}
+				autoFocus={autoFocus}
 				onMount={(editor) => {
 					const {
 						themeMode,
@@ -150,11 +162,15 @@ const TldrawApp = ({ settings, initialData, setFileData, isReadonly, autoFocus }
 					});
 
 					editor.updateInstanceState({
-						isReadonly: isReadonly ?? false,
+						isReadonly: isReadonly,
 						isGridMode: gridMode,
 						isDebugMode: debugMode,
 						isFocusMode: focusMode,
 					});
+
+					if (zoomToBounds) {
+						editor.zoomToBounds(editor.getCurrentPageBounds()!, { duration: 0 });
+					}
 				}}
 			/>
 		</div>
@@ -166,10 +182,7 @@ export const createRootAndRenderTldrawApp = (
 	initialData: SerializedStore<TLRecord>,
 	setFileData: (data: SerializedStore<TLRecord>) => void,
 	settings: TldrawPluginSettings,
-	options?: {
-		isReadonly?: boolean,
-		autoFocus?: boolean
-	}
+	options: TldrawAppOptions = {}
 ) => {
 	const root = createRoot(node);
 
@@ -178,8 +191,7 @@ export const createRootAndRenderTldrawApp = (
 			setFileData={setFileData}
 			initialData={initialData}
 			settings={settings}
-			isReadonly={options?.isReadonly}
-			autoFocus={options?.autoFocus}
+			options={options}
 		/>
 	);
 
