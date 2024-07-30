@@ -63,7 +63,6 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
             if (!(dir instanceof TFolder)) {
                 return res({ searchPath, results: [], })
             }
-            console.log('exact search', dir);
             return res({
                 searchPath,
                 results: filterSearchPath(dir, searchPath)
@@ -106,7 +105,6 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
 
             this.searchResolver = resolver;
             if (lastResolver) {
-                console.log('resolve last promise')
                 lastResolver(this.searchRes);
             }
             this.searchPath(query, resolver);
@@ -157,7 +155,6 @@ function filterSearchPath(tFolder: TFolder, searchPath: string) {
 
 function debounce<T extends [unknown, ...unknown[]]>(/** callback to debounce */ cb: (...args: T) => void, /** milliseconds */ wait: number) {
     let timeout: undefined | NodeJS.Timeout;
-    console.log('Debouncing with ms = ', wait)
     return function (...args: T) {
         clearTimeout(timeout);
         timeout = setTimeout(() => cb(...args), wait);

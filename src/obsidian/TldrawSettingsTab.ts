@@ -333,14 +333,11 @@ export class TldrawSettingsTab extends PluginSettingTab {
 					})
 			}
 
-			const drawFontSetting = newFontOverrideSetting({
+			newFontOverrideSetting({
 				name: 'Draw (handwriting) font',
 				font: 'draw',
 				appearsAs: 'draw',
 			});
-
-			console.log(drawFontSetting.settingEl)
-
 			newFontOverrideSetting({
 				name: 'Sans-serif font',
 				font: 'sansSerif',
