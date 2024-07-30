@@ -5,7 +5,6 @@ import {
 	TLDATA_DELIMITER_START,
 	VIEW_TYPE_TLDRAW,
 } from "../utils/constants";
-import { createRootAndRenderTldrawApp } from "../components/TldrawApp";
 import TldrawPlugin from "../main";
 import { replaceBetweenKeywords } from "src/utils/utils";
 import { SerializedStore } from "@tldraw/store";
@@ -45,15 +44,6 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 		this.setTlData(initialData);
 	}
 
-	protected createReactRoot(entryPoint: HTMLElement, tldata: TLData): Root {
-		return createRootAndRenderTldrawApp(
-			entryPoint,
-			tldata.raw,
-			this.setFileData,
-			this.plugin.settings
-		);
-	}
-
 	clear(): void { }
 
 	getTldrawData = (rawFileData?: string): TLData => {
@@ -62,7 +52,7 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 		return parseTLData(this.plugin.manifest.version, rawFileData);
 	};
 
-	setFileData = async (data: SerializedStore<TLRecord>) => {
+	override setFileData = async (data: SerializedStore<TLRecord>) => {
 		const tldrawData = getTLDataTemplate(
 			this.plugin.manifest.version,
 			data

@@ -2,15 +2,20 @@ import { clamp, msToSeconds } from "src/utils/utils";
 import TldrawPlugin from "../main";
 import {
 	App,
+	ExtraButtonComponent,
 	MomentFormatComponent,
+	Notice,
 	PluginSettingTab,
 	Setting,
+	TextComponent,
 } from "obsidian";
 import {
 	DEFAULT_SAVE_DELAY,
 	MAX_SAVE_DELAY,
 	MIN_SAVE_DELAY,
 } from "src/utils/constants";
+import { FontSearchModal } from "./settings/FontSearchModal";
+import { updateFontOverrides } from "./plugin/settings";
 
 export type ThemePreference = "match-theme" | "dark" | "light";
 
@@ -25,9 +30,17 @@ export interface TldrawPluginSettings {
 	snapMode: boolean;
 	debugMode: boolean;
 	focusMode: boolean;
+	fonts?: {
+		overrides?: {
+			draw?: string,
+			monospace?: string,
+			sansSerif?: string,
+			serif?: string,
+		}
+	}
 }
 
-export const DEFAULT_SETTINGS: TldrawPluginSettings = {
+export const DEFAULT_SETTINGS = {
 	folder: "tldraw",
 	saveFileDelay: 0.5,
 	newFilePrefix: "Tldraw ",
@@ -38,7 +51,7 @@ export const DEFAULT_SETTINGS: TldrawPluginSettings = {
 	snapMode: false,
 	debugMode: false,
 	focusMode: false,
-};
+} as const satisfies TldrawPluginSettings;
 
 export class TldrawSettingsTab extends PluginSettingTab {
 	plugin: TldrawPlugin;
@@ -251,5 +264,98 @@ export class TldrawSettingsTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+
+		{ // Fonts settings
+			this.containerEl.createEl("h1", { text: "Fonts" });
+
+			this.containerEl.createEl("h2", { text: "Default font overrides" });
+
+			const saveFontSettings = async (updates: {
+				draw?: string | null,
+				sansSerif?: string | null,
+				serif?: string | null,
+				monospace?: string | null
+			}) => {
+				this.plugin.settings.fonts = {
+					overrides: updateFontOverrides(
+						this.plugin.settings.fonts?.overrides, updates
+					)
+				}
+				await this.plugin.saveSettings();
+			}
+
+			const newFontOverrideSetting = (args: {
+				name: string,
+				font: keyof Parameters<typeof saveFontSettings>[0],
+				appearsAs: string,
+			}) => {
+				const currentValue = () => this.plugin.settings.fonts?.overrides?.[args.font];
+				let resetButton: undefined | ExtraButtonComponent;
+				const setFont = async (fontPath: string | null) => {
+					if (fontPath !== null && fontPath.length === 0) {
+						fontPath = null;
+					}
+					await saveFontSettings({ [args.font]: fontPath });
+					if (fontPath) {
+						new Notice(`Updated font override for "${args.font}" to "${fontPath}"`);
+					} else {
+						new Notice(`Reset font "${args.font}" to default.`);
+					}
+					textInput?.setValue(currentValue() ?? '')
+					resetButton?.setDisabled(currentValue() === undefined)
+				}
+				let textInput: undefined | TextComponent;
+				const current = currentValue();
+				return new Setting(containerEl)
+					.setName(args.name)
+					.setDesc(`Appears as "${args.appearsAs}" in the style panel.`)
+					.addText((text) => {
+						textInput = text
+							.setValue(current ?? '')
+							.setPlaceholder('[ DEFAULT ]')
+						textInput.inputEl.readOnly = true;
+					})
+					.addButton((button) => {
+						button.setIcon('file-search').onClick(() => {
+							new FontSearchModal(this.plugin, {
+								setFont,
+								initialValue: currentValue(),
+							}).open()
+						})
+					})
+					.addExtraButton((button) => {
+						resetButton = button.setIcon('rotate-ccw')
+							.setTooltip('Use default')
+							.setDisabled(current === undefined)
+							.onClick(async () => {
+								await setFont(null)
+							})
+					})
+			}
+
+			const drawFontSetting = newFontOverrideSetting({
+				name: 'Draw (handwriting) font',
+				font: 'draw',
+				appearsAs: 'draw',
+			});
+
+			console.log(drawFontSetting.settingEl)
+
+			newFontOverrideSetting({
+				name: 'Sans-serif font',
+				font: 'sansSerif',
+				appearsAs: 'sans',
+			});
+			newFontOverrideSetting({
+				name: 'Serif font',
+				font: 'serif',
+				appearsAs: 'serif',
+			});
+			newFontOverrideSetting({
+				name: 'Monospace font',
+				font: 'monospace',
+				appearsAs: 'mono',
+			});
+		}
 	}
 }

@@ -6,6 +6,7 @@ import {
 	DefaultMainMenuContent,
 	TLComponents,
 	Tldraw,
+	TldrawProps,
 	TldrawUiMenuItem,
 	TldrawUiMenuSubmenu,
 	createTLStore,
@@ -65,6 +66,7 @@ type TldrawAppOptions = {
 	 * Whether or not to initially zoom to the bounds of the document when the component is mounted.
 	 */
 	zoomToBounds?: boolean,
+	defaultFontOverrides?: NonNullable<TldrawProps['assetUrls']>['fonts']
 };
 
 export type TldrawAppProps = {
@@ -97,7 +99,8 @@ function LocalFileMenu() {
 const TldrawApp = ({ settings, initialData, setFileData, options: {
 	autoFocus = true,
 	isReadonly = false,
-	zoomToBounds = false
+	zoomToBounds = false,
+	defaultFontOverrides
 } }: TldrawAppProps) => {
 	const saveDelayInMs = safeSecondsToMs(settings.saveFileDelay);
 
@@ -132,6 +135,9 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 			onTouchStart={(e) => e.stopPropagation()}
 		>
 			<Tldraw
+				assetUrls={{
+					fonts: defaultFontOverrides
+				}}
 				overrides={uiOverrides}
 				store={store}
 				components={components}
