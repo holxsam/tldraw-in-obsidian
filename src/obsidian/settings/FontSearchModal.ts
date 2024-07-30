@@ -57,7 +57,6 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
             ? '/' : searchPathParsed.dir;
         const dir = this.app.vault.getAbstractFileByPath(searchDir);
 
-
         if (searchPath.endsWith('/')) {
             const dir = this.app.vault.getAbstractFileByPath(searchPath.slice(0, searchPath.length - 1));
             if (!(dir instanceof TFolder)) {
@@ -68,26 +67,12 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
                 results: filterSearchPath(dir, searchPath)
             })
         }
-
-        try {
-            const currentDir = dir === null || !(dir instanceof TFolder)
+        res({
+            searchPath,
+            results: !(dir instanceof TFolder)
                 ? []
-                : filterSearchPath(dir, searchPath);
-
-            const first = currentDir.at(0);
-            res({
-                searchPath,
-                results: (currentDir.length !== 1 || !(first instanceof TFolder)
-                    ? currentDir
-                    : (
-                        !first
-                            ? []
-                            : filterSearchPath(first, searchPath)
-                    )),
-            });
-        } finally {
-            this.searchResolver = undefined;
-        }
+                : filterSearchPath(dir, searchPath),
+        });
     }, 100);
 
     async changeInputValue(value: string) {
@@ -99,6 +84,7 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
         const lastResolver = this.searchResolver;
         return new Promise<(TFile | TFolder)[]>((res) => {
             const resolver: typeof this.searchResolver = (r) => {
+                this.searchResolver = undefined;
                 this.searchRes = r;
                 return res(r.results);
             }
