@@ -1,30 +1,65 @@
-import { SerializedStore } from "@tldraw/store";
-import { TLRecord } from "@tldraw/tldraw";
+import { JsonObject, SerializedStore, TldrawFile, TLRecord, TLStore } from "@tldraw/tldraw";
 import {
 	TLDATA_DELIMITER_END,
 	TLDATA_DELIMITER_START,
 	TLDRAW_VERSION,
 } from "./constants";
+import { tldrawFileToJson } from "./tldraw-file/tldraw-file-to-json";
 
 export type TldrawPluginMetaData = {
 	"plugin-version": string;
 	"tldraw-version": string;
+	/**
+	 * Should be different for each drawing in the vault.
+	 */
+	uuid: string;
+};
+
+export type TldrawDocumentOverrides = {
+	isDarkMode: boolean
+};
+
+export type TLDataMaybeSerializedStore<T = unknown> = T & ({
+	raw: SerializedStore<TLRecord>;
+	store?: undefined
+} | {
+	store: TLStore,
+	raw?: undefined
+});
+
+export type TLExistingDataDocument = TLDataMaybeSerializedStore<{
+	meta: TldrawPluginMetaData;
+}>;
+
+export type TLDataDocument = TLDataMaybeSerializedStore<{
+	meta: TldrawPluginMetaData;
+}> | {
+	meta: TldrawPluginMetaData;
+	store?: undefined
+	raw?: undefined
 };
 
 export type TLData = {
 	meta: TldrawPluginMetaData;
-	raw: SerializedStore<TLRecord>;
+	raw: JsonObject;
 };
+
+export const getTLMetaTemplate = (
+	pluginVersion: string,
+	uuid: string,
+) => ({
+	uuid,
+	"plugin-version": pluginVersion,
+	"tldraw-version": TLDRAW_VERSION,
+});
 
 export const getTLDataTemplate = (
 	pluginVersion: string,
-	rawData: SerializedStore<TLRecord>
+	tldrawFile: TldrawFile,
+	uuid: string,
 ): TLData => ({
-	meta: {
-		"plugin-version": pluginVersion,
-		"tldraw-version": TLDRAW_VERSION,
-	},
-	raw: rawData,
+	meta: getTLMetaTemplate(pluginVersion, uuid),
+	raw: tldrawFileToJson(tldrawFile),
 });
 
 export const frontmatterTemplate = (data: string) => {

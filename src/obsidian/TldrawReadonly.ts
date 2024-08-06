@@ -1,12 +1,11 @@
 import { FileView, TFile, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
-import {  TldrawAppProps } from "src/components/TldrawApp";
+import { SetTldrawFileData, TldrawAppProps } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import { TLDRAW_ICON_NAME, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_READ_ONLY } from "src/utils/constants";
-import { parseTLData } from "src/utils/parse";
+import { parseTLDataDocument } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
 import { logClass } from "src/utils/logging";
-import { SerializedStore, TLRecord } from "@tldraw/tldraw";
 
 export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     plugin: TldrawPlugin;
@@ -36,11 +35,11 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
 
     async onLoadFile(file: TFile): Promise<void> {
         const fileData = await this.app.vault.read(file);
-        const parsedData = parseTLData(this.plugin.manifest.version, fileData);
+        const parsedData = parseTLDataDocument(this.plugin.manifest.version, fileData);
         await this.setTlData(parsedData);
     }
 
-    protected setFileData(data: SerializedStore<TLRecord>): void {
+    protected override setFileData: SetTldrawFileData = () => {
         logClass(TldrawReadonly, this.setFileData, 'Ignore saving file due to read only mode.');
     }
 

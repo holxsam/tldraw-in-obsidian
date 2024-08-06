@@ -29,7 +29,7 @@ export function getSaveFileCopyAction(
 		async onSelect() {
 			const defaultName = `${defaultDocumentName}${TLDRAW_FILE_EXTENSION}`;
 
-			const blobToSave = await serializeTldrawJsonBlob(editor.store);
+			const blobToSave = await serializeTldrawJsonBlob(editor);
 
 			try {
 				const file = new File([blobToSave], defaultName, {

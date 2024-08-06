@@ -5,7 +5,9 @@ import {
 	DefaultMainMenu,
 	DefaultMainMenuContent,
 	TLComponents,
+	TLStore,
 	Tldraw,
+	TldrawFile,
 	TldrawProps,
 	TldrawUiMenuItem,
 	TldrawUiMenuSubmenu,
@@ -13,51 +15,13 @@ import {
 	defaultShapeUtils,
 	useActions,
 } from "@tldraw/tldraw";
-import { TLUiOverrides } from "@tldraw/tldraw";
-import { SerializedStore } from "@tldraw/store";
-import { TLRecord } from "@tldraw/tldraw";
 import { TldrawPluginSettings } from "../obsidian/TldrawSettingsTab";
 import { useDebouncedCallback } from "use-debounce";
-import { getSaveFileCopyAction, SAVE_FILE_COPY_ACTION } from "src/utils/file";
+import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION } from "src/utils/file";
 import { isObsidianThemeDark, safeSecondsToMs } from "src/utils/utils";
-
-export const uiOverrides: TLUiOverrides = {
-	tools(editor, tools, helpers) {
-		// console.log(tools);
-		// // this is how you would override the kbd shortcuts
-		// tools.draw = {
-		// 	...tools.draw,
-		// 	kbd: "!q",
-		// };
-		return tools;
-	},
-	actions(editor, actions, { msg }) {
-		actions[SAVE_FILE_COPY_ACTION] = getSaveFileCopyAction(
-			editor,
-			msg("document.default-name")
-		);
-
-		return actions;
-	},
-	// toolbar(editor, toolbar, { tools }) {
-	// 	// console.log(toolbar);
-	// 	// toolbar.splice(4, 0, toolbarItem(tools.card))
-	// 	return toolbar;
-	// },
-	// keyboardShortcutsMenu(editor, keyboardShortcutsMenu, { tools }) {
-	// 	// console.log(keyboardShortcutsMenu);
-	// 	// const toolsGroup = keyboardShortcutsMenu.find(
-	// 	// 	(group) => group.id === 'shortcuts-dialog.tools'
-	// 	// ) as TLUiMenuGroup
-	// 	// toolsGroup.children.push(menuItem(tools.card))
-	// 	return keyboardShortcutsMenu;
-	// },
-	// contextMenu(editor, schema, helpers) {
-	// 	// console.log({ schema });
-	// 	// console.log(JSON.stringify(schema[0]));
-	// 	return schema;
-	// },
-};
+import { uiOverrides } from "src/tldraw/ui-overrides";
+import { TLDataDocument, TldrawPluginMetaData } from "src/utils/document";
+import { createRawTldrawFile } from "src/utils/tldraw-file";
 
 type TldrawAppOptions = {
 	isReadonly?: boolean,
@@ -69,10 +33,15 @@ type TldrawAppOptions = {
 	defaultFontOverrides?: NonNullable<TldrawProps['assetUrls']>['fonts']
 };
 
+export type SetTldrawFileData = (data: {
+	meta: TldrawPluginMetaData
+	tldrawFile: TldrawFile
+}) => void;
+
 export type TldrawAppProps = {
 	settings: TldrawPluginSettings;
-	initialData: SerializedStore<TLRecord>;
-	setFileData: (data: SerializedStore<TLRecord>) => void;
+	initialData: TLDataDocument;
+	setFileData: SetTldrawFileData;
 	options: TldrawAppOptions
 };
 
@@ -92,6 +61,7 @@ function LocalFileMenu() {
 	return (
 		<TldrawUiMenuSubmenu id="file" label="menu.file">
 			<TldrawUiMenuItem {...actions[SAVE_FILE_COPY_ACTION]} />
+			<TldrawUiMenuItem {...actions[OPEN_FILE_ACTION]} />
 		</TldrawUiMenuSubmenu>
 	);
 }
@@ -104,14 +74,34 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 } }: TldrawAppProps) => {
 	const saveDelayInMs = safeSecondsToMs(settings.saveFileDelay);
 
-	const [store] = useState(() => createTLStore({
-		shapeUtils: defaultShapeUtils,
-		initialData,
-	})
-	);
+	const [{ meta, store },
+		/**
+		 * #NOTE: Could be used to reuse the same tldraw instance while changing the document over to a new one.
+		 */
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		setMetaStore
+	] = useState<{
+		meta: TldrawPluginMetaData,
+		store: TLStore,
+	}>(() => {
+		if (initialData.store) {
+			return initialData;
+		}
 
-	const debouncedSaveDataToFile = useDebouncedCallback((e: any) => {
-		setFileData(store.serialize());
+		return {
+			meta: initialData.meta,
+			store: createTLStore({
+				shapeUtils: defaultShapeUtils,
+				initialData: initialData.raw,
+			})
+		}
+	});
+
+	const debouncedSaveDataToFile = useDebouncedCallback((e: unknown) => {
+		setFileData({
+			meta,
+			tldrawFile: createRawTldrawFile(store)
+		});
 	}, saveDelayInMs);
 
 	useEffect(() => {
@@ -163,7 +153,7 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 					else darkMode = isObsidianThemeDark();
 
 					editor.user.updateUserPreferences({
-						isDarkMode: darkMode,
+						colorScheme: darkMode ? 'dark' : 'light',
 						isSnapMode: snapMode,
 					});
 
@@ -174,8 +164,9 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 						isFocusMode: focusMode,
 					});
 
-					if (zoomToBounds) {
-						editor.zoomToBounds(editor.getCurrentPageBounds()!, { duration: 0 });
+					const bounds = editor.getCurrentPageBounds();
+					if (zoomToBounds && bounds) {
+						editor.zoomToBounds(bounds, { animation: { duration: 0 } });
 					}
 				}}
 			/>
@@ -185,8 +176,8 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 
 export const createRootAndRenderTldrawApp = (
 	node: Element,
-	initialData: SerializedStore<TLRecord>,
-	setFileData: (data: SerializedStore<TLRecord>) => void,
+	initialData: TLDataDocument,
+	setFileData: SetTldrawFileData,
 	settings: TldrawPluginSettings,
 	options: TldrawAppOptions = {}
 ) => {

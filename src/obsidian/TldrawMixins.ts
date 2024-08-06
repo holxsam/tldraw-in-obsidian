@@ -3,9 +3,8 @@ import { Root } from "react-dom/client";
 import TldrawPlugin from "src/main";
 import { MARKDOWN_ICON_NAME, VIEW_TYPE_MARKDOWN } from "src/utils/constants";
 import wrapReactRoot from "src/utils/wrap-react-root";
-import { TLData } from "src/utils/document";
-import { createRootAndRenderTldrawApp, TldrawAppProps } from "src/components/TldrawApp";
-import { SerializedStore, TLRecord } from "@tldraw/tldraw";
+import { TLDataDocument } from "src/utils/document";
+import { createRootAndRenderTldrawApp, SetTldrawFileData, TldrawAppProps } from "src/components/TldrawApp";
 
 /**
  * Implements overrides for {@linkcode FileView.onload} and {@linkcode FileView.onunload}
@@ -23,7 +22,7 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
         abstract plugin: TldrawPlugin;
         abstract reactRoot?: Root;
 
-        protected abstract setFileData(data: SerializedStore<TLRecord>): void;
+        protected abstract setFileData: SetTldrawFileData;
 
         /**
          * Adds the entry point `tldraw-view-content` for the {@linkcode reactRoot},
@@ -51,19 +50,14 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
             };
         }
 
-        private createReactRoot(entryPoint: Element, tldata: TLData) {
+        private createReactRoot(entryPoint: Element, tldata: TLDataDocument) {
             return createRootAndRenderTldrawApp(
                 entryPoint,
-                tldata.raw,
+                tldata,
                 this.setFileData,
                 this.plugin.settings,
                 this.getTldrawOptions()
             );
-        }
-
-        private setReactRoot(root: Root) {
-            this.reactRoot?.unmount();
-            this.reactRoot = root;
         }
 
         /**
@@ -71,15 +65,16 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
          * @param tldata 
          * @returns 
          */
-        protected async setTlData(tldata: TLData, useIframe = false) {
+        protected async setTlData(tldata: TLDataDocument, useIframe = false) {
             const tldrawContainer = this.containerEl.children[1];
+            this.reactRoot?.unmount();
             if (!useIframe) {
-                this.setReactRoot(this.createReactRoot(tldrawContainer, tldata));
+                this.reactRoot = this.createReactRoot(tldrawContainer, tldata);
                 return;
             }
-            this.setReactRoot(await wrapReactRoot(
+            this.reactRoot = await wrapReactRoot(
                 tldrawContainer, (entryPoint) => this.createReactRoot(entryPoint, tldata)
-            ))
+            );
         }
     }
 
