@@ -61,7 +61,7 @@ function LocalFileMenu() {
 	return (
 		<TldrawUiMenuSubmenu id="file" label="menu.file">
 			<TldrawUiMenuItem {...actions[SAVE_FILE_COPY_ACTION]} />
-			<TldrawUiMenuItem {...actions[OPEN_FILE_ACTION]} />
+			{/* <TldrawUiMenuItem {...actions[OPEN_FILE_ACTION]} /> */}
 		</TldrawUiMenuSubmenu>
 	);
 }
