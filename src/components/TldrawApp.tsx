@@ -17,7 +17,7 @@ import {
 } from "@tldraw/tldraw";
 import { TldrawPluginSettings } from "../obsidian/TldrawSettingsTab";
 import { useDebouncedCallback } from "use-debounce";
-import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION } from "src/utils/file";
+import { SAVE_FILE_COPY_ACTION } from "src/utils/file";
 import { isObsidianThemeDark, safeSecondsToMs } from "src/utils/utils";
 import { uiOverrides } from "src/tldraw/ui-overrides";
 import { TLDataDocument, TldrawPluginMetaData } from "src/utils/document";
