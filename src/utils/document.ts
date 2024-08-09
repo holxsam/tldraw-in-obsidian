@@ -31,9 +31,7 @@ export type TLExistingDataDocument = TLDataMaybeSerializedStore<{
 	meta: TldrawPluginMetaData;
 }>;
 
-export type TLDataDocument = TLDataMaybeSerializedStore<{
-	meta: TldrawPluginMetaData;
-}> | {
+export type TLDataDocument = TLExistingDataDocument | {
 	meta: TldrawPluginMetaData;
 	store?: undefined
 	raw?: undefined
