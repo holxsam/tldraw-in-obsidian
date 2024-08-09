@@ -1,12 +1,11 @@
 import { FileView, TFile, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
-import { createRootAndRenderTldrawApp } from "src/components/TldrawApp";
+import { SetTldrawFileData, TldrawAppProps } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import { TLDRAW_ICON_NAME, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_READ_ONLY } from "src/utils/constants";
-import { parseTLData } from "src/utils/parse";
+import { parseTLDataDocument } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
-import { TLData } from "src/utils/document";
-import { logFn } from "src/utils/logging";
+import { logClass } from "src/utils/logging";
 
 export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     plugin: TldrawPlugin;
@@ -36,21 +35,18 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
 
     async onLoadFile(file: TFile): Promise<void> {
         const fileData = await this.app.vault.read(file);
-        const parsedData = parseTLData(this.plugin.manifest.version, fileData);
+        const parsedData = parseTLDataDocument(this.plugin.manifest.version, fileData);
         await this.setTlData(parsedData);
     }
 
-    protected createReactRoot(entryPoint: Element, tldata: TLData): Root {
-        return createRootAndRenderTldrawApp(
-            entryPoint,
-            tldata.raw,
-            function readonlyIgnoreSave(_) {
-                logFn(readonlyIgnoreSave, 'Ignore saving file due to read only mode.');
-            },
-            this.plugin.settings,
-            {
-                isReadonly: true
-            }
-        );
+    protected override setFileData: SetTldrawFileData = () => {
+        logClass(TldrawReadonly, this.setFileData, 'Ignore saving file due to read only mode.');
+    }
+
+    protected override getTldrawOptions(): TldrawAppProps['options'] {
+        return {
+            ...super.getTldrawOptions(),
+            isReadonly: true,
+        }
     }
 }

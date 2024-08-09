@@ -5,14 +5,12 @@ import {
 	TLDATA_DELIMITER_START,
 	VIEW_TYPE_TLDRAW,
 } from "../utils/constants";
-import { createRootAndRenderTldrawApp } from "../components/TldrawApp";
 import TldrawPlugin from "../main";
 import { replaceBetweenKeywords } from "src/utils/utils";
-import { SerializedStore } from "@tldraw/store";
-import { TLRecord } from "@tldraw/tldraw";
-import { TLData, getTLDataTemplate } from "src/utils/document";
-import { parseTLData } from "src/utils/parse";
+import { TLDataDocument, getTLDataTemplate } from "src/utils/document";
+import { parseTLDataDocument } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
+import { SetTldrawFileData } from "src/components/TldrawApp";
 
 export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 	plugin: TldrawPlugin;
@@ -45,27 +43,19 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 		this.setTlData(initialData);
 	}
 
-	protected createReactRoot(entryPoint: HTMLElement, tldata: TLData): Root {
-		return createRootAndRenderTldrawApp(
-			entryPoint,
-			tldata.raw,
-			this.setFileData,
-			this.plugin.settings
-		);
-	}
-
 	clear(): void { }
 
-	getTldrawData = (rawFileData?: string): TLData => {
+	getTldrawData = (rawFileData?: string): TLDataDocument => {
 		rawFileData ??= this.data;
 
-		return parseTLData(this.plugin.manifest.version, rawFileData);
+		return parseTLDataDocument(this.plugin.manifest.version, rawFileData);
 	};
 
-	setFileData = async (data: SerializedStore<TLRecord>) => {
+	protected override setFileData: SetTldrawFileData = async (data) => {		
 		const tldrawData = getTLDataTemplate(
 			this.plugin.manifest.version,
-			data
+			data.tldrawFile,
+			data.meta.uuid
 		);
 
 		// If you do not use `null, "\t"` as arguments for stringify(),

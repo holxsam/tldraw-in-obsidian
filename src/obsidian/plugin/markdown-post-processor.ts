@@ -3,7 +3,7 @@ import { createRootAndRenderTldrawApp } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import { CustomMutationObserver } from "src/utils/debug-mutation-observer";
 import { ConsoleLogParams, LOGGING_ENABLED, logFn } from "src/utils/logging";
-import { parseTLData } from "src/utils/parse";
+import { parseTLDataDocument } from "src/utils/parse";
 
 /**
  * Processes the embed view for a tldraw white when including it in another obsidian note.
@@ -140,19 +140,21 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
         if (parent === null) throw Error(`${markdownPostProcessor.name}: No parent element for internalEmbedDiv.\n\n\tIt is needed to ensure the attached react root component is unmounted properly.`);
 
         const fileData = await plugin.app.vault.read(file);
-        const parsedData = parseTLData(plugin.manifest.version, fileData);
+        const parsedData = parseTLDataDocument(plugin.manifest.version, fileData);
         log('tldrawViewContent', tldrawViewContent);
         log('parsedData', parsedData);
 
         const reactRoot = createRootAndRenderTldrawApp(tldrawViewContent,
-            parsedData.raw,
+            parsedData,
             (_) => {
                 console.log('Ignore saving file due to read only mode.');
             },
             plugin.settings,
             {
                 isReadonly: true,
-                autoFocus: false
+                autoFocus: false,
+                zoomToBounds: true,
+                defaultFontOverrides: plugin.getFontOverrides(),
             }
         );
 

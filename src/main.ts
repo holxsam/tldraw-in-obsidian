@@ -46,6 +46,9 @@ import { around } from "monkey-around";
 import { TldrawReadonly } from "./obsidian/TldrawReadonly";
 import { pluginBuild } from "./utils/decorators/plugin";
 import { markdownPostProcessor } from "./obsidian/plugin/markdown-post-processor";
+import { processFontOverrides } from "./obsidian/plugin/settings";
+import { randomUUID } from "crypto";
+import { createRawTldrawFile } from "./utils/tldraw-file";
 
 @pluginBuild
 export default class TldrawPlugin extends Plugin {
@@ -368,14 +371,14 @@ export default class TldrawPlugin extends Plugin {
 		if (type === view) return;
 
 		// these functions will actually change the view mode:
-		switch(view) {
+		switch (view) {
 			case VIEW_TYPE_TLDRAW:
 				await this.setTldrawView(leaf)
-			break;
+				break;
 			case VIEW_TYPE_TLDRAW_READ_ONLY:
 				await this.setTldrawViewPreview(leaf)
-			break;
-			default: 
+				break;
+			default:
 				await this.setMarkdownView(leaf);
 		}
 	}
@@ -403,7 +406,7 @@ export default class TldrawPlugin extends Plugin {
 			: filename + FILE_EXTENSION;
 
 		// constructs the markdown content thats a template:
-		const tlData = getTLDataTemplate(this.manifest.version, {});
+		const tlData = getTLDataTemplate(this.manifest.version, createRawTldrawFile(), randomUUID());
 		const frontmatter = frontmatterTemplate(`${FRONTMATTER_KEY}: true`);
 		const codeblock = codeBlockTemplate(tlData);
 		const fileData = tlFileTemplate(frontmatter, codeblock);
@@ -482,5 +485,11 @@ export default class TldrawPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	getFontOverrides() {
+		return processFontOverrides(this.settings.fonts?.overrides, (font) => {
+			return this.app.vault.adapter.getResourcePath(font).split('?')[0]
+		});
 	}
 }

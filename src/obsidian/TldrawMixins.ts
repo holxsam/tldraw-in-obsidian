@@ -3,7 +3,8 @@ import { Root } from "react-dom/client";
 import TldrawPlugin from "src/main";
 import { MARKDOWN_ICON_NAME, VIEW_TYPE_MARKDOWN } from "src/utils/constants";
 import wrapReactRoot from "src/utils/wrap-react-root";
-import { TLData } from "src/utils/document";
+import { TLDataDocument } from "src/utils/document";
+import { createRootAndRenderTldrawApp, SetTldrawFileData, TldrawAppProps } from "src/components/TldrawApp";
 
 /**
  * Implements overrides for {@linkcode FileView.onload} and {@linkcode FileView.onunload}
@@ -21,18 +22,13 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
         abstract plugin: TldrawPlugin;
         abstract reactRoot?: Root;
 
-        /**
-         * 
-         * @param entryPoint The intended element to mount the react app to.
-         * @param tldata 
-         */
-        protected abstract createReactRoot(entryPoint: Element, tldata: TLData): Root;
+        protected abstract setFileData: SetTldrawFileData;
 
         /**
          * Adds the entry point `tldraw-view-content` for the {@linkcode reactRoot},
          * and the "View as markdown" action button.
          */
-        onload(): void {
+        override onload(): void {
             this.contentEl.addClass("tldraw-view-content");
 
             this.addAction(MARKDOWN_ICON_NAME, "View as markdown", () => {
@@ -43,14 +39,25 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
         /**
          * Removes the previously added entry point `tldraw-view-content`, and unmounts {@linkcode reactRoot}.
          */
-        onunload(): void {
+        override onunload(): void {
             this.contentEl.removeClass("tldraw-view-content");
             this.reactRoot?.unmount();
         }
 
-        private setReactRoot(root: Root) {
-            this.reactRoot?.unmount();
-            this.reactRoot = root;
+        protected getTldrawOptions(): TldrawAppProps['options'] {
+            return {
+                defaultFontOverrides: this.plugin.getFontOverrides(),
+            };
+        }
+
+        private createReactRoot(entryPoint: Element, tldata: TLDataDocument) {
+            return createRootAndRenderTldrawApp(
+                entryPoint,
+                tldata,
+                this.setFileData,
+                this.plugin.settings,
+                this.getTldrawOptions()
+            );
         }
 
         /**
@@ -58,15 +65,16 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
          * @param tldata 
          * @returns 
          */
-        protected async setTlData(tldata: TLData, useIframe = false) {
+        protected async setTlData(tldata: TLDataDocument, useIframe = false) {
             const tldrawContainer = this.containerEl.children[1];
+            this.reactRoot?.unmount();
             if (!useIframe) {
-                this.setReactRoot(this.createReactRoot(tldrawContainer, tldata));
+                this.reactRoot = this.createReactRoot(tldrawContainer, tldata);
                 return;
             }
-            this.setReactRoot(await wrapReactRoot(
+            this.reactRoot = await wrapReactRoot(
                 tldrawContainer, (entryPoint) => this.createReactRoot(entryPoint, tldata)
-            ))
+            );
         }
     }
 
