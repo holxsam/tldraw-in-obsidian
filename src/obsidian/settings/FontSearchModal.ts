@@ -1,5 +1,4 @@
-import { SuggestModal, TFile, TFolder } from "obsidian";
-import * as path from "path";
+import { normalizePath, SuggestModal, TFile, TFolder } from "obsidian";
 import TldrawPlugin from "src/main";
 
 const fontTypes = [
@@ -52,9 +51,9 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
      * Search a path for font assets
      */
     searchPath = debounce((searchPath: string, res: (result: typeof this.searchRes) => void) => {
-        const searchPathParsed = path.parse(searchPath);
-        const searchDir = searchPathParsed.dir.length === 0
-            ? '/' : searchPathParsed.dir;
+        const searchPathDir = getDir(searchPath);
+        const searchDir = searchPathDir.length === 0
+            ? '/' : searchPathDir;
         const dir = this.app.vault.getAbstractFileByPath(searchDir);
 
         if (searchPath.endsWith('/')) {
@@ -99,7 +98,7 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
 
     renderSuggestion(file: TFile | TFolder, el: HTMLElement) {
         const { searchPath } = this.searchRes;
-        const parsedSearchDir = path.parse(searchPath).dir;
+        const parsedSearchDir = getDir(searchPath);
         const searchDir = parsedSearchDir.length === 0
             ? searchPath : parsedSearchDir;
         const text = searchPath.length === 0
@@ -145,4 +144,11 @@ function debounce<T extends [unknown, ...unknown[]]>(/** callback to debounce */
         clearTimeout(timeout);
         timeout = setTimeout(() => cb(...args), wait);
     };
+}
+
+function getDir(path: string): string {
+    const normalized = normalizePath(path);
+    const dir = normalized.slice(0, normalized.lastIndexOf('/'));
+    return dir.length === 0
+            ? '/' : dir;
 }

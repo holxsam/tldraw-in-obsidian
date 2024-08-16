@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { TLDATA_DELIMITER_END, TLDATA_DELIMITER_START } from "./constants";
 import { TLExistingDataDocument, TldrawPluginMetaData, getTLMetaTemplate, TLData } from "./document";
 import { migrateIfNecessary } from "./migrate";
@@ -35,7 +34,7 @@ function parseTLJsonData(data: JsonValue): TLData {
     return {
         meta: {
             ...meta,
-            uuid: meta.uuid ?? randomUUID()
+            uuid: meta.uuid ?? window.crypto.randomUUID()
         },
         raw: raw ?? {},
     }
@@ -53,6 +52,6 @@ export function parseTLDataDocument(pluginVersion: string, fileData: string): TL
     );
 
     return !extracted
-        ? { meta: getTLMetaTemplate(pluginVersion, randomUUID()) }
+        ? { meta: getTLMetaTemplate(pluginVersion, window.crypto.randomUUID()) }
         : migrateIfNecessary(pluginVersion, parseTLJsonData(JSON.parse(extracted)));
 }
