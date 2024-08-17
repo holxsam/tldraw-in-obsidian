@@ -101,7 +101,7 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
         const parsedSearchDir = getDir(searchPath);
         const searchDir = parsedSearchDir.length === 0
             ? searchPath : parsedSearchDir;
-        const text = searchPath.length === 0
+        const text = searchPath.length === 0 || searchDir === '/'
             ? `${file.path}${file instanceof TFolder ? '/' : ''}`
             : `...${file.path.substring(searchDir.length)}${file instanceof TFolder ? '/' : ''}`;
         el.createEl("div", { text });
@@ -148,7 +148,9 @@ function debounce<T extends [unknown, ...unknown[]]>(/** callback to debounce */
 
 function getDir(path: string): string {
     const normalized = normalizePath(path);
-    const dir = normalized.slice(0, normalized.lastIndexOf('/'));
+    const lastIndex = normalized.lastIndexOf('/');
+    if(lastIndex === -1) return '/';
+    const dir = normalized.slice(0, lastIndex);
     return dir.length === 0
             ? '/' : dir;
 }
