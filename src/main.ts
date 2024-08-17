@@ -47,7 +47,6 @@ import { TldrawReadonly } from "./obsidian/TldrawReadonly";
 import { pluginBuild } from "./utils/decorators/plugin";
 import { markdownPostProcessor } from "./obsidian/plugin/markdown-post-processor";
 import { processFontOverrides } from "./obsidian/plugin/settings";
-import { randomUUID } from "crypto";
 import { createRawTldrawFile } from "./utils/tldraw-file";
 
 @pluginBuild
@@ -406,7 +405,7 @@ export default class TldrawPlugin extends Plugin {
 			: filename + FILE_EXTENSION;
 
 		// constructs the markdown content thats a template:
-		const tlData = getTLDataTemplate(this.manifest.version, createRawTldrawFile(), randomUUID());
+		const tlData = getTLDataTemplate(this.manifest.version, createRawTldrawFile(), window.crypto.randomUUID());
 		const frontmatter = frontmatterTemplate(`${FRONTMATTER_KEY}: true`);
 		const codeblock = codeBlockTemplate(tlData);
 		const fileData = tlFileTemplate(frontmatter, codeblock);
