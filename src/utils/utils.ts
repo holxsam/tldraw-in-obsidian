@@ -1,4 +1,5 @@
 import {
+	FileManager,
 	Notice,
 	TAbstractFile,
 	TFile,
@@ -100,3 +101,28 @@ export const safeSecondsToMs = (s: number) => Math.round(s * 1000);
 export const isValidViewType = (str: string): str is ViewType => {
 	return (VIEW_TYPES as readonly string[]).includes(str);
 };
+
+export function pathBasename(path: string) {
+	const normalized = normalizePath(path);
+    const lastIndex = normalized.lastIndexOf('/');
+    if(lastIndex === -1) return path;
+	return path.slice(lastIndex + 1);
+}
+
+/**
+ * Create an object that describes the filepath for a new attachment using the user's Obsidian preferences.
+ * @param attachmentFilename 
+ * @param attachTo 
+ * @param fileManager 
+ * @returns 
+ */
+export async function createAttachmentFilepath(attachmentFilename: string, attachTo: TFile, fileManager: FileManager) {
+	// @ts-ignore
+	const attachmentPath = await (fileManager.getAvailablePathForAttachment(attachmentFilename, attachTo.path) as Promise<string>);
+	const filename = pathBasename(attachmentPath);
+	const folder = attachmentPath.slice(0, -(filename.length + 1));
+	return {
+		filename,
+		folder: folder.length === 0 ? '/' : folder
+	}
+}

@@ -16,6 +16,7 @@ import {
 } from "./obsidian/TldrawSettingsTab";
 import {
 	checkAndCreateFolder,
+	createAttachmentFilepath,
 	getNewUniqueFilepath,
 	isValidViewType,
 } from "./utils/utils";
@@ -296,6 +297,22 @@ export default class TldrawPlugin extends Plugin {
 				await this.createAndOpenUntitledTldrFile("new-window");
 			},
 		});
+
+		this.addCommand({
+			id: "new-tldraw-file-embed",
+			name: "Create a new drawing and embed as attachment",
+			editorCallback: async (editor, ctx) => {
+				const { file } = ctx;
+				if (file === null) {
+					console.log(ctx)
+					throw new Error('ctx.file was null');
+				}
+				const from = editor.getCursor('from');
+				const to = editor.getCursor('to');
+				const newFile = await this.createUntitledTldrFile(file);
+				editor.replaceRange(`![[${newFile.path}]]`, from, to)
+			},
+		});
 	}
 
 	public setStatusBarViewModeVisibility(visible: boolean) {
@@ -413,8 +430,13 @@ export default class TldrawPlugin extends Plugin {
 		return await this.createFile(filename, foldername, fileData);
 	};
 
-	public createUntitledTldrFile = async () => {
-		const { newFilePrefix, newFileTimeFormat, folder } = this.settings;
+	/**
+	 * 
+	 * @param attachTo The file that is considered as the "parent" of this new file. If this is not undefined then the new untitled tldr file will be considered as an attachment.
+	 * @returns 
+	 */
+	public createUntitledTldrFile = async (attachTo?: TFile) => {
+		const { newFilePrefix, newFileTimeFormat, folder, useAttachmentsFolder } = this.settings;
 
 		const date =
 			newFileTimeFormat.trim() !== ""
@@ -429,7 +451,11 @@ export default class TldrawPlugin extends Plugin {
 				DEFAULT_SETTINGS.newFilePrefix +
 				moment().format(DEFAULT_SETTINGS.newFileTimeFormat);
 
-		return await this.createTldrFile(filename, folder);
+		const res = !useAttachmentsFolder || attachTo === undefined
+			? { filename, folder }
+			: await createAttachmentFilepath(filename, attachTo, this.app.fileManager);
+
+		return await this.createTldrFile(res.filename, res.folder);
 	};
 
 	public openTldrFile = async (file: TFile, location: PaneTarget) => {
