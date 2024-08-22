@@ -38,6 +38,10 @@ export interface TldrawPluginSettings {
 			serif?: string,
 		}
 	}
+	/**
+	 * Use the attachments folder defined in the Obsidian "Files and links" settings. 
+	 */
+	useAttachmentsFolder: boolean,
 }
 
 export const DEFAULT_SETTINGS = {
@@ -51,6 +55,7 @@ export const DEFAULT_SETTINGS = {
 	snapMode: false,
 	debugMode: false,
 	focusMode: false,
+	useAttachmentsFolder: true
 } as const satisfies TldrawPluginSettings;
 
 export class TldrawSettingsTab extends PluginSettingTab {
@@ -80,6 +85,17 @@ export class TldrawSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+			
+		new Setting(containerEl)
+			.setName("Use attachments folder")
+			.setDesc("Use the location defined in the \"Files and links\" options tab for newly created tldraw files if they are embed as an attachment.")
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.useAttachmentsFolder)
+				toggle.onChange(async (value) => {
+					this.plugin.settings.useAttachmentsFolder = value;
+					await this.plugin.saveSettings()
+				})
+			})
 
 		const defaultDelay = msToSeconds(DEFAULT_SAVE_DELAY);
 		const minDelay = msToSeconds(MIN_SAVE_DELAY);
