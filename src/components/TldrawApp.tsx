@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import {
 	DefaultMainMenu,
 	DefaultMainMenuContent,
+	Editor,
 	TLComponents,
 	TLStore,
 	Tldraw,
@@ -26,6 +27,12 @@ import { createRawTldrawFile } from "src/utils/tldraw-file";
 type TldrawAppOptions = {
 	isReadonly?: boolean,
 	autoFocus?: boolean,
+	inputFocus?: boolean,
+	hideUi?: boolean,
+	/**
+	 * Whether to call `.selectNone` on the Tldraw editor instance when it is mounted.
+	 */
+	selectNone?: boolean,
 	/**
 	 * Whether or not to initially zoom to the bounds of the document when the component is mounted.
 	 */
@@ -68,7 +75,10 @@ function LocalFileMenu() {
 
 const TldrawApp = ({ settings, initialData, setFileData, options: {
 	autoFocus = true,
+	hideUi = false,
+	inputFocus = false,
 	isReadonly = false,
+	selectNone = false,
 	zoomToBounds = false,
 	defaultFontOverrides
 } }: TldrawAppProps) => {
@@ -114,6 +124,7 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 		};
 	}, [store]);
 
+	const editorRef = React.useRef<Editor | null>(null);
 	return (
 		<div
 			id="tldraw-view-root"
@@ -123,17 +134,25 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 			// Obsidian thinks they're swiping down, left, or right so it opens various menus.
 			// By preventing the event from propagating, we can prevent those actions menus from opening.
 			onTouchStart={(e) => e.stopPropagation()}
+			onBlur={!inputFocus ?  undefined : () => editorRef.current?.blur()}
+			onFocus={!inputFocus ? undefined : () => editorRef.current?.focus()}
 		>
 			<Tldraw
 				assetUrls={{
 					fonts: defaultFontOverrides
 				}}
+				hideUi={hideUi}
 				overrides={uiOverrides}
 				store={store}
 				components={components}
 				// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
 				autoFocus={autoFocus}
 				onMount={(editor) => {
+					editorRef.current = editor;
+					if(selectNone) {
+						editor.selectNone();
+					}
+
 					const {
 						themeMode,
 						gridMode,
