@@ -29,7 +29,7 @@
 		"esbuild": "0.17.3",
 		"obsidian": "latest",
 		"tslib": "2.6.3",
-		"typescript": "5.4.5"
+		"typescript": "^5.5.4"
 	},
 	"dependencies": {
 		"@tldraw/tldraw": "2.4.4",
