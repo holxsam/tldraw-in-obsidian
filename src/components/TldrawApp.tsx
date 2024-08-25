@@ -127,7 +127,7 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 	const editorRef = React.useRef<Editor | null>(null);
 	return (
 		<div
-			id="tldraw-view-root"
+			className="tldraw-view-root"
 			// e.stopPropagation(); this line should solve the mobile swipe menus bug
 			// The bug only happens on the mobile version of Obsidian.
 			// When a user tries to interact with the tldraw canvas,

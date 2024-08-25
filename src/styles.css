@@ -17,7 +17,7 @@
 	should be (classes prefixed with 'tl' or 'tlui' then find a way to increase the specificity over button:not(.clickable-icon) using selectors and paste in those styles. Look for the comments that start with 'OVERRIDING'.
 */
 
-#tldraw-view-root {
+.tldraw-view-root {
 	touch-action: none;
 	position: relative;
 	width: 100%;
@@ -28,18 +28,18 @@
 }
 
 /* OVERRIDING button:not(.clickable-icon) back to tldraw's original styles: */
-#tldraw-view-root .tlui-button {
+.tldraw-view-root .tlui-button {
 	background-color: transparent;
 	padding: 0px 13px;
 	box-shadow: none;
 }
 
 /* OVERRIDING button:not(.clickable-icon) */
-#tldraw-view-root .tlui-button.tlui-help-menu__button {
+.tldraw-view-root .tlui-button.tlui-help-menu__button {
 	background-color: var(--color-low);
 }
 
-#tldraw-view-root kbd {
+.tldraw-view-root kbd {
 	background: inherit;
 	border-radius: inherit;
 	padding: inherit;
