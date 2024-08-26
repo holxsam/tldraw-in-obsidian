@@ -458,7 +458,7 @@ export default class TldrawPlugin extends Plugin {
 		return await this.createTldrFile(res.filename, res.folder);
 	};
 
-	public openTldrFile = async (file: TFile, location: PaneTarget) => {
+	public openTldrFile = async (file: TFile, location: PaneTarget, viewType: ViewType = VIEW_TYPE_TLDRAW) => {
 		let leaf: WorkspaceLeaf;
 
 		if (location === "current-tab")
@@ -472,7 +472,7 @@ export default class TldrawPlugin extends Plugin {
 		else leaf = this.app.workspace.getLeaf(false);
 
 		await leaf.openFile(file);
-		await this.updateViewMode(VIEW_TYPE_TLDRAW, leaf);
+		await this.updateViewMode(viewType, leaf);
 	};
 
 	public createAndOpenUntitledTldrFile = async (location: PaneTarget) => {
