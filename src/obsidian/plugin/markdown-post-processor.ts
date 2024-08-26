@@ -1,6 +1,7 @@
-import { MarkdownPostProcessorContext, TFile } from "obsidian";
+import { ButtonComponent, MarkdownPostProcessorContext, MarkdownView, TFile } from "obsidian";
 import { createRootAndRenderTldrawApp } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
+import { MARKDOWN_ICON_NAME, TLDRAW_ICON_NAME } from "src/utils/constants";
 import { CustomMutationObserver } from "src/utils/debug-mutation-observer";
 import { ConsoleLogParams, LOGGING_ENABLED, logFn } from "src/utils/logging";
 import { parseTLDataDocument } from "src/utils/parse";
@@ -90,32 +91,7 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
 
         internalEmbedDiv.empty()
 
-        internalEmbedDiv.addClass('tldraw-markdown-view');
-
         if (markdownEmbed) {
-            const tldrawViewHeader = internalEmbedDiv.createDiv({
-                cls: ['tldraw-view-header'],
-            });
-
-            tldrawViewHeader.style.display = 'flex';
-            tldrawViewHeader.style.justifyContent = 'space-between';
-            tldrawViewHeader.style.alignItems = 'baseline';
-
-            const tldrawTitle = tldrawViewHeader.createDiv({
-                cls: ['embed-title', 'markdown-embed-title']
-            })
-
-            tldrawTitle.innerText = file.name;
-
-            tldrawViewHeader.createEl('button', {
-                cls: ['clickable'],
-                text: 'Edit',
-            }, (el) => {
-                el.addEventListener('click', async (ev) => {
-                    plugin.openTldrFile(file, 'new-tab')
-                })
-            });
-
             internalEmbedDiv.removeClass("markdown-embed");
             internalEmbedDiv.removeClass("inline-embed");
             // TODO: Uncomment later when added prerendered tldraw view support.
@@ -123,17 +99,13 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             // internalEmbedDiv.addClass("image-embed");
         }
 
-        const tldrawViewContent = internalEmbedDiv.createDiv({
-            cls: ['tldraw-view-content'],
-        }, (el) => {
-            el.style.height = '300px';
-            // Prevent the Obsidian editor from selecting the embed link with the editing cursor when a user interacts with the view.
-            el.addEventListener('click', (ev) => ev.stopPropagation());
-            el.addEventListener('focus', function tldrawFocusListener() {
-                log(`${tldrawFocusListener.name}`)
-            });
+        const tldrawEmbedView = createTldrawEmbedView(internalEmbedDiv, {
+            file, plugin
         });
 
+        const tldrawEmbedViewContent = tldrawEmbedView.createDiv({
+            cls: 'ptl-view-content'
+        })
 
         const parent = internalEmbedDiv.parentElement;
 
@@ -141,10 +113,8 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
 
         const fileData = await plugin.app.vault.read(file);
         const parsedData = parseTLDataDocument(plugin.manifest.version, fileData);
-        log('tldrawViewContent', tldrawViewContent);
-        log('parsedData', parsedData);
 
-        const reactRoot = createRootAndRenderTldrawApp(tldrawViewContent,
+        const reactRoot = createRootAndRenderTldrawApp(tldrawEmbedViewContent,
             parsedData,
             (_) => {
                 console.log('Ignore saving file due to read only mode.');
@@ -157,7 +127,7 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
                 selectNone: true,
                 hideUi: true,
                 zoomToBounds: true,
-                defaultFontOverrides: plugin.getFontOverrides(),
+                defaultFontOverrides: plugin.getFontOverrides()
             }
         );
 
@@ -204,4 +174,93 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
         throw new Error(`${markdownPostProcessor.name}: Unexpected`);
     }
     throw new Error(`${markdownPostProcessor.name}: Unexpected`);
+}
+
+
+function createTldrawViewHeader(embedViewContent: HTMLElement, {
+    file, plugin, selectEmbedText
+}: {
+    file: TFile,
+    plugin: TldrawPlugin,
+    selectEmbedText: (ev: MouseEvent) => void
+}) {
+    const tldrawViewHeader = embedViewContent.createDiv({
+        cls: ['ptl-embed-context-bar'],
+    });
+
+    const tldrawTitle = tldrawViewHeader.createDiv({
+        cls: ['ptl-embed-title-bar']
+    }, (el) => {
+        el.onClickEvent((ev) => {
+            selectEmbedText(ev);
+            ev.stopPropagation();
+        })
+    })
+
+    tldrawTitle.innerText = file.name;
+
+    const actionBar = tldrawViewHeader.createDiv({ cls: 'ptl-embed-action-bar' })
+
+    new ButtonComponent(actionBar)
+        .setClass('clickable-icon')
+        .setIcon(MARKDOWN_ICON_NAME)
+        .setTooltip('Open as markdown').onClick(() => {
+            plugin.openTldrFile(file, 'new-tab', 'markdown')
+        });
+
+    new ButtonComponent(actionBar)
+        .setClass('clickable-icon')
+        .setIcon(TLDRAW_ICON_NAME)
+        .setTooltip('Edit').onClick(() => {
+            plugin.openTldrFile(file, 'new-tab')
+        });
+
+    new ButtonComponent(actionBar)
+        .setClass('clickable-icon')
+        .setIcon('view')
+        .setTooltip('Read-only view').onClick((ev) => {
+            plugin.openTldrFile(file, 'new-tab', 'tldraw-read-only')
+        });
+
+    return tldrawViewHeader;
+}
+
+function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
+    file, plugin
+}: {
+    file: TFile,
+    plugin: TldrawPlugin,
+}) {
+    return internalEmbedDiv.createDiv({
+        cls: 'ptl-markdown-embed'
+    }, (el) => {
+        const viewHeader = createTldrawViewHeader(el, {
+            file, plugin,
+            selectEmbedText: (ev) => {
+                internalEmbedDiv.dispatchEvent(new MouseEvent('click', {
+                    bubbles: ev.bubbles,
+                    cancelable: ev.cancelable,
+                    clientX: ev.clientX,
+                    clientY: ev.clientY
+                }))
+            }
+        })
+
+        // Prevent the Obsidian editor from selecting the embed link with the editing cursor when a user interacts with the view.
+        el.addEventListener('click', (ev) => ev.stopPropagation());
+
+        viewHeader.hide();
+
+        internalEmbedDiv.addEventListener('focusin', () => {
+            plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor.setCursor(0, 0)
+            viewHeader.show();
+        })
+
+        internalEmbedDiv.addEventListener('focusout', (event) => {
+            if (event.relatedTarget instanceof Node && internalEmbedDiv.contains(event.relatedTarget)) {
+                return;
+            }
+            viewHeader.hide();
+        })
+    })
 }

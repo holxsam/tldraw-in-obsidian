@@ -134,7 +134,10 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 			// Obsidian thinks they're swiping down, left, or right so it opens various menus.
 			// By preventing the event from propagating, we can prevent those actions menus from opening.
 			onTouchStart={(e) => e.stopPropagation()}
-			onBlur={!inputFocus ?  undefined : () => editorRef.current?.blur()}
+			onBlur={!inputFocus ?  undefined : () => {
+				editorRef.current?.selectNone()
+				editorRef.current?.blur()
+			}}
 			onFocus={!inputFocus ? undefined : () => editorRef.current?.focus()}
 		>
 			<Tldraw
