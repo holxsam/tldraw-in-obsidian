@@ -6,7 +6,7 @@ import { TLData } from "../document";
  * @param tldrawFileData 
  * @returns 
  */
-function migrateTldrawFileDataIfNecessary(tldrawFileData: string | TldrawFile): TLStore {
+export function migrateTldrawFileDataIfNecessary(tldrawFileData: string | TldrawFile): TLStore {
     const res = parseTldrawJsonFile(
         {
             schema: createTLSchema(),

@@ -55,7 +55,7 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
                 entryPoint,
                 tldata,
                 this.setFileData,
-                this.plugin.settings,
+                this.plugin,
                 this.getTldrawOptions()
             );
         }
