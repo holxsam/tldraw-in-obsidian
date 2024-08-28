@@ -52,6 +52,7 @@ import { processFontOverrides } from "./obsidian/plugin/settings";
 import { createRawTldrawFile } from "./utils/tldraw-file";
 import { TLDRAW_FILE_EXTENSION, TLStore } from "@tldraw/tldraw";
 import { registerCommands } from "./obsidian/plugin/commands";
+import { migrateTldrawFileDataIfNecessary } from "./utils/migrate/tl-data-to-tlstore";
 
 @pluginBuild
 export default class TldrawPlugin extends Plugin {
@@ -204,11 +205,15 @@ export default class TldrawPlugin extends Plugin {
 					menu.addItem((item) => {
 						item.setIcon(TLDRAW_ICON_NAME)
 							.setSection('tldraw')
-							.setTitle('Open read-only')
-							.onClick(() => {
-								new Notice('Unimplemented')
-								// const newFile;
-								// this.app.workspace.getLeaf('tab').openFile(newFile)
+							.setTitle('Edit as new Note')
+							.onClick(async () => {
+								const newFile = await this.createUntitledTldrFile({
+									tlStore: migrateTldrawFileDataIfNecessary(
+										await this.app.vault.read(file)
+									)
+								});
+								await this.openTldrFile(newFile, 'new-tab', 'tldraw-view')
+								new Notice(`Created a new file for editing "${newFile.path}"`)
 							})
 					})
 					return;
