@@ -6,6 +6,9 @@ import { TLDRAW_ICON_NAME, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_READ_ONLY } from "
 import { parseTLDataDocument } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
 import { logClass } from "src/utils/logging";
+import { TLDRAW_FILE_EXTENSION } from "@tldraw/tldraw";
+import { getTLMetaTemplate } from "src/utils/document";
+import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
 
 export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     plugin: TldrawPlugin;
@@ -27,16 +30,26 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
 
     onload() {
         super.onload();
-
         this.addAction(TLDRAW_ICON_NAME, "Edit", () => {
+            if (this.file?.path.endsWith(TLDRAW_FILE_EXTENSION) === true) {
+                throw new Error('Unimplemented.');
+            }
             this.plugin.updateViewMode(VIEW_TYPE_TLDRAW);
         });
     }
 
     async onLoadFile(file: TFile): Promise<void> {
+        console.log(this.onLoadFile.name, ' ', file)
         const fileData = await this.app.vault.read(file);
-        const parsedData = parseTLDataDocument(this.plugin.manifest.version, fileData);
-        await this.setTlData(parsedData);
+        if (!file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
+            const parsedData = parseTLDataDocument(this.plugin.manifest.version, fileData);
+            await this.setTlData(parsedData);
+        } else {
+            await this.setTlData({
+                meta: getTLMetaTemplate(this.plugin.manifest.version),
+                store: migrateTldrawFileDataIfNecessary(fileData)
+            })
+        }
     }
 
     protected override setFileData: SetTldrawFileData = () => {
@@ -48,5 +61,12 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
             ...super.getTldrawOptions(),
             isReadonly: true,
         }
+    }
+
+    protected override viewAsMarkdownClicked(): void {
+        if (!this.file || this.file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
+            throw new Error('Unimplemented.');
+        }
+        super.viewAsMarkdownClicked()
     }
 }

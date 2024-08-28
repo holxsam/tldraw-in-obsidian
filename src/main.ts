@@ -7,6 +7,7 @@ import {
 	addIcon,
 	normalizePath,
 	moment,
+	Notice,
 } from "obsidian";
 import { TldrawView } from "./obsidian/TldrawView";
 import {
@@ -49,7 +50,7 @@ import { pluginBuild } from "./utils/decorators/plugin";
 import { markdownPostProcessor } from "./obsidian/plugin/markdown-post-processor";
 import { processFontOverrides } from "./obsidian/plugin/settings";
 import { createRawTldrawFile } from "./utils/tldraw-file";
-import { TLStore } from "@tldraw/tldraw";
+import { TLDRAW_FILE_EXTENSION, TLStore } from "@tldraw/tldraw";
 import { registerCommands } from "./obsidian/plugin/commands";
 
 @pluginBuild
@@ -120,6 +121,8 @@ export default class TldrawPlugin extends Plugin {
 
 		// Change how tldraw files are displayed when reading the document, e.g. when it is embed in another Obsidian document.
 		this.registerMarkdownPostProcessor((e, c) => markdownPostProcessor(this, e, c))
+
+		this.registerExtensions(['tldr'], VIEW_TYPE_TLDRAW_READ_ONLY)
 	}
 
 	onunload() {
@@ -195,7 +198,24 @@ export default class TldrawPlugin extends Plugin {
 		// adds a menu item to the file menu (three dots) depending on view mode
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file, source, leaf) => {
-				if (!leaf || !(file instanceof TFile)) return;
+				if (!(file instanceof TFile)) return;
+
+				if (file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
+					menu.addItem((item) => {
+						item.setIcon(TLDRAW_ICON_NAME)
+							.setSection('tldraw')
+							.setTitle('Open read-only')
+							.onClick(() => {
+								new Notice('Unimplemented')
+								// const newFile;
+								// this.app.workspace.getLeaf('tab').openFile(newFile)
+							})
+					})
+					return;
+				}
+
+				if (!leaf) return;
+
 				if (!this.isTldrawFile(file)) return;
 
 				const { type } = leaf.getViewState();
@@ -351,7 +371,7 @@ export default class TldrawPlugin extends Plugin {
 
 	public createTldrFile = async (filename: string, {
 		foldername, tlStore
-	}: {foldername?: string, tlStore?: TLStore} = {}) => {
+	}: { foldername?: string, tlStore?: TLStore } = {}) => {
 		// adds the markdown extension if the filename does not already include it:
 		filename = filename.endsWith(FILE_EXTENSION)
 			? filename
@@ -396,7 +416,7 @@ export default class TldrawPlugin extends Plugin {
 		return await this.createTldrFile(res.filename, {
 			tlStore,
 			foldername: res.folder,
-		 });
+		});
 	};
 
 	public openTldrFile = async (file: TFile, location: PaneTarget, viewType: ViewType = VIEW_TYPE_TLDRAW) => {

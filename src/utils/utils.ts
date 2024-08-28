@@ -12,6 +12,7 @@ import {
 	VIEW_TYPES,
 	ViewType,
 } from "./constants";
+import { pathBasename } from "./path";
 
 export const removeAllChildNodes = (parent: HTMLElement) => {
 	while (parent.firstChild) {
@@ -101,13 +102,6 @@ export const safeSecondsToMs = (s: number) => Math.round(s * 1000);
 export const isValidViewType = (str: string): str is ViewType => {
 	return (VIEW_TYPES as readonly string[]).includes(str);
 };
-
-export function pathBasename(path: string) {
-	const normalized = normalizePath(path);
-    const lastIndex = normalized.lastIndexOf('/');
-    if(lastIndex === -1) return path;
-	return path.slice(lastIndex + 1);
-}
 
 /**
  * Create an object that describes the filepath for a new attachment using the user's Obsidian preferences.

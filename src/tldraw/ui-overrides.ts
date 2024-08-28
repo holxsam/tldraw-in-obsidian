@@ -1,6 +1,7 @@
 import { TLUiOverrides } from "@tldraw/tldraw";
+import { Platform } from "obsidian";
 import TldrawPlugin from "src/main";
-import { getSaveFileCopyAction, importFileAction, OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION } from "src/utils/file";
+import { getSaveFileCopyAction, getSaveFileCopyInVaultAction, importFileAction, OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION } from "src/utils/file";
 
 export function uiOverrides(plugin: TldrawPlugin): TLUiOverrides {
 	return {
@@ -14,11 +15,21 @@ export function uiOverrides(plugin: TldrawPlugin): TLUiOverrides {
 			return tools;
 		},
 		actions: (editor, actions, { msg, addDialog }) => {
-			actions[SAVE_FILE_COPY_ACTION] = getSaveFileCopyAction(
+			const defaultDocumentName = msg("document.default-name");
+
+			if (!Platform.isMobile) {
+				actions[SAVE_FILE_COPY_ACTION] = getSaveFileCopyAction(
+					editor,
+					defaultDocumentName
+				);
+			}
+
+			actions[SAVE_FILE_COPY_IN_VAULT_ACTION] = getSaveFileCopyInVaultAction(
 				editor,
-				msg("document.default-name")
+				defaultDocumentName,
+				plugin
 			);
-	
+
 			actions[OPEN_FILE_ACTION] = importFileAction(plugin, addDialog);
 			return actions;
 		},
@@ -41,4 +52,4 @@ export function uiOverrides(plugin: TldrawPlugin): TLUiOverrides {
 		// 	return schema;
 		// },
 	}
-};
+}

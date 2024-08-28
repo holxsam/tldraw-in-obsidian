@@ -31,9 +31,7 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
         override onload(): void {
             this.contentEl.addClass("tldraw-view-content");
 
-            this.addAction(MARKDOWN_ICON_NAME, "View as markdown", () => {
-                this.plugin.updateViewMode(VIEW_TYPE_MARKDOWN);
-            });
+            this.addAction(MARKDOWN_ICON_NAME, "View as markdown", () => this.viewAsMarkdownClicked());
         }
 
         /**
@@ -75,6 +73,10 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
             this.reactRoot = await wrapReactRoot(
                 tldrawContainer, (entryPoint) => this.createReactRoot(entryPoint, tldata)
             );
+        }
+
+        protected viewAsMarkdownClicked() {
+            this.plugin.updateViewMode(VIEW_TYPE_MARKDOWN);
         }
     }
 

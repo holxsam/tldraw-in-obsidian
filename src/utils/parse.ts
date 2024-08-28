@@ -52,6 +52,6 @@ export function parseTLDataDocument(pluginVersion: string, fileData: string): TL
     );
 
     return !extracted
-        ? { meta: getTLMetaTemplate(pluginVersion, window.crypto.randomUUID()) }
+        ? { meta: getTLMetaTemplate(pluginVersion) }
         : migrateIfNecessary(pluginVersion, parseTLJsonData(JSON.parse(extracted)));
 }
