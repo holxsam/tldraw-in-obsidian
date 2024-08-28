@@ -53,6 +53,7 @@ import { createRawTldrawFile } from "./utils/tldraw-file";
 import { TLDRAW_FILE_EXTENSION, TLStore } from "@tldraw/tldraw";
 import { registerCommands } from "./obsidian/plugin/commands";
 import { migrateTldrawFileDataIfNecessary } from "./utils/migrate/tl-data-to-tlstore";
+import { pluginMenuLabel } from "./obsidian/menu";
 
 @pluginBuild
 export default class TldrawPlugin extends Plugin {
@@ -202,8 +203,10 @@ export default class TldrawPlugin extends Plugin {
 				if (!(file instanceof TFile)) return;
 
 				if (file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
-					menu.addItem((item) => {
-						item.setIcon(TLDRAW_ICON_NAME)
+					menu.addItem((item) => pluginMenuLabel(item
+						.setSection('tldraw')
+					)).addItem((item) => {
+						item.setIcon('edit')
 							.setSection('tldraw')
 							.setTitle('Edit as new Note')
 							.onClick(async () => {

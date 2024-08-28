@@ -1,4 +1,4 @@
-import { FileView, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { FileView, Menu, Notice, TFile, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
 import { SetTldrawFileData, TldrawAppProps } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
@@ -9,6 +9,7 @@ import { logClass } from "src/utils/logging";
 import { TLDRAW_FILE_EXTENSION } from "@tldraw/tldraw";
 import { getTLMetaTemplate } from "src/utils/document";
 import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
+import { pluginMenuLabel } from "./menu";
 
 export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     plugin: TldrawPlugin;
@@ -51,6 +52,24 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
                 store: migrateTldrawFileDataIfNecessary(fileData)
             })
         }
+    }
+
+    override onPaneMenu(menu: Menu, source: "more-options" | "tab-header" | string): void {
+        super.onPaneMenu(menu, source);
+        const { file } = this;
+        if (!file) return;
+
+        menu.addItem((item) => pluginMenuLabel(item
+            .setSection('tldraw')
+        ))
+            .addItem((item) => item
+                .setIcon('external-link')
+                .setSection('tldraw')
+                .setTitle('Open in default app')
+                .onClick(async () => {
+                    await this.app.openWithDefaultApp(file.path);
+                })
+            )
     }
 
     protected override setFileData: SetTldrawFileData = () => {
