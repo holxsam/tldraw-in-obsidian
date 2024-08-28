@@ -1,4 +1,4 @@
-import { ButtonComponent, MarkdownPostProcessorContext, MarkdownView, TFile } from "obsidian";
+import { ButtonComponent, MarkdownPostProcessorContext, TFile } from "obsidian";
 import { createRootAndRenderTldrawApp } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import { MARKDOWN_ICON_NAME, TLDRAW_ICON_NAME } from "src/utils/constants";
@@ -119,7 +119,7 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             (_) => {
                 console.log('Ignore saving file due to read only mode.');
             },
-            plugin.settings,
+            plugin,
             {
                 isReadonly: true,
                 autoFocus: false,
@@ -252,7 +252,6 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
         viewHeader.hide();
 
         internalEmbedDiv.addEventListener('focusin', () => {
-            plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor.setCursor(0, 0)
             viewHeader.show();
         })
 

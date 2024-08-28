@@ -16,13 +16,14 @@ import {
 	defaultShapeUtils,
 	useActions,
 } from "@tldraw/tldraw";
-import { TldrawPluginSettings } from "../obsidian/TldrawSettingsTab";
 import { useDebouncedCallback } from "use-debounce";
-import { SAVE_FILE_COPY_ACTION } from "src/utils/file";
+import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION } from "src/utils/file";
 import { isObsidianThemeDark, safeSecondsToMs } from "src/utils/utils";
 import { uiOverrides } from "src/tldraw/ui-overrides";
 import { TLDataDocument, TldrawPluginMetaData } from "src/utils/document";
 import { createRawTldrawFile } from "src/utils/tldraw-file";
+import TldrawPlugin from "src/main";
+import { Platform } from "obsidian";
 
 type TldrawAppOptions = {
 	isReadonly?: boolean,
@@ -46,34 +47,39 @@ export type SetTldrawFileData = (data: {
 }) => void;
 
 export type TldrawAppProps = {
-	settings: TldrawPluginSettings;
+	plugin: TldrawPlugin;
 	initialData: TLDataDocument;
 	setFileData: SetTldrawFileData;
 	options: TldrawAppOptions
 };
 
 // https://github.com/tldraw/tldraw/blob/58890dcfce698802f745253ca42584731d126cc3/apps/examples/src/examples/custom-main-menu/CustomMainMenuExample.tsx
-const components: TLComponents = {
+const components = (plugin: TldrawPlugin): TLComponents => ({
 	MainMenu: () => (
 		<DefaultMainMenu>
-			<LocalFileMenu />
+			<LocalFileMenu plugin={plugin} />
 			<DefaultMainMenuContent />
 		</DefaultMainMenu>
 	),
-};
+});
 
-function LocalFileMenu() {
+function LocalFileMenu(props: { plugin: TldrawPlugin }) {
 	const actions = useActions();
 
 	return (
 		<TldrawUiMenuSubmenu id="file" label="menu.file">
-			<TldrawUiMenuItem {...actions[SAVE_FILE_COPY_ACTION]} />
-			{/* <TldrawUiMenuItem {...actions[OPEN_FILE_ACTION]} /> */}
+			{
+				Platform.isMobile
+					? <></>
+					: <TldrawUiMenuItem  {...actions[SAVE_FILE_COPY_ACTION]} />
+			}
+			<TldrawUiMenuItem {...actions[SAVE_FILE_COPY_IN_VAULT_ACTION]} />
+			<TldrawUiMenuItem {...actions[OPEN_FILE_ACTION]} />
 		</TldrawUiMenuSubmenu>
 	);
 }
 
-const TldrawApp = ({ settings, initialData, setFileData, options: {
+const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	autoFocus = true,
 	hideUi = false,
 	inputFocus = false,
@@ -82,7 +88,7 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 	zoomToBounds = false,
 	defaultFontOverrides
 } }: TldrawAppProps) => {
-	const saveDelayInMs = safeSecondsToMs(settings.saveFileDelay);
+	const saveDelayInMs = safeSecondsToMs(plugin.settings.saveFileDelay);
 
 	const [{ meta, store },
 		/**
@@ -134,7 +140,7 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 			// Obsidian thinks they're swiping down, left, or right so it opens various menus.
 			// By preventing the event from propagating, we can prevent those actions menus from opening.
 			onTouchStart={(e) => e.stopPropagation()}
-			onBlur={!inputFocus ?  undefined : () => {
+			onBlur={!inputFocus ? undefined : () => {
 				editorRef.current?.selectNone()
 				editorRef.current?.blur()
 			}}
@@ -145,14 +151,14 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 					fonts: defaultFontOverrides
 				}}
 				hideUi={hideUi}
-				overrides={uiOverrides}
+				overrides={uiOverrides(plugin)}
 				store={store}
-				components={components}
+				components={components(plugin)}
 				// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
 				autoFocus={autoFocus}
 				onMount={(editor) => {
 					editorRef.current = editor;
-					if(selectNone) {
+					if (selectNone) {
 						editor.selectNone();
 					}
 
@@ -163,7 +169,7 @@ const TldrawApp = ({ settings, initialData, setFileData, options: {
 						snapMode,
 						focusMode,
 						toolSelected,
-					} = settings;
+					} = plugin.settings;
 
 					// NOTE: The API broke when updating Tldraw version and I don't know what to replace it with.
 					// editor.focus();
@@ -200,7 +206,7 @@ export const createRootAndRenderTldrawApp = (
 	node: Element,
 	initialData: TLDataDocument,
 	setFileData: SetTldrawFileData,
-	settings: TldrawPluginSettings,
+	plugin: TldrawPlugin,
 	options: TldrawAppOptions = {}
 ) => {
 	const root = createRoot(node);
@@ -209,7 +215,7 @@ export const createRootAndRenderTldrawApp = (
 		<TldrawApp
 			setFileData={setFileData}
 			initialData={initialData}
-			settings={settings}
+			plugin={plugin}
 			options={options}
 		/>
 	);

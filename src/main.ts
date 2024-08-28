@@ -7,6 +7,7 @@ import {
 	addIcon,
 	normalizePath,
 	moment,
+	Notice,
 } from "obsidian";
 import { TldrawView } from "./obsidian/TldrawView";
 import {
@@ -49,6 +50,10 @@ import { pluginBuild } from "./utils/decorators/plugin";
 import { markdownPostProcessor } from "./obsidian/plugin/markdown-post-processor";
 import { processFontOverrides } from "./obsidian/plugin/settings";
 import { createRawTldrawFile } from "./utils/tldraw-file";
+import { TLDRAW_FILE_EXTENSION, TLStore } from "@tldraw/tldraw";
+import { registerCommands } from "./obsidian/plugin/commands";
+import { migrateTldrawFileDataIfNecessary } from "./utils/migrate/tl-data-to-tlstore";
+import { pluginMenuLabel } from "./obsidian/menu";
 
 @pluginBuild
 export default class TldrawPlugin extends Plugin {
@@ -118,6 +123,8 @@ export default class TldrawPlugin extends Plugin {
 
 		// Change how tldraw files are displayed when reading the document, e.g. when it is embed in another Obsidian document.
 		this.registerMarkdownPostProcessor((e, c) => markdownPostProcessor(this, e, c))
+
+		this.registerExtensions(['tldr'], VIEW_TYPE_TLDRAW_READ_ONLY)
 	}
 
 	onunload() {
@@ -193,7 +200,30 @@ export default class TldrawPlugin extends Plugin {
 		// adds a menu item to the file menu (three dots) depending on view mode
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file, source, leaf) => {
-				if (!leaf || !(file instanceof TFile)) return;
+				if (!(file instanceof TFile)) return;
+
+				if (file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
+					menu.addItem((item) => pluginMenuLabel(item
+						.setSection('tldraw')
+					)).addItem((item) => {
+						item.setIcon('edit')
+							.setSection('tldraw')
+							.setTitle('Edit as new Note')
+							.onClick(async () => {
+								const newFile = await this.createUntitledTldrFile({
+									tlStore: migrateTldrawFileDataIfNecessary(
+										await this.app.vault.read(file)
+									)
+								});
+								await this.openTldrFile(newFile, 'new-tab', 'tldraw-view')
+								new Notice(`Created a new file for editing "${newFile.path}"`)
+							})
+					})
+					return;
+				}
+
+				if (!leaf) return;
+
 				if (!this.isTldrawFile(file)) return;
 
 				const { type } = leaf.getViewState();
@@ -245,75 +275,7 @@ export default class TldrawPlugin extends Plugin {
 		);
 	}
 
-	private registerCommands() {
-		this.addCommand({
-			id: "toggle-view-mode",
-			name: "Toggle view mode",
-			checkCallback: (checking) => {
-				const file = this.app.workspace.getActiveFile();
-				if (!file) return false;
-
-				const fileIsTldraw = this.isTldrawFile(file);
-				if (checking) return fileIsTldraw;
-
-				const leaf = this.app.workspace.getLeaf(false);
-				const currentViewMode = this.getLeafFileViewMode(leaf, file);
-				const oppositeViewMode =
-					currentViewMode === VIEW_TYPE_MARKDOWN
-						? VIEW_TYPE_TLDRAW
-						: VIEW_TYPE_MARKDOWN;
-				this.updateViewMode(oppositeViewMode, leaf);
-			},
-		});
-
-		this.addCommand({
-			id: "new-tldraw-file-current-tab",
-			name: "Create a new drawing in the current tab",
-			callback: async () => {
-				await this.createAndOpenUntitledTldrFile("current-tab");
-			},
-		});
-
-		this.addCommand({
-			id: "new-tldraw-file-new-tab",
-			name: "Create a new drawing in a new tab",
-			callback: async () => {
-				await this.createAndOpenUntitledTldrFile("new-tab");
-			},
-		});
-
-		this.addCommand({
-			id: "new-tldraw-file-split-tab ",
-			name: "Create a new drawing in split tab",
-			callback: async () => {
-				await this.createAndOpenUntitledTldrFile("split-tab");
-			},
-		});
-
-		this.addCommand({
-			id: "new-tldraw-file-new-window",
-			name: "Create a new drawing in a new window",
-			callback: async () => {
-				await this.createAndOpenUntitledTldrFile("new-window");
-			},
-		});
-
-		this.addCommand({
-			id: "new-tldraw-file-embed",
-			name: "Create a new drawing and embed as attachment",
-			editorCallback: async (editor, ctx) => {
-				const { file } = ctx;
-				if (file === null) {
-					console.log(ctx)
-					throw new Error('ctx.file was null');
-				}
-				const from = editor.getCursor('from');
-				const to = editor.getCursor('to');
-				const newFile = await this.createUntitledTldrFile(file);
-				editor.replaceRange(`![[${newFile.path}]]`, from, to)
-			},
-		});
-	}
+	private registerCommands = () => registerCommands(this)
 
 	public setStatusBarViewModeVisibility(visible: boolean) {
 		if (visible)
@@ -415,14 +377,16 @@ export default class TldrawPlugin extends Plugin {
 		return await this.app.vault.create(fname, data ?? "");
 	}
 
-	public createTldrFile = async (filename: string, foldername?: string) => {
+	public createTldrFile = async (filename: string, {
+		foldername, tlStore
+	}: { foldername?: string, tlStore?: TLStore } = {}) => {
 		// adds the markdown extension if the filename does not already include it:
 		filename = filename.endsWith(FILE_EXTENSION)
 			? filename
 			: filename + FILE_EXTENSION;
 
 		// constructs the markdown content thats a template:
-		const tlData = getTLDataTemplate(this.manifest.version, createRawTldrawFile(), window.crypto.randomUUID());
+		const tlData = getTLDataTemplate(this.manifest.version, createRawTldrawFile(tlStore), window.crypto.randomUUID());
 		const frontmatter = frontmatterTemplate(`${FRONTMATTER_KEY}: true`);
 		const codeblock = codeBlockTemplate(tlData);
 		const fileData = tlFileTemplate(frontmatter, codeblock);
@@ -435,7 +399,9 @@ export default class TldrawPlugin extends Plugin {
 	 * @param attachTo The file that is considered as the "parent" of this new file. If this is not undefined then the new untitled tldr file will be considered as an attachment.
 	 * @returns 
 	 */
-	public createUntitledTldrFile = async (attachTo?: TFile) => {
+	public createUntitledTldrFile = async ({
+		attachTo, tlStore
+	}: { attachTo?: TFile, tlStore?: TLStore } = {}) => {
 		const { newFilePrefix, newFileTimeFormat, folder, useAttachmentsFolder } = this.settings;
 
 		const date =
@@ -455,7 +421,10 @@ export default class TldrawPlugin extends Plugin {
 			? { filename, folder }
 			: await createAttachmentFilepath(filename, attachTo, this.app.fileManager);
 
-		return await this.createTldrFile(res.filename, res.folder);
+		return await this.createTldrFile(res.filename, {
+			tlStore,
+			foldername: res.folder,
+		});
 	};
 
 	public openTldrFile = async (file: TFile, location: PaneTarget, viewType: ViewType = VIEW_TYPE_TLDRAW) => {

@@ -44,7 +44,7 @@ export type TLData = {
 
 export const getTLMetaTemplate = (
 	pluginVersion: string,
-	uuid: string,
+	uuid: string = window.crypto.randomUUID(),
 ) => ({
 	uuid,
 	"plugin-version": pluginVersion,

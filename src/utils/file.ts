@@ -3,9 +3,17 @@ import {
 	TLDRAW_FILE_EXTENSION,
 	serializeTldrawJsonBlob,
 	Editor,
+	useDefaultHelpers,
 } from "@tldraw/tldraw";
+import TldrawPlugin from "src/main";
+import { migrateTldrawFileDataIfNecessary } from "./migrate/tl-data-to-tlstore";
+import { Platform, TFile } from "obsidian";
+import { showSaveFileModal } from "src/obsidian/modal/save-file-modal";
+// import { shouldOverrideDocument } from "src/components/file-menu/shouldOverrideDocument";
 
 export const SAVE_FILE_COPY_ACTION = "save-file-copy";
+export const SAVE_FILE_COPY_IN_VAULT_ACTION = "save-file-copy-in-vault";
+export const OPEN_FILE_ACTION = 'open-file';
 
 // https://github.com/tldraw/tldraw/blob/58890dcfce698802f745253ca42584731d126cc3/packages/tldraw/src/lib/utils/export/exportAs.ts#L57
 export const downloadFile = (file: File) => {
@@ -20,8 +28,11 @@ export const downloadFile = (file: File) => {
 // https://github.com/tldraw/tldraw/blob/58890dcfce698802f745253ca42584731d126cc3/apps/dotcom/src/utils/useFileSystem.tsx#L111
 export function getSaveFileCopyAction(
 	editor: Editor,
-	defaultDocumentName: string
+	defaultDocumentName: string,
 ): TLUiActionItem {
+	if (Platform.isMobile) {
+		throw new Error(`${getSaveFileCopyAction.name} is not allowed on mobile platforms.`);
+	}
 	return {
 		id: SAVE_FILE_COPY_ACTION,
 		label: "action.save-copy",
@@ -42,4 +53,61 @@ export function getSaveFileCopyAction(
 			}
 		},
 	};
+}
+
+export function getSaveFileCopyInVaultAction(
+	editor: Editor,
+	defaultDocumentName: string,
+	plugin: TldrawPlugin,
+): TLUiActionItem {
+	const defaultName = `${defaultDocumentName}${TLDRAW_FILE_EXTENSION}`;
+	return {
+		id: SAVE_FILE_COPY_IN_VAULT_ACTION,
+		label: "Save a copy in vault",
+		readonlyOk: true,
+		onSelect: () => showSaveFileModal(plugin, {
+			defaultName, editor
+		}),
+	};
+}
+
+export function importFileAction(plugin: TldrawPlugin,
+	addDialog: ReturnType<typeof useDefaultHelpers>['addDialog']
+): TLUiActionItem {
+	return {
+		id: OPEN_FILE_ACTION,
+		label: "action.open-file",
+		readonlyOk: true,
+		async onSelect(source) {
+			const tFile = await importTldrawFile(plugin);
+			await plugin.openTldrFile(tFile, 'new-tab');
+		},
+	};
+}
+
+export async function importTldrawFile(plugin: TldrawPlugin, attachTo?: TFile) {
+	if ('showOpenFilePicker' in window) {
+		const [file] = await window.showOpenFilePicker({
+			id: 'tldraw-open-file',
+			startIn: 'downloads',
+			types: [
+				{
+					description: 'Tldraw Document',
+					accept: {
+						'text/tldr': ['.tldr']
+					}
+				}
+			],
+			excludeAcceptAllOption: true,
+		});
+
+		return plugin.createUntitledTldrFile({
+			attachTo,
+			tlStore: migrateTldrawFileDataIfNecessary(await (
+				await file.getFile()
+			).text())
+		})
+	} else {
+		throw new Error('Unable to open file picker.');
+	}
 }
