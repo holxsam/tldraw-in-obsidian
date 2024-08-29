@@ -16,7 +16,7 @@ export const SAVE_FILE_COPY_IN_VAULT_ACTION = "save-file-copy-in-vault";
 export const OPEN_FILE_ACTION = 'open-file';
 
 // https://github.com/tldraw/tldraw/blob/58890dcfce698802f745253ca42584731d126cc3/packages/tldraw/src/lib/utils/export/exportAs.ts#L57
-export const downloadFile = (file: File) => {
+const downloadFile = (file: File) => {
 	const link = document.createElement("a");
 	const url = URL.createObjectURL(file);
 	link.href = url;
@@ -24,6 +24,17 @@ export const downloadFile = (file: File) => {
 	link.click();
 	URL.revokeObjectURL(url);
 };
+
+export function downloadBlob(blob: Blob, name: string, plugin: TldrawPlugin, preferVault: boolean = false) {
+	const file = new File([blob], name, {
+		type: blob.type,
+	});
+	if (Platform.isMobile || preferVault) {
+		return showSaveFileModal(plugin, file, {});
+	} else {
+		return downloadFile(file);
+	}
+}
 
 // https://github.com/tldraw/tldraw/blob/58890dcfce698802f745253ca42584731d126cc3/apps/dotcom/src/utils/useFileSystem.tsx#L111
 export function getSaveFileCopyAction(
@@ -65,9 +76,18 @@ export function getSaveFileCopyInVaultAction(
 		id: SAVE_FILE_COPY_IN_VAULT_ACTION,
 		label: "Save a copy in vault",
 		readonlyOk: true,
-		onSelect: () => showSaveFileModal(plugin, {
-			defaultName, editor
-		}),
+		onSelect: async () => {
+			const res = await downloadBlob(
+				await serializeTldrawJsonBlob(editor),
+				defaultName,
+				plugin,
+				true
+			)
+
+			if(typeof res === 'object') {
+				res.showResultModal()
+			}
+		},
 	};
 }
 
