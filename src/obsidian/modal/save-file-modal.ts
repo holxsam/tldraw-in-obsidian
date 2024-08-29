@@ -1,37 +1,48 @@
-import { Editor } from "@tldraw/tldraw";
 import { App, ButtonComponent, Modal, normalizePath, Notice, Setting, TFile } from "obsidian";
 import TldrawPlugin from "src/main";
 import { getDir, pathBasename } from "src/utils/path";
-import { createRawTldrawFile } from "src/utils/tldraw-file";
 
-type SaveFileModalOptions = {
-    defaultName: string,
-    editor: Editor
-}
+type SaveFileModalOptions = NonNullable<unknown>
+
+type FileSavedResult = {
+    tFile: TFile,
+    showResultModal: () => void
+};
 
 class SaveFileModal extends Modal {
     plugin: TldrawPlugin;
-    options: SaveFileModalOptions;
+    file: File
+    options: SaveFileModalOptions & {
+        onFileSaved: (tFile?: FileSavedResult) => void
+    };
 
-    constructor(plugin: TldrawPlugin, options: SaveFileModalOptions) {
+    constructor(plugin: TldrawPlugin, file: File, options: SaveFileModal['options']) {
         super(plugin.app);
         this.plugin = plugin;
+        this.file = file;
         this.options = options;
     }
 
     onOpen(): void {
-        const { contentEl, options: { defaultName } } = this;
+        const { contentEl, file } = this;
         const activeFilePath = this.app.workspace.getActiveFile()?.path ?? ''
         const defaultDir = getDir(activeFilePath);
+        const defaultName = file.name;
+        const defaultExt = defaultName.slice(defaultName.lastIndexOf('.'));
 
         contentEl.createEl('h1', {
             text: 'Save file'
         })
 
+        let filePath = '';
         let saveSetting: Setting | undefined = undefined;
+        const setSaveSetting = (folder: string, fileName: string) => {
+            filePath = normalizePath(`${folder}/${fileName}`)
+            saveSetting?.setDesc(`Saving to "${filePath}"`)
+        }
 
         const folderSetting = {
-            folder: '',
+            folder: defaultDir,
             setting: new Setting(contentEl)
                 .setName("Folder"),
             init() {
@@ -48,14 +59,12 @@ class SaveFileModal extends Modal {
                 }
                 this.folder = value;
                 this.setting.setDesc(`Using "${this.folder}"\n`)
-                saveSetting?.setDesc(`Saving to "${folderSetting.folder}/${fileNameSetting.fileName}"`)
+                setSaveSetting(folderSetting.folder, fileNameSetting.fileName);
             }
         };
 
-        folderSetting.init()
-
         const fileNameSetting = {
-            fileName: '',
+            fileName: defaultName,
             setting: new Setting(contentEl)
                 .setName("File name"),
             init() {
@@ -70,8 +79,8 @@ class SaveFileModal extends Modal {
                 if (value.length === 0) {
                     value = defaultName;
                 }
-                if (!value.endsWith('.tldr')) {
-                    value += '.tldr';
+                if (!value.endsWith(defaultExt)) {
+                    value += defaultExt;
                 }
                 this.fileName = value;
                 this.setting.setDesc(`Using "${this.fileName}"`)
@@ -79,16 +88,13 @@ class SaveFileModal extends Modal {
             }
         };
 
-        fileNameSetting.init();
-
         saveSetting = new Setting(contentEl)
-            .setDesc(`Saving to "${folderSetting.folder}/${fileNameSetting.fileName}"`)
+            // .setDesc(`Saving to "${folderSetting.folder}/${fileNameSetting.fileName}"`)
             .addButton((btn) =>
                 btn
                     .setButtonText("Submit")
                     .setCta()
                     .onClick(() => {
-                        const filePath = `${folderSetting.folder}/${fileNameSetting.fileName}`;
                         this.saveFile(filePath).catch((e) => {
                             console.log(e);
                             const notice = new Notice(`There was an error saving the file to "${filePath}".`);
@@ -98,6 +104,9 @@ class SaveFileModal extends Modal {
                         });
                     })
             );
+
+        fileNameSetting.init();
+        folderSetting.init()
     }
 
     onClose(): void {
@@ -105,12 +114,15 @@ class SaveFileModal extends Modal {
     }
 
     private async saveFile(path: string) {
-        const tFile = await this.plugin.app.vault.create(path,
-            JSON.stringify(createRawTldrawFile(this.options.editor.store))
-        )
+        const tFile = await this.plugin.app.vault.createBinary(path,
+            await this.file.arrayBuffer()
+        );
         this.close()
 
-        new FileSavedModal(this.app, this.plugin, tFile).open()
+        this.options.onFileSaved({
+            tFile,
+            showResultModal: () => new FileSavedModal(this.app, this.plugin, tFile).open()
+        });
     }
 }
 
@@ -152,6 +164,10 @@ class FileSavedModal extends Modal {
     }
 }
 
-export function showSaveFileModal(plugin: TldrawPlugin, options: SaveFileModalOptions) {
-    new SaveFileModal(plugin, options).open()
+export function showSaveFileModal(plugin: TldrawPlugin, file: File, options: SaveFileModalOptions) {
+    return new Promise<FileSavedResult | undefined>(
+        (res) => new SaveFileModal(plugin, file, {
+            ...options,
+            onFileSaved: res,
+        }).open());
 }
