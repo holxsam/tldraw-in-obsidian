@@ -84,12 +84,11 @@ class SaveFileModal extends Modal {
                 }
                 this.fileName = value;
                 this.setting.setDesc(`Using "${this.fileName}"`)
-                saveSetting?.setDesc(`Saving to "${folderSetting.folder}/${fileNameSetting.fileName}"`)
+                setSaveSetting(folderSetting.folder, fileNameSetting.fileName);
             }
         };
 
         saveSetting = new Setting(contentEl)
-            // .setDesc(`Saving to "${folderSetting.folder}/${fileNameSetting.fileName}"`)
             .addButton((btn) =>
                 btn
                     .setButtonText("Submit")
