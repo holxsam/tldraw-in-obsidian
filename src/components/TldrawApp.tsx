@@ -2,6 +2,8 @@ import * as React from "react";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+	Box,
+	BoxLike,
 	DefaultMainMenu,
 	DefaultMainMenuContent,
 	Editor,
@@ -9,6 +11,7 @@ import {
 	TLStore,
 	Tldraw,
 	TldrawFile,
+	TldrawImage,
 	TldrawProps,
 	TldrawUiMenuItem,
 	TldrawUiMenuSubmenu,
@@ -24,18 +27,24 @@ import { TLDataDocument, TldrawPluginMetaData } from "src/utils/document";
 import { createRawTldrawFile } from "src/utils/tldraw-file";
 import TldrawPlugin from "src/main";
 import { Platform } from "obsidian";
+import { TldrawAppViewModeController } from "src/obsidian/helpers/TldrawAppEmbedViewController";
+import { useViewModeState } from "src/hooks/useViewModeController";
 
 type TldrawAppOptions = {
+	controller?: TldrawAppViewModeController;
 	isReadonly?: boolean,
 	autoFocus?: boolean,
 	inputFocus?: boolean,
+	initialBounds?: BoxLike,
 	hideUi?: boolean,
 	/**
 	 * Whether to call `.selectNone` on the Tldraw editor instance when it is mounted.
 	 */
 	selectNone?: boolean,
 	/**
-	 * Whether or not to initially zoom to the bounds of the document when the component is mounted.
+	 * Whether or not to initially zoom to the bounds when the component is mounted.
+	 * 
+	 * If {@linkcode TldrawAppOptions.initialBounds} is not provided, then the page bounds are used.
 	 */
 	zoomToBounds?: boolean,
 	defaultFontOverrides?: NonNullable<TldrawProps['assetUrls']>['fonts']
@@ -50,7 +59,7 @@ export type TldrawAppProps = {
 	plugin: TldrawPlugin;
 	initialData: TLDataDocument;
 	setFileData: SetTldrawFileData;
-	options: TldrawAppOptions
+	options: TldrawAppOptions;
 };
 
 // https://github.com/tldraw/tldraw/blob/58890dcfce698802f745253ca42584731d126cc3/apps/examples/src/examples/custom-main-menu/CustomMainMenuExample.tsx
@@ -81,7 +90,9 @@ function LocalFileMenu(props: { plugin: TldrawPlugin }) {
 
 const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	autoFocus = true,
+	controller,
 	hideUi = false,
+	initialBounds,
 	inputFocus = false,
 	isReadonly = false,
 	selectNone = false,
@@ -131,6 +142,12 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	}, [store]);
 
 	const editorRef = React.useRef<Editor | null>(null);
+	const {
+		displayImage, bounds, viewOptions
+	} = useViewModeState(editorRef, {
+		controller,
+		initialBounds
+	})
 	return (
 		<div
 			className="tldraw-view-root"
@@ -146,58 +163,72 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 			}}
 			onFocus={!inputFocus ? undefined : () => editorRef.current?.focus()}
 		>
-			<Tldraw
-				assetUrls={{
-					fonts: defaultFontOverrides
-				}}
-				hideUi={hideUi}
-				overrides={uiOverrides(plugin)}
-				store={store}
-				components={components(plugin)}
-				// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
-				autoFocus={autoFocus}
-				onMount={(editor) => {
-					editorRef.current = editor;
-					if (selectNone) {
-						editor.selectNone();
+			{displayImage ? (
+				<TldrawImage
+					snapshot={store.getStoreSnapshot()}
+					padding={0}
+					bounds={!bounds
+						? undefined
+						: Box.From(bounds)
 					}
+					{...viewOptions}
+				/>
+			) : (
+				<Tldraw
+					assetUrls={{
+						fonts: defaultFontOverrides
+					}}
+					hideUi={hideUi}
+					overrides={uiOverrides(plugin)}
+					store={store}
+					components={components(plugin)}
+					// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
+					autoFocus={autoFocus}
+					onMount={(editor) => {
+						editorRef.current = editor;
+						if (selectNone) {
+							editor.selectNone();
+						}
 
-					const {
-						themeMode,
-						gridMode,
-						debugMode,
-						snapMode,
-						focusMode,
-						toolSelected,
-					} = plugin.settings;
+						const {
+							themeMode,
+							gridMode,
+							debugMode,
+							snapMode,
+							focusMode,
+							toolSelected,
+						} = plugin.settings;
 
-					// NOTE: The API broke when updating Tldraw version and I don't know what to replace it with.
-					// editor.focus();
-					editor.setCurrentTool(toolSelected)
+						editor.setCurrentTool(toolSelected)
 
-					let darkMode = true;
-					if (themeMode === "dark") darkMode = true;
-					else if (themeMode === "light") darkMode = false;
-					else darkMode = isObsidianThemeDark();
+						let darkMode = true;
+						if (themeMode === "dark") darkMode = true;
+						else if (themeMode === "light") darkMode = false;
+						else darkMode = isObsidianThemeDark();
 
-					editor.user.updateUserPreferences({
-						colorScheme: darkMode ? 'dark' : 'light',
-						isSnapMode: snapMode,
-					});
+						editor.user.updateUserPreferences({
+							colorScheme: darkMode ? 'dark' : 'light',
+							isSnapMode: snapMode,
+						});
 
-					editor.updateInstanceState({
-						isReadonly: isReadonly,
-						isGridMode: gridMode,
-						isDebugMode: debugMode,
-						isFocusMode: focusMode,
-					});
+						editor.updateInstanceState({
+							isReadonly: isReadonly,
+							isGridMode: gridMode,
+							isDebugMode: debugMode,
+							isFocusMode: focusMode,
+						});
 
-					const bounds = editor.getCurrentPageBounds();
-					if (zoomToBounds && bounds) {
-						editor.zoomToBounds(bounds, { animation: { duration: 0 } });
-					}
-				}}
-			/>
+						const zoomBounds = bounds ?? editor.getCurrentPageBounds();
+						if (zoomToBounds && zoomBounds) {
+							editor.zoomToBounds(zoomBounds, {
+								// Define an inset to 0 so that it is consistent with TldrawImage component
+								inset: 0,
+								animation: { duration: 0 }
+							});
+						}
+					}}
+				/>
+			)}
 		</div>
 	);
 };

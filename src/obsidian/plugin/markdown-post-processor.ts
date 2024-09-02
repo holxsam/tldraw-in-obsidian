@@ -1,10 +1,13 @@
 import { ButtonComponent, MarkdownPostProcessorContext, TFile } from "obsidian";
 import { createRootAndRenderTldrawApp } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
+import { TldrawAppViewModeController } from "../helpers/TldrawAppEmbedViewController";
 import { MARKDOWN_ICON_NAME, TLDRAW_ICON_NAME } from "src/utils/constants";
 import { CustomMutationObserver } from "src/utils/debug-mutation-observer";
 import { ConsoleLogParams, LOGGING_ENABLED, logFn } from "src/utils/logging";
 import { parseTLDataDocument } from "src/utils/parse";
+import { createTldrawAppViewModeController } from "../factories/createTldrawAppViewModeController";
+import { backgroundViewOptionToggle, interactiveViewModeToggle } from "../helpers/tldraw-view-header";
 
 /**
  * Processes the embed view for a tldraw white when including it in another obsidian note.
@@ -99,8 +102,10 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             // internalEmbedDiv.addClass("image-embed");
         }
 
+        const controller = createTldrawAppViewModeController();
+
         const tldrawEmbedView = createTldrawEmbedView(internalEmbedDiv, {
-            file, plugin
+            file, plugin, controller
         });
 
         const tldrawEmbedViewContent = tldrawEmbedView.createDiv({
@@ -122,10 +127,14 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             plugin,
             {
                 isReadonly: true,
-                autoFocus: false,
+                controller,
                 inputFocus: true,
                 selectNone: true,
-                hideUi: true,
+                // TODO: Create initial bounds from url params defined in the markdown link.
+                // initialBounds: {
+                //     x: 0, y: 0,
+                //     h: 300, w: 300
+                // },
                 zoomToBounds: true,
                 defaultFontOverrides: plugin.getFontOverrides()
             }
@@ -178,8 +187,9 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
 
 
 function createTldrawViewHeader(embedViewContent: HTMLElement, {
-    file, plugin, selectEmbedText
+    controller, file, plugin, selectEmbedText
 }: {
+    controller: TldrawAppViewModeController,
     file: TFile,
     plugin: TldrawPlugin,
     selectEmbedText: (ev: MouseEvent) => void
@@ -200,6 +210,11 @@ function createTldrawViewHeader(embedViewContent: HTMLElement, {
     tldrawTitle.innerText = file.name;
 
     const actionBar = tldrawViewHeader.createDiv({ cls: 'ptl-embed-action-bar' })
+
+    const updateList: (() => void )[] = [
+        interactiveViewModeToggle(actionBar, controller)[1],
+        backgroundViewOptionToggle(actionBar, controller)[1],
+    ];
 
     new ButtonComponent(actionBar)
         .setClass('clickable-icon')
@@ -222,20 +237,23 @@ function createTldrawViewHeader(embedViewContent: HTMLElement, {
             plugin.openTldrFile(file, 'new-tab', 'tldraw-read-only')
         });
 
-    return tldrawViewHeader;
+    return [tldrawViewHeader, () => {
+        updateList.forEach((e) => e());
+    }] as const;
 }
 
 function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
-    file, plugin
+    file, plugin, controller
 }: {
     file: TFile,
     plugin: TldrawPlugin,
+    controller: TldrawAppViewModeController
 }) {
     return internalEmbedDiv.createDiv({
         cls: 'ptl-markdown-embed'
     }, (el) => {
-        const viewHeader = createTldrawViewHeader(el, {
-            file, plugin,
+        const [viewHeader, updateHeader] = createTldrawViewHeader(el, {
+            file, plugin, controller,
             selectEmbedText: (ev) => {
                 internalEmbedDiv.dispatchEvent(new MouseEvent('click', {
                     bubbles: ev.bubbles,
@@ -252,6 +270,7 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
         viewHeader.hide();
 
         internalEmbedDiv.addEventListener('focusin', () => {
+            updateHeader();
             viewHeader.show();
         })
 
@@ -259,6 +278,8 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
             if (event.relatedTarget instanceof Node && internalEmbedDiv.contains(event.relatedTarget)) {
                 return;
             }
+            controller.setViewMode('image');
+            updateHeader();
             viewHeader.hide();
         })
     })
