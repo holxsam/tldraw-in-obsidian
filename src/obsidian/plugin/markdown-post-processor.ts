@@ -119,6 +119,7 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
         const fileData = await plugin.app.vault.read(file);
         const parsedData = parseTLDataDocument(plugin.manifest.version, fileData);
 
+        const { pos, size } = parseAltValues(internalEmbedDiv.attributes.getNamedItem('alt')?.value ?? '')
         const reactRoot = createRootAndRenderTldrawApp(tldrawEmbedViewContent,
             parsedData,
             (_) => {
@@ -131,10 +132,10 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
                 inputFocus: true,
                 selectNone: true,
                 initialTool: 'hand',
-                // initialBounds: {
-                //     x: 0, y: 0,
-                //     h: 300, w: 300
-                // },
+                initialBounds: pos === undefined || size === undefined ? undefined : {
+                    ...pos,
+                    ...size,
+                },
                 zoomToBounds: true,
             }
         );
@@ -146,18 +147,27 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
 
         const markdownObserverFn: MutationCallback = (m) => {
             log(`${markdownObserverFn.name}`)
-            if (!(["alt", "width", "height"] as (string | null)[]).contains(m[0]?.attributeName)) {
+            console.log(m)
+            const { target, attributeName } = m[0]
+            if (!(target instanceof HTMLElement) || !(["alt", "width", "height"] as (string | null)[]).contains(attributeName)) {
                 return;
             }
 
             if (timer) {
                 clearTimeout(timer);
             }
+
+            const alt = target.attributes.getNamedItem('alt')?.value ?? '';
+            const { pos, size } = parseAltValues(alt)
+
+            if (pos === undefined || size === undefined) return;
+
             timer = setTimeout(async () => {
-                timer = null;
-                internalEmbedDiv.empty();
-                // const imgDiv = await processInternalEmbed(internalEmbedDiv, file);
-                // internalEmbedDiv.appendChild(imgDiv);
+                console.log(m[0])
+                controller.setImageBounds({
+                    ...pos,
+                    ...size
+                });
             }, 500);
         }
 
@@ -210,7 +220,7 @@ function createTldrawViewHeader(embedViewContent: HTMLElement, {
 
     const actionBar = tldrawViewHeader.createDiv({ cls: 'ptl-embed-action-bar' })
 
-    const updateList: (() => void )[] = [
+    const updateList: (() => void)[] = [
         interactiveViewModeToggle(actionBar, controller)[1],
         backgroundViewOptionToggle(actionBar, controller)[1],
     ];
@@ -290,4 +300,22 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
             viewHeader.hide();
         })
     })
+}
+
+function parseAltValues(alt: string) {
+    const altSplit = alt.split(';').map((e) => e.trim())
+    const altEntries = altSplit.map((e) => e.split('='))
+    const altNamedProps: Partial<Record<string, string>> = Object.fromEntries(altEntries);
+
+    const posValue = altNamedProps['pos']?.split(',').map((e) => Number.parseInt(e));
+    const pos = posValue === undefined
+        ? undefined
+        : { x: posValue.at(0) ?? 0, y: posValue.at(1) ?? 0 }
+
+    const sizeValue = altNamedProps['size']?.split(',').map((e) => Number.parseInt(e));
+    const size = sizeValue === undefined
+        ? undefined
+        : { w: sizeValue.at(0) ?? 0, h: sizeValue.at(1) ?? 0 }
+
+    return { pos, size };
 }
