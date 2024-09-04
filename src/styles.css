@@ -142,7 +142,8 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
     display: flex;
     justify-content: space-between;
     width: 100%;
-    z-index: 1;
+	position: absolute;
+	top: 0;
 }
 
 .ptl-embed-action-bar {

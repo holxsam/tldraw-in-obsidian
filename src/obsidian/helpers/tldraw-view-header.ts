@@ -1,7 +1,9 @@
 import { ButtonComponent } from "obsidian";
 import { TldrawAppViewModeController } from "./TldrawAppEmbedViewController";
 
-export function interactiveViewModeToggle(container: HTMLElement, controller: TldrawAppViewModeController) {
+export function backgroundViewOptionsToggle(container: HTMLElement, controller: Pick<
+    TldrawAppViewModeController, 'toggleBackground' | 'getViewOptions'
+>) {
     const updateButton = () => {
         const showBackground = controller.getViewOptions().background === true;
         backgroundToggle.setTooltip(showBackground
@@ -26,7 +28,9 @@ export function interactiveViewModeToggle(container: HTMLElement, controller: Tl
     return [backgroundToggle, updateButton] as const;
 }
 
-export function backgroundViewOptionToggle(container: HTMLElement, controller: TldrawAppViewModeController) {
+export function interactiveViewModeToggle(container: HTMLElement, controller: Pick<
+    TldrawAppViewModeController, 'getViewMode' | 'toggleInteractive'
+>) {
     const updateButton = () => {
         const isImage = controller.getViewMode() === 'image';
         interactToggle.setTooltip(isImage

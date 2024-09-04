@@ -7,7 +7,7 @@ import { CustomMutationObserver } from "src/utils/debug-mutation-observer";
 import { ConsoleLogParams, LOGGING_ENABLED, logFn } from "src/utils/logging";
 import { parseTLDataDocument } from "src/utils/parse";
 import { createTldrawAppViewModeController } from "../factories/createTldrawAppViewModeController";
-import { backgroundViewOptionToggle, interactiveViewModeToggle } from "../helpers/tldraw-view-header";
+import { interactiveViewModeToggle, backgroundViewOptionsToggle } from "../helpers/tldraw-view-header";
 import { Root } from "react-dom/client";
 
 /**
@@ -105,13 +105,9 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
 
         const controller = createTldrawAppViewModeController();
 
-        const tldrawEmbedView = createTldrawEmbedView(internalEmbedDiv, {
+        const { tldrawEmbedView, tldrawEmbedViewContent, viewHeader } = createTldrawEmbedView(internalEmbedDiv, {
             file, plugin, controller
         });
-
-        const tldrawEmbedViewContent = tldrawEmbedView.createDiv({
-            cls: 'ptl-view-content'
-        })
 
         const parent = internalEmbedDiv.parentElement;
 
@@ -202,7 +198,9 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
 function createTldrawViewHeader(embedViewContent: HTMLElement, {
     controller, file, plugin, selectEmbedText
 }: {
-    controller: TldrawAppViewModeController,
+    controller: Pick<
+        TldrawAppViewModeController, 'getViewMode' | 'toggleInteractive' | 'toggleBackground' | 'getViewOptions'
+    >,
     file: TFile,
     plugin: TldrawPlugin,
     selectEmbedText: (ev: MouseEvent) => void
@@ -225,8 +223,8 @@ function createTldrawViewHeader(embedViewContent: HTMLElement, {
     const actionBar = tldrawViewHeader.createDiv({ cls: 'ptl-embed-action-bar' })
 
     const updateList: (() => void)[] = [
+        backgroundViewOptionsToggle(actionBar, controller)[1],
         interactiveViewModeToggle(actionBar, controller)[1],
-        backgroundViewOptionToggle(actionBar, controller)[1],
     ];
 
     new ButtonComponent(actionBar)
@@ -262,48 +260,71 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
     plugin: TldrawPlugin,
     controller: TldrawAppViewModeController
 }) {
-    return internalEmbedDiv.createDiv({
-        cls: 'ptl-markdown-embed'
-    }, (el) => {
-        const [viewHeader, updateHeader] = createTldrawViewHeader(el, {
-            file, plugin, controller,
-            selectEmbedText: (ev) => {
-                internalEmbedDiv.dispatchEvent(new MouseEvent('click', {
-                    bubbles: ev.bubbles,
-                    cancelable: ev.cancelable,
-                    clientX: ev.clientX,
-                    clientY: ev.clientY
-                }))
+    const tldrawEmbedView = internalEmbedDiv.createDiv({ cls: 'ptl-markdown-embed' },)
+
+    const tldrawEmbedViewContent = tldrawEmbedView.createDiv({ cls: 'ptl-view-content' })
+
+    const [viewHeader, updateHeader] = createTldrawViewHeader(tldrawEmbedView, {
+        file, plugin, controller: {
+            toggleBackground: () => {
+                return controller.toggleBackground();
+            },
+            toggleInteractive: () => {
+                viewHeader.hide();
+                controller.toggleInteractive();
+                internalEmbedDiv.focus();
+            },
+            getViewMode: () => {
+                return controller.getViewMode();
+            },
+            getViewOptions: () => {
+                return controller.getViewOptions();
             }
-        })
-
-        // Prevent the Obsidian editor from selecting the embed link with the editing cursor when a user interacts with the view.
-        el.addEventListener('click', (ev) => ev.stopPropagation());
-
-        viewHeader.hide();
-
-        internalEmbedDiv.addEventListener('focusin', () => {
-            updateHeader();
-            viewHeader.show();
-        })
-
-        internalEmbedDiv.addEventListener('focusout', (event) => {
-            if (event.relatedTarget instanceof Node) {
-                if (event.relatedTarget instanceof HTMLTextAreaElement) {
-                    return;
-                }
-                if (event.target === internalEmbedDiv && internalEmbedDiv.contains(event.relatedTarget)) {
-                    return;
-                }
-                if (internalEmbedDiv.contains(event.relatedTarget)) {
-                    return;
-                }
-            }
-            controller.setViewMode('image');
-            updateHeader();
-            viewHeader.hide();
-        })
+        },
+        selectEmbedText: (ev) => {
+            internalEmbedDiv.dispatchEvent(new MouseEvent('click', {
+                bubbles: ev.bubbles,
+                cancelable: ev.cancelable,
+                clientX: ev.clientX,
+                clientY: ev.clientY
+            }))
+        }
     })
+    viewHeader.hide();
+
+    // Prevent the Obsidian editor from selecting the embed link with the editing cursor when a user interacts with the view.
+    tldrawEmbedView.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+    })
+
+    internalEmbedDiv.addEventListener('focusin', () => {
+        if (controller.getViewMode() === 'interactive') return;
+        viewHeader.show();
+    })
+
+    internalEmbedDiv.addEventListener('focusout', (event) => {
+        if (event.relatedTarget instanceof Node) {
+            if (event.relatedTarget instanceof HTMLTextAreaElement) {
+                return;
+            }
+            if (event.target === internalEmbedDiv && internalEmbedDiv.contains(event.relatedTarget)) {
+                return;
+            }
+            if (internalEmbedDiv.contains(event.relatedTarget)) {
+                return;
+            }
+        }
+
+        controller.setViewMode('image');
+        updateHeader();
+        viewHeader.hide();
+    })
+
+    return {
+        tldrawEmbedView,
+        tldrawEmbedViewContent,
+        viewHeader,
+    }
 }
 
 function parseEmbedValues(el: HTMLElement, defaults = {
