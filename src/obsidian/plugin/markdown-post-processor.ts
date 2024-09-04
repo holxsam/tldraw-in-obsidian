@@ -274,8 +274,16 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
         })
 
         internalEmbedDiv.addEventListener('focusout', (event) => {
-            if (event.relatedTarget instanceof Node && internalEmbedDiv.contains(event.relatedTarget)) {
-                return;
+            if (event.relatedTarget instanceof Node) {
+                if (event.relatedTarget instanceof HTMLTextAreaElement) {
+                    return;
+                }
+                if (event.target === internalEmbedDiv && internalEmbedDiv.contains(event.relatedTarget)) {
+                    return;
+                }
+                if (internalEmbedDiv.contains(event.relatedTarget)) {
+                    return;
+                }
             }
             controller.setViewMode('image');
             updateHeader();
