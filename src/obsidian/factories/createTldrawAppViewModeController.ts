@@ -25,6 +25,9 @@ export function createTldrawAppViewModeController(): TldrawAppViewModeController
             this.viewMode = viewMode;
             this.onChangeHandlers?.onViewMode(viewMode);
         },
+        setImageSize(size) {
+            this.onChangeHandlers?.onImageSize(size);
+        },
         setOnChangeHandlers(handlers) {
             this.onChangeHandlers = handlers;
             return () => {

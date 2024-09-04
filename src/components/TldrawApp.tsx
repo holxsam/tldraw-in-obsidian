@@ -35,6 +35,7 @@ type TldrawAppOptions = {
 	autoFocus?: boolean,
 	inputFocus?: boolean,
 	initialBounds?: BoxLike,
+	initialImageSize?: { width: number, height: number },
 	/**
 	 * Takes precedence over the user's plugin preference
 	 */
@@ -95,6 +96,7 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	controller,
 	hideUi = false,
 	initialBounds,
+	initialImageSize,
 	initialTool,
 	inputFocus = false,
 	isReadonly = false,
@@ -145,10 +147,11 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 
 	const editorRef = React.useRef<Editor | null>(null);
 	const {
-		displayImage, bounds, viewOptions
+		displayImage, bounds, viewOptions, imageSize
 	} = useViewModeState(editorRef, {
 		controller,
-		initialBounds
+		initialBounds,
+		initialImageSize,
 	})
 	return (
 		<div
@@ -166,15 +169,25 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 			onFocus={!inputFocus ? undefined : () => editorRef.current?.focus()}
 		>
 			{displayImage ? (
-				<TldrawImage
-					snapshot={store.getStoreSnapshot()}
-					padding={0}
-					bounds={!bounds
-						? undefined
-						: Box.From(bounds)
-					}
-					{...viewOptions}
-				/>
+				<div className="ptl-tldraw-image-container" style={{
+					width: '100%',
+					height: '100%'
+				}}>
+					<div className="ptl-tldraw-image" style={{
+						width: imageSize?.width ?? undefined,
+						height: imageSize?.height ?? undefined
+					}}>
+						<TldrawImage
+							snapshot={store.getStoreSnapshot()}
+							padding={0}
+							bounds={!bounds
+								? undefined
+								: Box.From(bounds)
+							}
+							{...viewOptions}
+						/>
+					</div>
+				</div>
 			) : (
 				<Tldraw
 					assetUrls={{

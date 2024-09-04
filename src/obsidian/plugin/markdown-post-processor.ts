@@ -119,7 +119,7 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
         const fileData = await plugin.app.vault.read(file);
         const parsedData = parseTLDataDocument(plugin.manifest.version, fileData);
 
-        const { pos, size } = parseAltValues(internalEmbedDiv.attributes.getNamedItem('alt')?.value ?? '')
+        const { bounds, imageSize } = parseEmbedValues(internalEmbedDiv)
         const reactRoot = createRootAndRenderTldrawApp(tldrawEmbedViewContent,
             parsedData,
             (_) => {
@@ -132,10 +132,11 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
                 inputFocus: true,
                 selectNone: true,
                 initialTool: 'hand',
-                initialBounds: pos === undefined || size === undefined ? undefined : {
-                    ...pos,
-                    ...size,
+                initialBounds: bounds === undefined ? undefined : {
+                    ...bounds.pos,
+                    ...bounds.size,
                 },
+                initialImageSize: imageSize,
                 zoomToBounds: true,
             }
         );
@@ -157,16 +158,17 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
                 clearTimeout(timer);
             }
 
-            const alt = target.attributes.getNamedItem('alt')?.value ?? '';
-            const { pos, size } = parseAltValues(alt)
+            const { bounds, imageSize } = parseEmbedValues(target)
 
-            if (pos === undefined || size === undefined) return;
+            controller.setImageSize(imageSize)
+
+            if (bounds === undefined) return;
 
             timer = setTimeout(async () => {
                 console.log(m[0])
                 controller.setImageBounds({
-                    ...pos,
-                    ...size
+                    ...bounds.pos,
+                    ...bounds.size,
                 });
             }, 500);
         }
@@ -302,20 +304,33 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
     })
 }
 
-function parseAltValues(alt: string) {
+function parseEmbedValues(el: HTMLElement, defaults = {
+    pos: { x: 0, y: 0 },
+    size: {
+        w: Number.NaN,
+        h: Number.NaN
+    },
+}) {
+    const alt = el.attributes.getNamedItem('alt')?.value ?? '';
     const altSplit = alt.split(';').map((e) => e.trim())
     const altEntries = altSplit.map((e) => e.split('='))
     const altNamedProps: Partial<Record<string, string>> = Object.fromEntries(altEntries);
 
-    const posValue = altNamedProps['pos']?.split(',').map((e) => Number.parseInt(e));
-    const pos = posValue === undefined
-        ? undefined
-        : { x: posValue.at(0) ?? 0, y: posValue.at(1) ?? 0 }
+    const posValue = altNamedProps['pos']?.split(',').map((e) => Number.parseInt(e)) ?? [];
+    const pos = { x: posValue.at(0) ?? defaults.pos.x, y: posValue.at(1) ?? defaults.pos.y }
 
-    const sizeValue = altNamedProps['size']?.split(',').map((e) => Number.parseInt(e));
-    const size = sizeValue === undefined
+    const sizeValue = altNamedProps['size']?.split(',').map((e) => Number.parseInt(e)) ?? [];
+    const size = { w: sizeValue.at(0) ?? defaults.size.w, h: sizeValue.at(1) ?? defaults.size.h }
+    const bounds = Number.isNaN(pos.x) || Number.isNaN(pos.y) || Number.isNaN(size.w) || Number.isNaN(size.h)
         ? undefined
-        : { w: sizeValue.at(0) ?? 0, h: sizeValue.at(1) ?? 0 }
-
-    return { pos, size };
+        : { pos, size };
+    const imageSize = {
+        width: Number.parseInt(el.attributes.getNamedItem('width')?.value ?? ''),
+        height: Number.parseInt(el.attributes.getNamedItem('height')?.value ?? ''),
+    };
+    console.log({bounds, imageSize})
+    return {
+        bounds,
+        imageSize,
+    };
 }
