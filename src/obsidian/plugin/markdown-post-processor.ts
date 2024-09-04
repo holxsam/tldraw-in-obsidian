@@ -136,7 +136,6 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
                 //     h: 300, w: 300
                 // },
                 zoomToBounds: true,
-                defaultFontOverrides: plugin.getFontOverrides()
             }
         );
 

@@ -1,12 +1,16 @@
-import { TldrawAppProps } from "src/components/TldrawApp";
 import { TldrawPluginSettings } from "../TldrawSettingsTab";
+import { iconTypes } from "../settings/constants";
 
 type FontOverridesSettings = NonNullable<TldrawPluginSettings['fonts']>['overrides'];
+type IconOverridesSettings = NonNullable<TldrawPluginSettings['icons']>['overrides'];
 
+/**
+ * Ensures undefined values are not kept.
+ */
 export function processFontOverrides(
     overrides: FontOverridesSettings,
     getResourcePath: (font: string) => string
-): TldrawAppProps['options']['defaultFontOverrides'] {
+): FontOverridesSettings {
     if (overrides === undefined) return undefined;
     const { draw, monospace, sansSerif, serif } = overrides;
 
@@ -31,6 +35,22 @@ export function processFontOverrides(
     return processed;
 }
 
+export function processIconOverrides(
+    overrides: IconOverridesSettings,
+    getResourcePath: (font: string) => string
+): IconOverridesSettings {
+    if (overrides === undefined) return undefined;
+
+    const processed: NonNullable<IconOverridesSettings> = {};
+
+    for (const [iconName, override] of Object.entries(overrides)) {
+        if (override === undefined) continue;
+        processed[iconName] = getResourcePath(override)
+    }
+
+    return processed;
+}
+
 
 function addIfDefined<T extends Record<string, unknown>>(object: T, key: keyof T, value: T[keyof T] | undefined) {
     if (value !== undefined) {
@@ -41,18 +61,24 @@ function addIfDefined<T extends Record<string, unknown>>(object: T, key: keyof T
 /**
  * If a value is null or length of 0, then it represents "update to default value".
  */
-type FontOverridesSettingsUpdate = {
-    [k in keyof NonNullable<FontOverridesSettings>]: NonNullable<FontOverridesSettings>[k] | null
+type OverridesSettingsUpdate<T> = {
+    [k in keyof NonNullable<T>]: NonNullable<T>[k] | null
 }
 
-function getFontOverrideOrUndefinedForDefault(
-    font: keyof NonNullable<FontOverridesSettings>,
-    original: FontOverridesSettings,
-    updates: FontOverridesSettingsUpdate,
+type FontOverridesSettingsUpdate = OverridesSettingsUpdate<FontOverridesSettings>;
+type IconOverridesSettingsUpdate = OverridesSettingsUpdate<IconOverridesSettings>;
+
+function getOverrideOrUndefinedForDefault<
+    OverridesSettings extends Record<string, unknown>,
+    Update extends OverridesSettingsUpdate<OverridesSettings>,
+>(
+    key: keyof NonNullable<OverridesSettings>,
+    original: OverridesSettings | undefined,
+    updates: Update,
 ) {
-    return updates[font] === null
+    return updates[key] === null
         ? undefined
-        : updates[font] ?? original?.[font];
+        : updates[key] ?? original?.[key];
 }
 
 export function updateFontOverrides(
@@ -61,16 +87,31 @@ export function updateFontOverrides(
 ): FontOverridesSettings {
     const object: NonNullable<FontOverridesSettings> = {};
     addIfDefined(object,
-        'draw', getFontOverrideOrUndefinedForDefault('draw', original, updates),
+        'draw', getOverrideOrUndefinedForDefault('draw', original, updates),
     )
     addIfDefined(object,
-        'sansSerif', getFontOverrideOrUndefinedForDefault('sansSerif', original, updates),
+        'sansSerif', getOverrideOrUndefinedForDefault('sansSerif', original, updates),
     )
     addIfDefined(object,
-        'serif', getFontOverrideOrUndefinedForDefault('serif', original, updates),
+        'serif', getOverrideOrUndefinedForDefault('serif', original, updates),
     )
     addIfDefined(object,
-        'monospace', getFontOverrideOrUndefinedForDefault('monospace', original, updates),
+        'monospace', getOverrideOrUndefinedForDefault('monospace', original, updates),
     )
+    return object;
+}
+
+export function updateIconOverrides(
+    original: IconOverridesSettings,
+    updates: IconOverridesSettingsUpdate
+): IconOverridesSettings {
+    const object: NonNullable<IconOverridesSettings> = {};
+
+    for (const iconName of iconTypes) {
+        addIfDefined(object,
+            iconName, getOverrideOrUndefinedForDefault(iconName, original, updates),
+        )
+    }
+
     return object;
 }

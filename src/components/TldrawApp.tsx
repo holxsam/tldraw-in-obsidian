@@ -12,7 +12,6 @@ import {
 	Tldraw,
 	TldrawFile,
 	TldrawImage,
-	TldrawProps,
 	TldrawUiMenuItem,
 	TldrawUiMenuSubmenu,
 	createTLStore,
@@ -47,7 +46,6 @@ type TldrawAppOptions = {
 	 * If {@linkcode TldrawAppOptions.initialBounds} is not provided, then the page bounds are used.
 	 */
 	zoomToBounds?: boolean,
-	defaultFontOverrides?: NonNullable<TldrawProps['assetUrls']>['fonts']
 };
 
 export type SetTldrawFileData = (data: {
@@ -97,7 +95,6 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	isReadonly = false,
 	selectNone = false,
 	zoomToBounds = false,
-	defaultFontOverrides
 } }: TldrawAppProps) => {
 	const saveDelayInMs = safeSecondsToMs(plugin.settings.saveFileDelay);
 
@@ -176,7 +173,8 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 			) : (
 				<Tldraw
 					assetUrls={{
-						fonts: defaultFontOverrides
+						fonts: plugin.getFontOverrides(),
+						icons: plugin.getIconOverrides(),
 					}}
 					hideUi={hideUi}
 					overrides={uiOverrides(plugin)}

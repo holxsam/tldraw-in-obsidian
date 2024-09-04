@@ -48,7 +48,7 @@ import { around } from "monkey-around";
 import { TldrawReadonly } from "./obsidian/TldrawReadonly";
 import { pluginBuild } from "./utils/decorators/plugin";
 import { markdownPostProcessor } from "./obsidian/plugin/markdown-post-processor";
-import { processFontOverrides } from "./obsidian/plugin/settings";
+import { processFontOverrides, processIconOverrides } from "./obsidian/plugin/settings";
 import { createRawTldrawFile } from "./utils/tldraw-file";
 import { TLDRAW_FILE_EXTENSION, TLStore } from "@tldraw/tldraw";
 import { registerCommands } from "./obsidian/plugin/commands";
@@ -484,6 +484,12 @@ export default class TldrawPlugin extends Plugin {
 	getFontOverrides() {
 		return processFontOverrides(this.settings.fonts?.overrides, (font) => {
 			return this.app.vault.adapter.getResourcePath(font).split('?')[0]
+		});
+	}
+
+	getIconOverrides() {
+		return processIconOverrides(this.settings.icons?.overrides, (icon) => {
+			return this.app.vault.adapter.getResourcePath(icon).split('?')[0]
 		});
 	}
 }

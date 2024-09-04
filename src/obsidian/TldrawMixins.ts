@@ -43,9 +43,7 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
         }
 
         protected getTldrawOptions(): TldrawAppProps['options'] {
-            return {
-                defaultFontOverrides: this.plugin.getFontOverrides(),
-            };
+            return { };
         }
 
         private createReactRoot(entryPoint: Element, tldata: TLDataDocument) {
