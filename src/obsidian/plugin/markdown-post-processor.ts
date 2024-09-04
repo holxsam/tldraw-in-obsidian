@@ -130,7 +130,7 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
                 controller,
                 inputFocus: true,
                 selectNone: true,
-                // TODO: Create initial bounds from url params defined in the markdown link.
+                initialTool: 'hand',
                 // initialBounds: {
                 //     x: 0, y: 0,
                 //     h: 300, w: 300

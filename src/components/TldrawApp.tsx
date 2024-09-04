@@ -35,6 +35,10 @@ type TldrawAppOptions = {
 	autoFocus?: boolean,
 	inputFocus?: boolean,
 	initialBounds?: BoxLike,
+	/**
+	 * Takes precedence over the user's plugin preference
+	 */
+	initialTool?: string,
 	hideUi?: boolean,
 	/**
 	 * Whether to call `.selectNone` on the Tldraw editor instance when it is mounted.
@@ -91,6 +95,7 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	controller,
 	hideUi = false,
 	initialBounds,
+	initialTool,
 	inputFocus = false,
 	isReadonly = false,
 	selectNone = false,
@@ -197,7 +202,7 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 							toolSelected,
 						} = plugin.settings;
 
-						editor.setCurrentTool(toolSelected)
+						editor.setCurrentTool(initialTool ?? toolSelected)
 
 						let darkMode = true;
 						if (themeMode === "dark") darkMode = true;
