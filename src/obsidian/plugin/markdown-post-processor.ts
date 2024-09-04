@@ -8,6 +8,7 @@ import { ConsoleLogParams, LOGGING_ENABLED, logFn } from "src/utils/logging";
 import { parseTLDataDocument } from "src/utils/parse";
 import { createTldrawAppViewModeController } from "../factories/createTldrawAppViewModeController";
 import { backgroundViewOptionToggle, interactiveViewModeToggle } from "../helpers/tldraw-view-header";
+import { Root } from "react-dom/client";
 
 /**
  * Processes the embed view for a tldraw white when including it in another obsidian note.
@@ -116,39 +117,37 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
 
         if (parent === null) throw Error(`${markdownPostProcessor.name}: No parent element for internalEmbedDiv.\n\n\tIt is needed to ensure the attached react root component is unmounted properly.`);
 
-        const fileData = await plugin.app.vault.read(file);
-        const parsedData = parseTLDataDocument(plugin.manifest.version, fileData);
-
-        const { bounds, imageSize } = parseEmbedValues(internalEmbedDiv)
-        const reactRoot = createRootAndRenderTldrawApp(tldrawEmbedViewContent,
-            parsedData,
-            (_) => {
-                console.log('Ignore saving file due to read only mode.');
-            },
-            plugin,
-            {
-                isReadonly: true,
-                controller,
-                inputFocus: true,
-                selectNone: true,
-                initialTool: 'hand',
-                initialBounds: bounds === undefined ? undefined : {
-                    ...bounds.pos,
-                    ...bounds.size,
-                },
-                initialImageSize: imageSize,
-                zoomToBounds: true,
-            }
-        );
-
+        let reactRoot: undefined | Root;
 
         // https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/94fbac38bfc5036187a81c7883c03830a622bc1d/src/MarkdownPostProcessor.ts#L710C3-L731C6
         //timer to avoid the image flickering when the user is typing
         let timer: NodeJS.Timeout | null = null;
 
+        const activateReactRoot = async () => {
+            if (timer) {
+                clearTimeout(timer);
+            }
+            try {
+                reactRoot = await createReactTldrawAppRoot(internalEmbedDiv, {
+                    controller, file, plugin, tldrawEmbedViewContent
+                })
+                // log(`React root loaded.`);
+            } catch (e) {
+                console.error('There was an error while mounting the tldraw app: ', e);
+            }
+        }
+
         const markdownObserverFn: MutationCallback = (m) => {
-            log(`${markdownObserverFn.name}`)
-            console.log(m)
+            // log(`${markdownObserverFn.name}`, m)
+
+            if (reactRoot === undefined) {
+                // log('Reactivating observer parent and react root');
+                activateReactRoot().then(() => {
+                    observerParent.observe(parent, { childList: true });
+                })
+                return;
+            };
+
             const { target, attributeName } = m[0]
             if (!(target instanceof HTMLElement) || !(["alt", "width", "height"] as (string | null)[]).contains(attributeName)) {
                 return;
@@ -177,10 +176,11 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
         observer.observe(internalEmbedDiv, { attributes: true });
 
         const observerParent = new CustomMutationObserver(function markdownParentObserverFn(m) {
-            log(`${markdownParentObserverFn.name}`);
+            // log(`${markdownParentObserverFn.name} watching`, m, parent);
             if (!parent.contains(internalEmbedDiv)) {
-                log(`${markdownParentObserverFn.name}: Unmounting react root`);
-                reactRoot.unmount()
+                // log(`${markdownParentObserverFn.name}: Unmounting react root`);
+                reactRoot?.unmount();
+                reactRoot = undefined;
                 if (timer) {
                     clearTimeout(timer);
                 }
@@ -189,6 +189,8 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             }
         }, "markdownPostProcessorObserverFn");
         observerParent.observe(parent, { childList: true });
+
+        await activateReactRoot();
         return;
     } else if (!isInternal && isMarkdownView) {
         throw new Error(`${markdownPostProcessor.name}: Unexpected`);
@@ -328,9 +330,41 @@ function parseEmbedValues(el: HTMLElement, defaults = {
         width: Number.parseInt(el.attributes.getNamedItem('width')?.value ?? ''),
         height: Number.parseInt(el.attributes.getNamedItem('height')?.value ?? ''),
     };
-    console.log({bounds, imageSize})
     return {
         bounds,
         imageSize,
     };
+}
+
+async function createReactTldrawAppRoot(internalEmbedDiv: HTMLElement, {
+    controller, file, plugin, tldrawEmbedViewContent
+}: {
+    file: TFile,
+    plugin: TldrawPlugin,
+    tldrawEmbedViewContent: HTMLElement,
+    controller: TldrawAppViewModeController,
+}) {
+    const fileData = await plugin.app.vault.read(file);
+    const parsedData = parseTLDataDocument(plugin.manifest.version, fileData);
+    const { bounds, imageSize } = parseEmbedValues(internalEmbedDiv)
+    return createRootAndRenderTldrawApp(tldrawEmbedViewContent,
+        parsedData,
+        (_) => {
+            console.log('Ignore saving file due to read only mode.');
+        },
+        plugin,
+        {
+            isReadonly: true,
+            controller,
+            inputFocus: true,
+            selectNone: true,
+            initialTool: 'hand',
+            initialBounds: bounds === undefined ? undefined : {
+                ...bounds.pos,
+                ...bounds.size,
+            },
+            initialImageSize: imageSize,
+            zoomToBounds: true,
+        }
+    );
 }
