@@ -1,9 +1,10 @@
 export type PaneTarget = "new-window" | "new-tab" | "current-tab" | "split-tab";
 export type ViewType = typeof VIEW_TYPES[number];
 export const VIEW_TYPE_TLDRAW = "tldraw-view"; // custom view type
+export const VIEW_TYPE_TLDRAW_FILE = "tldraw-file"; // custom view type
 export const VIEW_TYPE_TLDRAW_READ_ONLY = "tldraw-read-only"; // custom view type
 export const VIEW_TYPE_MARKDOWN = "markdown"; // NOT ACTUALLY A CUSTOM VIEW TYPE, its built in from obsidian
-export const VIEW_TYPES = [VIEW_TYPE_MARKDOWN, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_READ_ONLY] as const;
+export const VIEW_TYPES = [VIEW_TYPE_MARKDOWN, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_FILE, VIEW_TYPE_TLDRAW_READ_ONLY] as const;
 
 export const TLDRAW_VERSION = "2.4.4";
 export const FILE_EXTENSION = ".md";

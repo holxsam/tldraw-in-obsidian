@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
 	Box,
@@ -20,14 +19,14 @@ import {
 } from "@tldraw/tldraw";
 import { useDebouncedCallback } from "use-debounce";
 import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION } from "src/utils/file";
-import { isObsidianThemeDark, safeSecondsToMs } from "src/utils/utils";
+import { safeSecondsToMs } from "src/utils/utils";
 import { uiOverrides } from "src/tldraw/ui-overrides";
 import { TLDataDocument, TldrawPluginMetaData } from "src/utils/document";
 import { createRawTldrawFile } from "src/utils/tldraw-file";
 import TldrawPlugin from "src/main";
 import { Platform } from "obsidian";
 import { TldrawAppViewModeController } from "src/obsidian/helpers/TldrawAppEmbedViewController";
-import { useViewModeState } from "src/hooks/useViewModeController";
+import { useTldrawAppHook } from "src/hooks/useTldrawAppHook";
 
 type TldrawAppOptions = {
 	controller?: TldrawAppViewModeController;
@@ -41,6 +40,7 @@ type TldrawAppOptions = {
 	 */
 	initialTool?: string,
 	hideUi?: boolean,
+	persistenceKey?: string,
 	/**
 	 * Whether to call `.selectNone` on the Tldraw editor instance when it is mounted.
 	 */
@@ -100,21 +100,16 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	initialTool,
 	inputFocus = false,
 	isReadonly = false,
+	persistenceKey,
 	selectNone = false,
 	zoomToBounds = false,
 } }: TldrawAppProps) => {
 	const saveDelayInMs = safeSecondsToMs(plugin.settings.saveFileDelay);
 
-	const [{ meta, store },
-		/**
-		 * #NOTE: Could be used to reuse the same tldraw instance while changing the document over to a new one.
-		 */
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		setMetaStore
-	] = useState<{
+	const storeMetaRef = React.useRef<{
 		meta: TldrawPluginMetaData,
 		store: TLStore,
-	}>(() => {
+	}>((() => {
 		if (initialData.store) {
 			return initialData;
 		}
@@ -126,33 +121,30 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 				initialData: initialData.raw,
 			})
 		}
-	});
+	})());
 
 	const debouncedSaveDataToFile = useDebouncedCallback((e: unknown) => {
+		const { meta, store } = storeMetaRef.current;
 		setFileData({
 			meta,
 			tldrawFile: createRawTldrawFile(store)
 		});
 	}, saveDelayInMs);
 
-	useEffect(() => {
-		const removeListener = store.listen(debouncedSaveDataToFile, {
-			scope: "document",
-		});
-
-		return () => {
-			removeListener();
-		};
-	}, [store]);
-
 	const editorRef = React.useRef<Editor | null>(null);
 	const {
-		displayImage, bounds, viewOptions, imageSize
-	} = useViewModeState(editorRef, {
-		controller,
-		initialBounds,
-		initialImageSize,
-	})
+		onMount,
+		viewModeState: { displayImage, imageSize, bounds, viewOptions, }
+	} = useTldrawAppHook({
+		debouncedSaveDataToFile, editorRef, initialTool, isReadonly, plugin,
+		storeMetaRef, selectNone, zoomToBounds,
+		viewMode: {
+			controller,
+			initialBounds,
+			initialImageSize,
+		}
+	});
+
 	return (
 		<div
 			className="tldraw-view-root"
@@ -178,7 +170,7 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 						height: imageSize?.height ?? undefined
 					}}>
 						<TldrawImage
-							snapshot={store.getStoreSnapshot()}
+							snapshot={storeMetaRef.current.store.getStoreSnapshot()}
 							padding={0}
 							bounds={!bounds
 								? undefined
@@ -189,61 +181,34 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 					</div>
 				</div>
 			) : (
-				<Tldraw
-					assetUrls={{
-						fonts: plugin.getFontOverrides(),
-						icons: plugin.getIconOverrides(),
-					}}
-					hideUi={hideUi}
-					overrides={uiOverrides(plugin)}
-					store={store}
-					components={components(plugin)}
-					// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
-					autoFocus={autoFocus}
-					onMount={(editor) => {
-						editorRef.current = editor;
-						if (selectNone) {
-							editor.selectNone();
-						}
-
-						const {
-							themeMode,
-							gridMode,
-							debugMode,
-							snapMode,
-							focusMode,
-							toolSelected,
-						} = plugin.settings;
-
-						editor.setCurrentTool(initialTool ?? toolSelected)
-
-						let darkMode = true;
-						if (themeMode === "dark") darkMode = true;
-						else if (themeMode === "light") darkMode = false;
-						else darkMode = isObsidianThemeDark();
-
-						editor.user.updateUserPreferences({
-							colorScheme: darkMode ? 'dark' : 'light',
-							isSnapMode: snapMode,
-						});
-
-						editor.updateInstanceState({
-							isReadonly: isReadonly,
-							isGridMode: gridMode,
-							isDebugMode: debugMode,
-							isFocusMode: focusMode,
-						});
-
-						const zoomBounds = bounds ?? editor.getCurrentPageBounds();
-						if (zoomToBounds && zoomBounds) {
-							editor.zoomToBounds(zoomBounds, {
-								// Define an inset to 0 so that it is consistent with TldrawImage component
-								inset: 0,
-								animation: { duration: 0 }
-							});
-						}
-					}}
-				/>
+				persistenceKey === undefined
+					?
+					<Tldraw
+						assetUrls={{
+							fonts: plugin.getFontOverrides(),
+							icons: plugin.getIconOverrides(),
+						}}
+						hideUi={hideUi}
+						overrides={uiOverrides(plugin)}
+						store={storeMetaRef.current.store}
+						components={components(plugin)}
+						// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
+						autoFocus={autoFocus}
+						onMount={onMount}
+					/>
+					: <Tldraw
+						persistenceKey={persistenceKey}
+						snapshot={storeMetaRef.current.store.getStoreSnapshot()}
+						assetUrls={{
+							fonts: plugin.getFontOverrides(),
+							icons: plugin.getIconOverrides(),
+						}}
+						hideUi={hideUi}
+						overrides={uiOverrides(plugin)}
+						components={components(plugin)}
+						autoFocus={autoFocus}
+						onMount={onMount}
+					/>
 			)}
 		</div>
 	);

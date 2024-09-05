@@ -24,6 +24,8 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
 
         protected abstract setFileData: SetTldrawFileData;
 
+        protected get tldrawContainer() { return this.containerEl.children[1]; }
+
         /**
          * Adds the entry point `tldraw-view-content` for the {@linkcode reactRoot},
          * and the "View as markdown" action button.
@@ -62,7 +64,7 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
          * @returns 
          */
         protected async setTlData(tldata: TLDataDocument, useIframe = false) {
-            const tldrawContainer = this.containerEl.children[1];
+            const tldrawContainer = this.tldrawContainer;
             this.reactRoot?.unmount();
             if (!useIframe) {
                 this.reactRoot = this.createReactRoot(tldrawContainer, tldata);
