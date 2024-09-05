@@ -1,19 +1,18 @@
-import { SuggestModal, TFile, TFolder } from "obsidian";
+import { SuggestModal, TAbstractFile, TFile, TFolder } from "obsidian";
 import TldrawPlugin from "src/main";
 import { getDir } from "src/utils/path";
 
-const fontTypes = [
-    'otf',
-    'ttf',
-    'woff',
-    'woff2'
-] as const;
-
-export class FontSearchModal extends SuggestModal<TFile | TFolder> {
+export class FileSearchModal extends SuggestModal<TFile | TFolder> {
     plugin: TldrawPlugin;
 
     readonly initialValue?: string;
-    private readonly setFont: (font: string) => void;
+    /**
+     * If undefined then any extension, otherwise only if included.
+    */
+    readonly extensions?: string[];
+    readonly selectDir: boolean;
+    private readonly setSelection: (file: TAbstractFile) => void;
+    private readonly onEmptyStateText: (searchPath: string) => string;
 
     /**
      * This function is present at runtime in the web developer console in Obsidian, but not in the type definition for some reason.
@@ -22,6 +21,7 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
 
     private searchRes: {
         searchPath: string,
+        currDir?: TFolder,
         results: (TFolder | TFile)[],
     } = {
             searchPath: '',
@@ -32,12 +32,21 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
 
     constructor(plugin: TldrawPlugin, options: {
         initialValue?: string,
-        setFont: (fontPath: string) => void
+        extensions?: FileSearchModal['extensions'],
+        onEmptyStateText: FileSearchModal['onEmptyStateText'],
+        setSelection: FileSearchModal['setSelection'],
+        /**
+         * default value is false
+         */
+        selectDir?: boolean
     }) {
         super(plugin.app);
         this.plugin = plugin;
-        this.setFont = options.setFont;
+        this.extensions = options.extensions;
+        this.onEmptyStateText = options.onEmptyStateText;
+        this.setSelection = options.setSelection;
         this.initialValue = options.initialValue;
+        this.selectDir = options.selectDir ?? false;
     }
 
     onOpen(): void {
@@ -64,14 +73,15 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
             }
             return res({
                 searchPath,
-                results: filterSearchPath(dir, searchPath)
+                currDir: dir,
+                results: this.filterSearchPath(dir, searchPath)
             })
         }
         res({
             searchPath,
             results: !(dir instanceof TFolder)
                 ? []
-                : filterSearchPath(dir, searchPath),
+                : this.filterSearchPath(dir, searchPath),
         });
     }, 100);
 
@@ -86,7 +96,20 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
             const resolver: typeof this.searchResolver = (r) => {
                 this.searchResolver = undefined;
                 this.searchRes = r;
-                return res(r.results);
+                const suggestions = r.results.sort((a, b) => (
+                    a instanceof TFolder && b instanceof TFolder ||
+                        a instanceof TFile && b instanceof TFolder
+                        ? a.path.localeCompare(b.path)
+                        : a instanceof TFolder
+                            ? -1
+                            : 1
+                ))
+                return res(
+                    r.currDir === undefined || !this.selectDir ? suggestions : [
+                        r.currDir,
+                        ...suggestions
+                    ]
+                );
             }
 
             this.searchResolver = resolver;
@@ -98,6 +121,10 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
     }
 
     renderSuggestion(file: TFile | TFolder, el: HTMLElement) {
+        if (file.path === this.searchRes?.currDir?.path) {
+            el.createEl("div", { text: `Use this directory (${file.path})` });
+            return;
+        }
         const { searchPath } = this.searchRes;
         const parsedSearchDir = getDir(searchPath);
         const searchDir = parsedSearchDir.length === 0
@@ -109,12 +136,12 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
     }
 
     onChooseSuggestion(value: TFile | TFolder, evt: MouseEvent | KeyboardEvent) {
-        this.setFont(value.path);
+        this.setSelection(value);
         this.close();
     }
 
     selectSuggestion(value: TFile | TFolder, evt: MouseEvent | KeyboardEvent): void {
-        if (value instanceof TFile) {
+        if (value instanceof TFile || value.path === this.searchRes?.currDir?.path) {
             this.onChooseSuggestion(value, evt);
             return;
         }
@@ -123,18 +150,26 @@ export class FontSearchModal extends SuggestModal<TFile | TFolder> {
     }
 
     onNoSuggestion(): void {
-        this.emptyStateText = `No folders or fonts at "${this.searchRes.searchPath}".`;
+        this.emptyStateText = this.onEmptyStateText(this.searchRes.searchPath);
         return super.onNoSuggestion();
+    }
+
+    filterSearchPath(tFolder: TFolder, searchPath: string) {
+        return filterSearchPath(tFolder, searchPath, this.extensions);
     }
 }
 
-function filterSearchPath(tFolder: TFolder, searchPath: string) {
+function filterSearchPath(tFolder: TFolder, searchPath: string, extensions?: string[]) {
     return tFolder.children.map((e) => (
         !(e instanceof TFolder) && !(e instanceof TFile)
             ? undefined
-            : e instanceof TFolder ? e : (
-                fontTypes as readonly string[]
-            ).includes(e.extension) ? e : undefined
+            : e instanceof TFolder
+                ? e
+                : extensions === undefined
+                    ? e
+                    : extensions.includes(e.extension)
+                        ? e
+                        : undefined
     )).filter((e) => e !== undefined)
         .filter((e) => e.path.startsWith(searchPath));
 }

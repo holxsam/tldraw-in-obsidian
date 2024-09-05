@@ -33,9 +33,19 @@ export function registerCommands(plugin: TldrawPlugin) {
 
     plugin.addCommand({
         id: "new-tldraw-file-new-tab",
-        name: "Create a new drawing in a new tab",
+        name: "Create a new drawing (.md) in a new tab",
         callback: async () => {
             await plugin.createAndOpenUntitledTldrFile("new-tab");
+        },
+    });
+
+    plugin.addCommand({
+        id: "new-tldraw-file-new-tab-2",
+        name: "Create a new drawing (.tldr) in a new tab",
+        callback: async () => {
+            await plugin.createAndOpenUntitledTldrFile("new-tab", {
+                inMarkdown: false
+            });
         },
     });
 

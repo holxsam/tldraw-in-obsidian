@@ -1,16 +1,19 @@
-import { TextFileView, WorkspaceLeaf } from "obsidian";
+import { TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
 import {
 	TLDATA_DELIMITER_END,
 	TLDATA_DELIMITER_START,
 	VIEW_TYPE_TLDRAW,
+	VIEW_TYPE_TLDRAW_FILE,
 } from "../utils/constants";
 import TldrawPlugin from "../main";
 import { replaceBetweenKeywords } from "src/utils/utils";
-import { TLDataDocument, getTLDataTemplate } from "src/utils/document";
+import { TLDataDocument, getTLDataTemplate, getTLMetaTemplate } from "src/utils/document";
 import { parseTLDataDocument } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
-import { SetTldrawFileData } from "src/components/TldrawApp";
+import { SetTldrawFileData, TldrawAppProps } from "src/components/TldrawApp";
+import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
+import { tldrawFileToJson } from "src/utils/tldraw-file/tldraw-file-to-json";
 
 export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 	plugin: TldrawPlugin;
@@ -51,7 +54,7 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 		return parseTLDataDocument(this.plugin.manifest.version, rawFileData);
 	};
 
-	protected override setFileData: SetTldrawFileData = async (data) => {		
+	protected override setFileData: SetTldrawFileData = async (data) => {
 		const tldrawData = getTLDataTemplate(
 			this.plugin.manifest.version,
 			data.tldrawFile,
@@ -75,4 +78,59 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 		if (!this.file) return;
 		await this.app.vault.modify(this.file, result);
 	};
+}
+
+
+export class TldrawFileView extends TldrawView {
+	private static isTldrFile(tFile: TFile | null): tFile is TFile & {
+		extension: 'tldr'
+	} {
+		return tFile !== null && tFile.extension === 'tldr';
+	}
+
+	override getViewType() {
+		return VIEW_TYPE_TLDRAW_FILE;
+	}
+
+	override onload(): void {
+		this.contentEl.addClass("tldraw-view-content");
+	}
+
+	override async onLoadFile(file: TFile): Promise<void> {
+		console.log('tldraw file view on load file');
+
+		if (!TldrawFileView.isTldrFile(file)) {
+			this.tldrawContainer.createDiv({
+				text: 'This file is not a ".tldr" file!'
+			});
+			return;
+		}
+		return super.onLoadFile(file);
+	}
+
+	override setViewData(data: string, clear: boolean): void {
+		this.setTlData({
+			meta: getTLMetaTemplate(this.plugin.manifest.version),
+			...(
+				data.length === 0
+					? { raw: undefined }
+					: { store: migrateTldrawFileDataIfNecessary(data) }
+			)
+		});
+	}
+
+	protected override getTldrawOptions(): TldrawAppProps["options"] {
+		return {
+			...super.getTldrawOptions(),
+			persistenceKey: this.file?.path
+		}
+	}
+
+	protected override setFileData: SetTldrawFileData = async (data) => {
+		console.log('Saving document.');
+		if (!TldrawFileView.isTldrFile(this.file)) return;
+		await this.app.vault.modify(this.file, JSON.stringify(
+			tldrawFileToJson(data.tldrawFile))
+		);
+	}
 }

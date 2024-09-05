@@ -9,7 +9,7 @@ import {
 	moment,
 	Notice,
 } from "obsidian";
-import { TldrawView } from "./obsidian/TldrawView";
+import { TldrawFileView, TldrawView } from "./obsidian/TldrawView";
 import {
 	DEFAULT_SETTINGS,
 	TldrawPluginSettings,
@@ -32,6 +32,7 @@ import {
 	TLDRAW_ICON_NAME,
 	VIEW_TYPE_MARKDOWN,
 	VIEW_TYPE_TLDRAW,
+	VIEW_TYPE_TLDRAW_FILE,
 	VIEW_TYPE_TLDRAW_READ_ONLY,
 	ViewType,
 } from "./utils/constants";
@@ -48,7 +49,7 @@ import { around } from "monkey-around";
 import { TldrawReadonly } from "./obsidian/TldrawReadonly";
 import { pluginBuild } from "./utils/decorators/plugin";
 import { markdownPostProcessor } from "./obsidian/plugin/markdown-post-processor";
-import { processFontOverrides } from "./obsidian/plugin/settings";
+import { processFontOverrides, processIconOverrides } from "./obsidian/plugin/settings";
 import { createRawTldrawFile } from "./utils/tldraw-file";
 import { TLDRAW_FILE_EXTENSION, TLStore } from "@tldraw/tldraw";
 import { registerCommands } from "./obsidian/plugin/commands";
@@ -79,6 +80,11 @@ export default class TldrawPlugin extends Plugin {
 			VIEW_TYPE_TLDRAW_READ_ONLY,
 			(leaf) => new TldrawReadonly(leaf, this)
 		);
+
+		this.registerView(
+			VIEW_TYPE_TLDRAW_FILE,
+			(leaf) => new TldrawFileView(leaf, this)
+		)
 
 		// settings:
 		await this.loadSettings();
@@ -124,7 +130,7 @@ export default class TldrawPlugin extends Plugin {
 		// Change how tldraw files are displayed when reading the document, e.g. when it is embed in another Obsidian document.
 		this.registerMarkdownPostProcessor((e, c) => markdownPostProcessor(this, e, c))
 
-		this.registerExtensions(['tldr'], VIEW_TYPE_TLDRAW_READ_ONLY)
+		this.registerExtensions(['tldr'], VIEW_TYPE_TLDRAW_FILE)
 	}
 
 	onunload() {
@@ -215,7 +221,7 @@ export default class TldrawPlugin extends Plugin {
 										await this.app.vault.read(file)
 									)
 								});
-								await this.openTldrFile(newFile, 'new-tab', 'tldraw-view')
+								await this.openTldrFile(newFile, 'new-tab', VIEW_TYPE_TLDRAW_FILE)
 								new Notice(`Created a new file for editing "${newFile.path}"`)
 							})
 					})
@@ -394,15 +400,8 @@ export default class TldrawPlugin extends Plugin {
 		return await this.createFile(filename, foldername, fileData);
 	};
 
-	/**
-	 * 
-	 * @param attachTo The file that is considered as the "parent" of this new file. If this is not undefined then the new untitled tldr file will be considered as an attachment.
-	 * @returns 
-	 */
-	public createUntitledTldrFile = async ({
-		attachTo, tlStore
-	}: { attachTo?: TFile, tlStore?: TLStore } = {}) => {
-		const { newFilePrefix, newFileTimeFormat, folder, useAttachmentsFolder } = this.settings;
+	public createDefaultFilename() {
+		const { newFilePrefix, newFileTimeFormat } = this.settings;
 
 		const date =
 			newFileTimeFormat.trim() !== ""
@@ -417,6 +416,19 @@ export default class TldrawPlugin extends Plugin {
 				DEFAULT_SETTINGS.newFilePrefix +
 				moment().format(DEFAULT_SETTINGS.newFileTimeFormat);
 
+		return filename;
+	}
+
+	/**
+	 * 
+	 * @param attachTo The file that is considered as the "parent" of this new file. If this is not undefined then the new untitled tldr file will be considered as an attachment.
+	 * @returns 
+	 */
+	public createUntitledTldrFile = async ({
+		attachTo, tlStore
+	}: { attachTo?: TFile, tlStore?: TLStore } = {}) => {
+		const filename = this.createDefaultFilename();
+		const { folder, useAttachmentsFolder } = this.settings;
 		const res = !useAttachmentsFolder || attachTo === undefined
 			? { filename, folder }
 			: await createAttachmentFilepath(filename, attachTo, this.app.fileManager);
@@ -444,9 +456,20 @@ export default class TldrawPlugin extends Plugin {
 		await this.updateViewMode(viewType, leaf);
 	};
 
-	public createAndOpenUntitledTldrFile = async (location: PaneTarget) => {
-		const file = await this.createUntitledTldrFile();
-		this.openTldrFile(file, location);
+	public createAndOpenUntitledTldrFile = async (location: PaneTarget, {
+		inMarkdown = true
+	}: { inMarkdown?: boolean } = {}) => {
+		if (inMarkdown) {
+			const file = await this.createUntitledTldrFile();
+			this.openTldrFile(file, location);
+		} else {
+			const filename = this.createDefaultFilename();
+			this.openTldrFile(
+				await this.createFile(`${filename}.tldr`, this.settings.folder),
+				location,
+				VIEW_TYPE_TLDRAW_FILE
+			);
+		}
 	};
 
 	public isTldrawFile(file: TFile) {
@@ -484,6 +507,12 @@ export default class TldrawPlugin extends Plugin {
 	getFontOverrides() {
 		return processFontOverrides(this.settings.fonts?.overrides, (font) => {
 			return this.app.vault.adapter.getResourcePath(font).split('?')[0]
+		});
+	}
+
+	getIconOverrides() {
+		return processIconOverrides(this.settings.icons?.overrides, (icon) => {
+			return this.app.vault.adapter.getResourcePath(icon).split('?')[0]
 		});
 	}
 }

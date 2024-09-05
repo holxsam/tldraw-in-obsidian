@@ -14,8 +14,11 @@ import {
 	MAX_SAVE_DELAY,
 	MIN_SAVE_DELAY,
 } from "src/utils/constants";
-import { FontSearchModal } from "./settings/FontSearchModal";
+import { FileSearchModal } from "./modal/FileSearchModal";
 import { updateFontOverrides } from "./plugin/settings";
+import { FontOverrides, IconOverrides } from "src/types/tldraw";
+import { createIconOverridesSettingsEl } from "./settings/icon-overrides";
+import { fontTypes } from "./settings/constants";
 
 export type ThemePreference = "match-theme" | "dark" | "light";
 
@@ -31,12 +34,10 @@ export interface TldrawPluginSettings {
 	debugMode: boolean;
 	focusMode: boolean;
 	fonts?: {
-		overrides?: {
-			draw?: string,
-			monospace?: string,
-			sansSerif?: string,
-			serif?: string,
-		}
+		overrides?: FontOverrides
+	},
+	icons?: {
+		overrides?: IconOverrides
 	}
 	/**
 	 * Use the attachments folder defined in the Obsidian "Files and links" settings. 
@@ -333,9 +334,13 @@ export class TldrawSettingsTab extends PluginSettingTab {
 					})
 					.addButton((button) => {
 						button.setIcon('file-search').onClick(() => {
-							new FontSearchModal(this.plugin, {
-								setFont,
+							new FileSearchModal(this.plugin, {
+								extensions: [...fontTypes],
 								initialValue: currentValue(),
+								onEmptyStateText: (searchPath) => (
+									`No folders or fonts at "${searchPath}".`
+								),
+								setSelection: (file) => setFont(file.path),
 							}).open()
 						})
 					})
@@ -369,6 +374,12 @@ export class TldrawSettingsTab extends PluginSettingTab {
 				font: 'monospace',
 				appearsAs: 'mono',
 			});
+		}
+
+		{ // Icons settings
+			this.containerEl.createEl("h1", { text: "Icons" });
+			this.containerEl.createEl("h2", { text: "Default icon overrides" });
+			createIconOverridesSettingsEl(this.plugin, this.containerEl)
 		}
 	}
 }

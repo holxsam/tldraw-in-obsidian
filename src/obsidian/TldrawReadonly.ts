@@ -2,7 +2,7 @@ import { FileView, Menu, Notice, TFile, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
 import { SetTldrawFileData, TldrawAppProps } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
-import { PaneTarget, TLDRAW_ICON_NAME, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_READ_ONLY, ViewType } from "src/utils/constants";
+import { PaneTarget, TLDRAW_ICON_NAME, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_FILE, VIEW_TYPE_TLDRAW_READ_ONLY, ViewType } from "src/utils/constants";
 import { parseTLDataDocument } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
 import { logClass } from "src/utils/logging";
@@ -34,7 +34,7 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
         this.addAction(TLDRAW_ICON_NAME, "Edit", async () => {
             const { file } = this;
             if (file !== null && file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
-                this.create(file, 'new-tab', 'tldraw-view');
+                this.plugin.updateViewMode(VIEW_TYPE_TLDRAW_FILE);
             } else {
                 this.plugin.updateViewMode(VIEW_TYPE_TLDRAW);
             }
