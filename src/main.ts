@@ -307,6 +307,13 @@ export default class TldrawPlugin extends Plugin {
 		} as ViewState);
 	};
 
+	public setTldrawFileView = async (leaf: WorkspaceLeaf) => {
+		await leaf.setViewState({
+			type: VIEW_TYPE_TLDRAW_FILE,
+			state: { ...leaf.view.getState(), manuallyTriggered: true },
+		} as ViewState);
+	};
+
 	public setTldrawViewPreview = async (leaf: WorkspaceLeaf) => {
 		await leaf.setViewState({
 			type: VIEW_TYPE_TLDRAW_READ_ONLY,
@@ -362,7 +369,11 @@ export default class TldrawPlugin extends Plugin {
 			case VIEW_TYPE_TLDRAW_READ_ONLY:
 				await this.setTldrawViewPreview(leaf)
 				break;
+			case VIEW_TYPE_TLDRAW_FILE:
+				await this.setTldrawViewPreview(leaf)
+				break;
 			default:
+				console.warn('Uknown tldraw plugin view: ', view)
 				await this.setMarkdownView(leaf);
 		}
 	}

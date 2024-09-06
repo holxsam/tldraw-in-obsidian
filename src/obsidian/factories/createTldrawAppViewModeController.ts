@@ -1,12 +1,14 @@
+import { BoxLike } from "@tldraw/tldraw";
 import { TldrawAppViewModeController, ViewMode, ImageViewModeOptions, OnChangeHandlers } from "../helpers/TldrawAppEmbedViewController";
 
-export function createTldrawAppViewModeController(): TldrawAppViewModeController {
+export function createTldrawAppViewModeController(initialBounds?: BoxLike): TldrawAppViewModeController {
     return {
         viewMode: 'image',
         viewOptions: {
             // TODO: Create a plugin setting that allows the use of other image formats for previewing.
             format: 'svg',
             background: true,
+            bounds: initialBounds,
             // FIXME: Image aspect ratio is ruined in reading mode when viewing with png format due to 300px height restriction on `.ptl-markdown-embed .ptl-view-content`
             // format: 'png',
             // preserveAspectRatio: '',
@@ -19,6 +21,7 @@ export function createTldrawAppViewModeController(): TldrawAppViewModeController
             return this.viewOptions;
         },
         setImageBounds(bounds) {
+            this.viewOptions.bounds = bounds;
             this.onChangeHandlers?.onImageBounds(bounds);
         },
         setViewMode(viewMode) {
@@ -41,7 +44,7 @@ export function createTldrawAppViewModeController(): TldrawAppViewModeController
             this.onChangeHandlers?.onViewOptions(this.viewOptions);
         },
         toggleInteractive() {
-            if(this.viewMode !== 'image') {
+            if (this.viewMode !== 'image') {
                 this.setViewMode('image');
             } else {
                 this.setViewMode('interactive');

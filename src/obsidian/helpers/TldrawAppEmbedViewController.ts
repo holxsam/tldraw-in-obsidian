@@ -19,6 +19,7 @@ export type ImageViewModeOptions = {
      * Whether to include the background of the drawing when it is embed
      */
     background?: TldrawImageProps['background'];
+    bounds?: BoxLike;
     scale?: TldrawImageProps['scale'];
     format?: TldrawImageProps['format'];
     pageId?: TldrawImageProps['pageId'];
