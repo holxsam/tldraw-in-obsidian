@@ -6,7 +6,7 @@ export type OnChangeViewMode = (mode: ViewMode) => void;
 
 export type OnChangeHandlers = {
     onViewMode: OnChangeViewMode;
-    onImageBounds: (bounds: BoxLike) => void;
+    onImageBounds: (bounds?: BoxLike) => void;
     onImageSize: (size?: { width: number, height: number }) => void;
     onViewOptions: (options: ImageViewModeOptions) => void;
 };
@@ -31,7 +31,7 @@ export type TldrawAppViewModeController = {
     getViewMode: () => ViewMode;
     getViewOptions: () => ImageViewModeOptions;
     setViewMode: (viewMode: ViewMode) => void;
-    setImageBounds: (bounds: BoxLike) => void;
+    setImageBounds: (bounds?: BoxLike) => void;
     setImageSize: (size?: {width: number, height: number}) => void;
     /**
      * @returns A function that unsets on-change handlers.

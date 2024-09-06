@@ -155,12 +155,8 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
 
             const { bounds, imageSize } = parseEmbedValues(target)
 
-            controller.setImageSize(imageSize)
-
-            if (bounds === undefined) return;
-
             timer = setTimeout(async () => {
-                console.log(m[0])
+                controller.setImageSize(imageSize)
                 controller.setImageBounds(bounds);
             }, 500);
         }
