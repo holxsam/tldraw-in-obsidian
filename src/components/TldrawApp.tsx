@@ -1,7 +1,6 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import {
-	Box,
 	BoxLike,
 	DefaultMainMenu,
 	DefaultMainMenuContent,
@@ -134,7 +133,7 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	const editorRef = React.useRef<Editor | null>(null);
 	const {
 		onMount,
-		viewModeState: { displayImage, imageSize, bounds, viewOptions, }
+		viewModeState: { displayImage, imageSize, viewOptions, }
 	} = useTldrawAppHook({
 		debouncedSaveDataToFile, editorRef, initialTool, isReadonly, plugin,
 		storeMetaRef, selectNone, zoomToBounds,
@@ -153,7 +152,6 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 			// When a user tries to interact with the tldraw canvas,
 			// Obsidian thinks they're swiping down, left, or right so it opens various menus.
 			// By preventing the event from propagating, we can prevent those actions menus from opening.
-			onTouchStart={(e) => e.stopPropagation()}
 			onBlur={!inputFocus ? undefined : () => {
 				editorRef.current?.selectNone()
 				editorRef.current?.blur()
@@ -166,49 +164,55 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 					height: '100%'
 				}}>
 					<div className="ptl-tldraw-image" style={{
-						width: imageSize?.width ?? undefined,
-						height: imageSize?.height ?? undefined
+						width: imageSize?.width || undefined,
+						height: imageSize?.height || undefined
 					}}>
 						<TldrawImage
 							snapshot={storeMetaRef.current.store.getStoreSnapshot()}
 							padding={0}
-							bounds={!bounds
-								? undefined
-								: Box.From(bounds)
-							}
 							{...viewOptions}
 						/>
 					</div>
 				</div>
 			) : (
-				persistenceKey === undefined
-					?
-					<Tldraw
-						assetUrls={{
-							fonts: plugin.getFontOverrides(),
-							icons: plugin.getIconOverrides(),
-						}}
-						hideUi={hideUi}
-						overrides={uiOverrides(plugin)}
-						store={storeMetaRef.current.store}
-						components={components(plugin)}
-						// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
-						autoFocus={autoFocus}
-						onMount={onMount}
-					/>
-					: <Tldraw
-						persistenceKey={persistenceKey}
-						snapshot={storeMetaRef.current.store.getStoreSnapshot()}
-						assetUrls={{
-							fonts: plugin.getFontOverrides(),
-							icons: plugin.getIconOverrides(),
-						}}
-						hideUi={hideUi}
-						overrides={uiOverrides(plugin)}
-						components={components(plugin)}
-						autoFocus={autoFocus}
-						onMount={onMount}
-					/>
+				<div
+					onTouchStart={(e) => e.stopPropagation()}
+					style={{
+						width: '100%',
+						height: '100%',
+					}}
+				>
+					{
+						persistenceKey === undefined
+							?
+							<Tldraw
+								assetUrls={{
+									fonts: plugin.getFontOverrides(),
+									icons: plugin.getIconOverrides(),
+								}}
+								hideUi={hideUi}
+								overrides={uiOverrides(plugin)}
+								store={storeMetaRef.current.store}
+								components={components(plugin)}
+								// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
+								autoFocus={autoFocus}
+								onMount={onMount}
+							/>
+							: <Tldraw
+								persistenceKey={persistenceKey}
+								snapshot={storeMetaRef.current.store.getStoreSnapshot()}
+								assetUrls={{
+									fonts: plugin.getFontOverrides(),
+									icons: plugin.getIconOverrides(),
+								}}
+								hideUi={hideUi}
+								overrides={uiOverrides(plugin)}
+								components={components(plugin)}
+								autoFocus={autoFocus}
+								onMount={onMount}
+							/>
+					}
+				</div>
 			)}
 		</div>
 	);
