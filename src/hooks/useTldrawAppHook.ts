@@ -68,7 +68,7 @@ export function useTldrawAppHook({
             isFocusMode: focusMode,
         });
 
-        const zoomBounds = viewModeState.bounds ?? editor.getCurrentPageBounds();
+        const zoomBounds = viewModeState.viewOptions.bounds ?? editor.getCurrentPageBounds();
         if (zoomToBounds && zoomBounds) {
             editor.zoomToBounds(zoomBounds, {
                 // Define an inset to 0 so that it is consistent with TldrawImage component
