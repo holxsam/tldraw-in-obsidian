@@ -1,4 +1,4 @@
-import { BoxLike } from "@tldraw/tldraw";
+import { BoxLike } from "tldraw";
 import { TldrawAppViewModeController, ViewMode, ImageViewModeOptions, OnChangeHandlers } from "../helpers/TldrawAppEmbedViewController";
 
 export function createTldrawAppViewModeController(initialBounds?: BoxLike): TldrawAppViewModeController {

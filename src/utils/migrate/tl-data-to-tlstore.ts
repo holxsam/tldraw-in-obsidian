@@ -1,4 +1,4 @@
-import { TldrawFile, TLStore, parseTldrawJsonFile, createTLSchema, JsonObject, UnknownRecord } from "@tldraw/tldraw";
+import { TldrawFile, TLStore, parseTldrawJsonFile, createTLSchema, JsonObject, UnknownRecord } from "tldraw";
 import { TLData } from "../document";
 
 /**

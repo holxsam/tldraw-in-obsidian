@@ -15,7 +15,7 @@ import {
 	createTLStore,
 	defaultShapeUtils,
 	useActions,
-} from "@tldraw/tldraw";
+} from "tldraw";
 import { useDebouncedCallback } from "use-debounce";
 import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION } from "src/utils/file";
 import { safeSecondsToMs } from "src/utils/utils";
@@ -170,6 +170,10 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 						<TldrawImage
 							snapshot={storeMetaRef.current.store.getStoreSnapshot()}
 							padding={0}
+							assetUrls={{
+								fonts: plugin.getFontOverrides(),
+								icons: plugin.getIconOverrides(),
+							}}
 							{...viewOptions}
 						/>
 					</div>

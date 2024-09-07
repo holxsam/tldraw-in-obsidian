@@ -32,11 +32,11 @@
 		"typescript": "^5.5.4"
 	},
 	"dependencies": {
-		"@tldraw/tldraw": "2.4.4",
 		"monkey-around": "^2.3.0",
 		"patch-package": "^8.0.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
+		"tldraw": "^2.4.6",
 		"use-debounce": "^9.0.4",
 		"zustand": "^4.3.9"
 	}

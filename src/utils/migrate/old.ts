@@ -1,4 +1,4 @@
-import { createTLSchema, JsonObject, SerializedStore, TLRecord } from "@tldraw/tldraw";
+import { createTLSchema, JsonObject, SerializedStore, TLRecord } from "tldraw";
 
 /** 
  * 

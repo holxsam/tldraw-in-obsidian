@@ -1,4 +1,4 @@
-import { Editor, exportToBlob, TLUiActionsContextType, TLUiEventContextType, TLUiEventMap, TLUiOverrides, useUiEvents } from "@tldraw/tldraw";
+import { Editor, exportToBlob, TLUiActionsContextType, TLUiEventContextType, TLUiEventMap, TLUiOverrides, useUiEvents } from "tldraw";
 import { Platform } from "obsidian";
 import TldrawPlugin from "src/main";
 import { downloadBlob, getSaveFileCopyAction, getSaveFileCopyInVaultAction, importFileAction, OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION } from "src/utils/file";

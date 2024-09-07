@@ -1,4 +1,4 @@
-import { Box, BoxLike, Editor } from "@tldraw/tldraw";
+import { Box, BoxLike, Editor } from "tldraw";
 import * as React from "react";
 import { useEffect, useState } from "react";
 import { TldrawAppViewModeController, ImageViewModeOptions } from "src/obsidian/helpers/TldrawAppEmbedViewController";

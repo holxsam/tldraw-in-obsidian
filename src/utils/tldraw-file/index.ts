@@ -1,4 +1,4 @@
-import { createTLStore, TldrawFile, TLStore } from "@tldraw/tldraw"
+import { createTLStore, TldrawFile, TLStore } from "tldraw"
 
 /**
  * 

@@ -2,7 +2,7 @@ import { TLDATA_DELIMITER_END, TLDATA_DELIMITER_START } from "./constants";
 import { TLExistingDataDocument, TldrawPluginMetaData, getTLMetaTemplate, TLData } from "./document";
 import { migrateIfNecessary } from "./migrate";
 import { extractDataBetweenKeywords } from "./utils";
-import { JsonObject, JsonValue, OptionalKeys } from "@tldraw/tldraw";
+import { JsonObject, JsonValue, OptionalKeys } from "tldraw";
 
 type NestedPartial<T> = {
     [K in keyof T]?: T[K] extends object ? NestedPartial<T[K]> : T[K];

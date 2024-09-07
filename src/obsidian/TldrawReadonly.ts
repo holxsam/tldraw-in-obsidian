@@ -6,7 +6,7 @@ import { PaneTarget, TLDRAW_ICON_NAME, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_FILE, 
 import { parseTLDataDocument } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
 import { logClass } from "src/utils/logging";
-import { TLDRAW_FILE_EXTENSION } from "@tldraw/tldraw";
+import { TLDRAW_FILE_EXTENSION } from "tldraw";
 import { getTLMetaTemplate } from "src/utils/document";
 import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
 import { pluginMenuLabel } from "./menu";

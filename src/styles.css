@@ -1,4 +1,4 @@
-@import "@tldraw/tldraw/tldraw.css";
+@import url("tldraw/tldraw.css");
 
 /* 
 	!!! Please prefix all custom classes with 'ptl' !!!

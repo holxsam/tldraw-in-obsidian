@@ -1,4 +1,4 @@
-import { Editor, TLStore } from "@tldraw/tldraw";
+import { Editor, TLStore } from "tldraw";
 import * as React from "react";
 import { useViewModeState } from "src/hooks/useViewModeController";
 import TldrawPlugin from "src/main";

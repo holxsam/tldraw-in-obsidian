@@ -1,4 +1,4 @@
-import { JsonObject, JsonPrimitive, JsonValue, TldrawFile } from "@tldraw/tldraw";
+import { JsonObject, JsonPrimitive, JsonValue, TldrawFile } from "tldraw";
 
 function isJSONPrimitive(value: unknown): value is JsonPrimitive {
     if (

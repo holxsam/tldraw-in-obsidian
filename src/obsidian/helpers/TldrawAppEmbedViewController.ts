@@ -1,4 +1,4 @@
-import { BoxLike, TldrawImageProps } from "@tldraw/tldraw";
+import { BoxLike, TldrawImageProps } from "tldraw";
 
 export type ViewMode = 'image' | 'interactive';
 
