@@ -303,7 +303,7 @@ async function createReactTldrawAppRoot({
 }) {
     const fileData = await plugin.app.vault.read(file);
     const parsedData = parseTLDataDocument(plugin.manifest.version, fileData);
-    const { bounds, imageSize } = embedValues;
+    const { imageSize } = embedValues;
     return createRootAndRenderTldrawApp(tldrawEmbedViewContent,
         parsedData,
         (_) => {
@@ -316,7 +316,6 @@ async function createReactTldrawAppRoot({
             inputFocus: true,
             selectNone: true,
             initialTool: 'hand',
-            initialBounds: bounds,
             initialImageSize: imageSize,
             zoomToBounds: true,
         }

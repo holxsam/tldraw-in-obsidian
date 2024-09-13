@@ -1,44 +1,44 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import {
-	BoxLike,
+	Box,
+	createTLStore,
 	DefaultMainMenu,
 	DefaultMainMenuContent,
+	defaultShapeUtils,
 	Editor,
 	TLComponents,
-	TLStore,
 	Tldraw,
 	TldrawFile,
 	TldrawImage,
 	TldrawUiMenuItem,
 	TldrawUiMenuSubmenu,
-	createTLStore,
-	defaultShapeUtils,
+	TLStore,
 	useActions,
 } from "tldraw";
-import { useDebouncedCallback } from "use-debounce";
 import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION } from "src/utils/file";
-import { safeSecondsToMs } from "src/utils/utils";
 import { uiOverrides } from "src/tldraw/ui-overrides";
 import { TLDataDocument, TldrawPluginMetaData } from "src/utils/document";
-import { createRawTldrawFile } from "src/utils/tldraw-file";
 import TldrawPlugin from "src/main";
 import { Platform } from "obsidian";
 import { TldrawAppViewModeController } from "src/obsidian/helpers/TldrawAppEmbedViewController";
-import { useTldrawAppHook } from "src/hooks/useTldrawAppHook";
+import { SetTldrawFileData, useTldrawAppEffects } from "src/hooks/useTldrawAppHook";
+import { useViewModeState } from "src/hooks/useViewModeController";
 
 type TldrawAppOptions = {
 	controller?: TldrawAppViewModeController;
 	isReadonly?: boolean,
 	autoFocus?: boolean,
 	inputFocus?: boolean,
-	initialBounds?: BoxLike,
 	initialImageSize?: { width: number, height: number },
 	/**
 	 * Takes precedence over the user's plugin preference
 	 */
 	initialTool?: string,
 	hideUi?: boolean,
+	/**
+	 * If this value is undefined, then the UUID in {@linkcode TLDataDocument.meta} of {@linkcode TldrawAppProps.initialData} will be used.
+	 */
 	persistenceKey?: string,
 	/**
 	 * Whether to call `.selectNone` on the Tldraw editor instance when it is mounted.
@@ -52,15 +52,13 @@ type TldrawAppOptions = {
 	zoomToBounds?: boolean,
 };
 
-export type SetTldrawFileData = (data: {
-	meta: TldrawPluginMetaData
-	tldrawFile: TldrawFile
-}) => void;
-
 export type TldrawAppProps = {
 	plugin: TldrawPlugin;
-	initialData: TLDataDocument;
-	setFileData: SetTldrawFileData;
+	initialData: {
+		meta: TldrawPluginMetaData,
+		initialSnapshot: ReturnType<TLStore['getStoreSnapshot']>,
+	};
+	setFileData: (tldrawFile: TldrawFile) => void;
 	options: TldrawAppOptions;
 };
 
@@ -94,7 +92,6 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	autoFocus = true,
 	controller,
 	hideUi = false,
-	initialBounds,
 	initialImageSize,
 	initialTool,
 	inputFocus = false,
@@ -103,60 +100,69 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	selectNone = false,
 	zoomToBounds = false,
 } }: TldrawAppProps) => {
-	const saveDelayInMs = safeSecondsToMs(plugin.settings.saveFileDelay);
+	const assetUrls = React.useRef({
+		fonts: plugin.getFontOverrides(),
+		icons: plugin.getIconOverrides(),
+	})
+	const overridesUi = React.useRef(uiOverrides(plugin))
+	const overridesUiComponents = React.useRef(components(plugin))
 
-	const storeMetaRef = React.useRef<{
-		meta: TldrawPluginMetaData,
-		store: TLStore,
-	}>((() => {
-		if (initialData.store) {
-			return initialData;
-		}
+	const [editor, setEditor] = React.useState<Editor>()
+	const [storeSnapshot, setSnapshot] = React.useState(initialData.initialSnapshot);
 
-		return {
-			meta: initialData.meta,
-			store: createTLStore({
-				shapeUtils: defaultShapeUtils,
-				initialData: initialData.raw,
-			})
-		}
-	})());
+	const setAppState = React.useCallback((editor: Editor) => {
+		setEditor(editor);
+	}, [])
 
-	const debouncedSaveDataToFile = useDebouncedCallback((e: unknown) => {
-		const { meta, store } = storeMetaRef.current;
-		setFileData({
-			meta,
-			tldrawFile: createRawTldrawFile(store)
-		});
-	}, saveDelayInMs);
+	const { displayImage, imageSize, viewOptions: {
+		bounds, ...viewOptionsOther
+	} } = useViewModeState(editor, {
+		controller,
+		initialImageSize,
+		onViewModeChanged(mode) {
+			if (mode !== 'image') return;
+			// We only want to update the snapshot if we are changing over to image mode.
 
-	const editorRef = React.useRef<Editor | null>(null);
-	const {
-		onMount,
-		viewModeState: { displayImage, imageSize, viewOptions, }
-	} = useTldrawAppHook({
-		debouncedSaveDataToFile, editorRef, initialTool, isReadonly, plugin,
-		storeMetaRef, selectNone, zoomToBounds,
-		viewMode: {
-			controller,
-			initialBounds,
-			initialImageSize,
-		}
+			const { store } = editor ?? {};
+			if (store) {
+				setSnapshot(store.getStoreSnapshot());
+			}
+
+			// We do this, otherwise the view will start bugging out. Do not remove.
+			setEditor(undefined);
+		},
 	});
+
+	useTldrawAppEffects({
+		bounds, editor, initialTool, isReadonly,
+		setFileData, selectNone, zoomToBounds,
+		settingsProvider: plugin.settingsProvider,
+	});
+
+	React.useEffect(() => {
+		const { store } = editor ?? {};
+
+		return () => {
+			const snapshot = store?.getStoreSnapshot();
+			if (snapshot) {
+				setSnapshot(snapshot)
+			}
+		}
+	}, [editor])
 
 	return (
 		<div
 			className="tldraw-view-root"
-			// e.stopPropagation(); this line should solve the mobile swipe menus bug
-			// The bug only happens on the mobile version of Obsidian.
-			// When a user tries to interact with the tldraw canvas,
-			// Obsidian thinks they're swiping down, left, or right so it opens various menus.
-			// By preventing the event from propagating, we can prevent those actions menus from opening.
-			onBlur={!inputFocus ? undefined : () => {
-				editorRef.current?.selectNone()
-				editorRef.current?.blur()
+			onBlur={!inputFocus ? undefined : (e) => {
+				editor?.selectNone();
+				editor?.blur();
 			}}
-			onFocus={!inputFocus ? undefined : () => editorRef.current?.focus()}
+			onFocus={!inputFocus ? undefined : (e) => {
+				editor?.focus();
+				// NOTE: Below is buggy... menus overlay on top of each other.
+				// We stop propagation here so that we can still access the menus in the embed view when clicking within this div.
+				// e.stopPropagation();
+			}}
 		>
 			{displayImage ? (
 				<div className="ptl-tldraw-image-container" style={{
@@ -168,54 +174,38 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 						height: imageSize?.height || undefined
 					}}>
 						<TldrawImage
-							snapshot={storeMetaRef.current.store.getStoreSnapshot()}
+							snapshot={storeSnapshot}
 							padding={0}
-							assetUrls={{
-								fonts: plugin.getFontOverrides(),
-								icons: plugin.getIconOverrides(),
-							}}
-							{...viewOptions}
+							assetUrls={assetUrls.current}
+							bounds={bounds === undefined ? undefined : Box.From(bounds)}
+							{...viewOptionsOther}
 						/>
 					</div>
 				</div>
 			) : (
 				<div
+					// e.stopPropagation(); this line should solve the mobile swipe menus bug
+					// The bug only happens on the mobile version of Obsidian.
+					// When a user tries to interact with the tldraw canvas,
+					// Obsidian thinks they're swiping down, left, or right so it opens various menus.
+					// By preventing the event from propagating, we can prevent those actions menus from opening.
 					onTouchStart={(e) => e.stopPropagation()}
 					style={{
 						width: '100%',
 						height: '100%',
 					}}
 				>
-					{
-						persistenceKey === undefined
-							?
-							<Tldraw
-								assetUrls={{
-									fonts: plugin.getFontOverrides(),
-									icons: plugin.getIconOverrides(),
-								}}
-								hideUi={hideUi}
-								overrides={uiOverrides(plugin)}
-								store={storeMetaRef.current.store}
-								components={components(plugin)}
-								// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
-								autoFocus={autoFocus}
-								onMount={onMount}
-							/>
-							: <Tldraw
-								persistenceKey={persistenceKey}
-								snapshot={storeMetaRef.current.store.getStoreSnapshot()}
-								assetUrls={{
-									fonts: plugin.getFontOverrides(),
-									icons: plugin.getIconOverrides(),
-								}}
-								hideUi={hideUi}
-								overrides={uiOverrides(plugin)}
-								components={components(plugin)}
-								autoFocus={autoFocus}
-								onMount={onMount}
-							/>
-					}
+					<Tldraw
+						persistenceKey={persistenceKey ?? initialData.meta.uuid}
+						snapshot={storeSnapshot}
+						assetUrls={assetUrls.current}
+						hideUi={hideUi}
+						overrides={overridesUi.current}
+						components={overridesUiComponents.current}
+						// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
+						autoFocus={autoFocus}
+						onMount={setAppState}
+					/>
 				</div>
 			)}
 		</div>
@@ -229,12 +219,35 @@ export const createRootAndRenderTldrawApp = (
 	plugin: TldrawPlugin,
 	options: TldrawAppOptions = {}
 ) => {
+	const metaStore: {
+		meta: TldrawPluginMetaData,
+		store: TLStore,
+	} = (() => {
+		if (initialData.store) {
+			return initialData;
+		}
+
+		return {
+			meta: initialData.meta,
+			store: createTLStore({
+				shapeUtils: defaultShapeUtils,
+				initialData: initialData.raw,
+			})
+		}
+	})();
+
 	const root = createRoot(node);
 
 	root.render(
 		<TldrawApp
-			setFileData={setFileData}
-			initialData={initialData}
+			setFileData={(tldrawFile) => setFileData({
+				meta: metaStore.meta,
+				tldrawFile
+			})}
+			initialData={{
+				meta: metaStore.meta,
+				initialSnapshot: metaStore.store.getStoreSnapshot()
+			}}
 			plugin={plugin}
 			options={options}
 		/>

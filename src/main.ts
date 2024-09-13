@@ -526,4 +526,15 @@ export default class TldrawPlugin extends Plugin {
 			return this.app.vault.adapter.getResourcePath(icon).split('?')[0]
 		});
 	}
+
+	settingsProvider = {
+		getCurrent: () => this.settings,
+		listen: (callback: () => void) => { 
+			// TODO: Listen to updates on settings.
+			console.log(`TODO: Settings listener callback not implemented.`);
+			return () => {
+				// TODO: Unsubscribe from updates to settings.
+			}
+		}
+	}
 }

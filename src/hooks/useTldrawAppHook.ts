@@ -1,41 +1,77 @@
-import { Editor, TLStore } from "tldraw";
+import { Editor, TldrawFile } from "tldraw";
 import * as React from "react";
 import { useViewModeState } from "src/hooks/useViewModeController";
 import TldrawPlugin from "src/main";
 import { TldrawPluginMetaData } from "src/utils/document";
-import { isObsidianThemeDark } from "src/utils/utils";
-import { DebouncedState } from "use-debounce";
+import { isObsidianThemeDark, safeSecondsToMs } from "src/utils/utils";
+import { useDebouncedCallback } from "use-debounce";
+import { createRawTldrawFile } from "src/utils/tldraw-file";
 
-export function useTldrawAppHook({
-    debouncedSaveDataToFile, editorRef, initialTool, isReadonly, plugin, selectNone, storeMetaRef, viewMode, zoomToBounds
+export type SetTldrawFileData = (data: {
+    meta: TldrawPluginMetaData
+    tldrawFile: TldrawFile
+}) => void;
+
+export function useTldrawAppEffects({
+    editor, bounds, initialTool, isReadonly, settingsProvider, selectNone, setFileData, zoomToBounds
 }: {
-    editorRef: ReturnType<typeof React.useRef<Editor | null>>,
-    storeMetaRef: ReturnType<typeof React.useRef<{
-		meta: TldrawPluginMetaData,
-		store: TLStore,
-	}>>,
-    debouncedSaveDataToFile: DebouncedState<(e: unknown) => void>,
+    editor?: Editor,
+    bounds: ReturnType<typeof useViewModeState>['viewOptions']['bounds']
     initialTool?: string,
     isReadonly: boolean,
-    plugin: TldrawPlugin,
+    settingsProvider: TldrawPlugin['settingsProvider'],
     selectNone: boolean,
-    viewMode: Parameters<typeof useViewModeState>[1],
     zoomToBounds: boolean,
+    setFileData?: (tldrawFile: TldrawFile) => void,
 }) {
-    const viewModeState = useViewModeState(editorRef, viewMode);
-    const storeListenerDisposer = React.useRef<undefined | (() => void)>(undefined)
+    const [settings, setSettings] = React.useState(() => settingsProvider.getCurrent());
 
-    const onMount = React.useCallback((editor: Editor) => {
-        const { store } = editor;
-        if(storeMetaRef.current) {
-            storeMetaRef.current.store = store;
+    React.useEffect(() => {
+        const removeListener = settingsProvider.listen(() => {
+            const newSettings = settingsProvider.getCurrent();
+            setSettings({
+                ...newSettings
+            });
+        });
+        return () => {
+            removeListener();
         }
-        storeListenerDisposer.current?.();
-        storeListenerDisposer.current = store.listen(debouncedSaveDataToFile, {
-			scope: "document",
-		});
+    }, [
+        /**
+         * If the settings provider changes, then we need to recalculate the effect.
+         */
+        settingsProvider
+    ])
 
-        editorRef.current = editor;
+    const safeSeconds = safeSecondsToMs(settings.saveFileDelay);
+
+    const debouncedSaveDataToFile = useDebouncedCallback((e: unknown) => {
+        const { store } = editor ?? {};
+        if (!setFileData || !store) return;
+        setFileData(createRawTldrawFile(store));
+    }, safeSeconds);
+
+    React.useEffect(() => {
+        const { store } = editor ?? {};
+        if (!store) return;
+
+        const removeListener = store.listen(debouncedSaveDataToFile, {
+            scope: "document",
+        });
+
+        // console.log(`Listening to tldraw document: ${metaEditorRef.current.meta.uuid}`)
+        console.log(`Listening to tldraw document`)
+
+        return () => {
+            removeListener();
+            // console.log(`Stopped listening to tldraw document: ${metaEditorRef.current.meta.uuid}`)
+            console.log(`Stopped listening to tldraw document`)
+        }
+    }, [debouncedSaveDataToFile, editor]);
+
+    React.useEffect(() => {
+        if (!editor) return;
+
         if (selectNone) {
             editor.selectNone();
         }
@@ -47,7 +83,7 @@ export function useTldrawAppHook({
             snapMode,
             focusMode,
             toolSelected,
-        } = plugin.settings;
+        } = settings;
 
         editor.setCurrentTool(initialTool ?? toolSelected)
 
@@ -68,7 +104,7 @@ export function useTldrawAppHook({
             isFocusMode: focusMode,
         });
 
-        const zoomBounds = viewModeState.viewOptions.bounds ?? editor.getCurrentPageBounds();
+        const zoomBounds = bounds ?? editor.getCurrentPageBounds();
         if (zoomToBounds && zoomBounds) {
             editor.zoomToBounds(zoomBounds, {
                 // Define an inset to 0 so that it is consistent with TldrawImage component
@@ -80,10 +116,7 @@ export function useTldrawAppHook({
         // NOTE: These could probably be utilized for storing assets as files in the vault instead of tldraw's default indexedDB.
         // editor.registerExternalAssetHandler
         // editor.registerExternalContentHandler
-    }, [viewModeState]);
 
-    return {
-        onMount,
-        viewModeState
-    };
+        // setStoreSnapshot(store.getStoreSnapshot());
+    }, [editor]);
 }
