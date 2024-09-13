@@ -139,17 +139,6 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 		settingsProvider: plugin.settingsProvider,
 	});
 
-	React.useEffect(() => {
-		const { store } = editor ?? {};
-
-		return () => {
-			const snapshot = store?.getStoreSnapshot();
-			if (snapshot) {
-				setSnapshot(snapshot)
-			}
-		}
-	}, [editor])
-
 	return (
 		<div
 			className="tldraw-view-root"
