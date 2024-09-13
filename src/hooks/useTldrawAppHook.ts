@@ -59,13 +59,8 @@ export function useTldrawAppEffects({
             scope: "document",
         });
 
-        // console.log(`Listening to tldraw document: ${metaEditorRef.current.meta.uuid}`)
-        console.log(`Listening to tldraw document`)
-
         return () => {
             removeListener();
-            // console.log(`Stopped listening to tldraw document: ${metaEditorRef.current.meta.uuid}`)
-            console.log(`Stopped listening to tldraw document`)
         }
     }, [debouncedSaveDataToFile, editor]);
 

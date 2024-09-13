@@ -41,7 +41,6 @@ export function useViewModeState(editor: Editor | undefined,
             }
         });
         return () => {
-            console.log('Removed use effect on editor for useViewModeState')
             removeViewModeImageListener?.();
         }
     }, [editor]);

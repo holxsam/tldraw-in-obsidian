@@ -11,9 +11,10 @@ import { replaceBetweenKeywords } from "src/utils/utils";
 import { TLDataDocument, getTLDataTemplate, getTLMetaTemplate } from "src/utils/document";
 import { parseTLDataDocument } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
-import { SetTldrawFileData, TldrawAppProps } from "src/components/TldrawApp";
+import { TldrawAppProps } from "src/components/TldrawApp";
 import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
 import { tldrawFileToJson } from "src/utils/tldraw-file/tldraw-file-to-json";
+import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
 
 export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 	plugin: TldrawPlugin;
@@ -97,8 +98,6 @@ export class TldrawFileView extends TldrawView {
 	}
 
 	override async onLoadFile(file: TFile): Promise<void> {
-		console.log('tldraw file view on load file');
-
 		if (!TldrawFileView.isTldrFile(file)) {
 			this.tldrawContainer.createDiv({
 				text: 'This file is not a ".tldr" file!'
@@ -127,7 +126,6 @@ export class TldrawFileView extends TldrawView {
 	}
 
 	protected override setFileData: SetTldrawFileData = async (data) => {
-		console.log('Saving document.');
 		if (!TldrawFileView.isTldrFile(this.file)) return;
 		await this.app.vault.modify(this.file, JSON.stringify(
 			tldrawFileToJson(data.tldrawFile))
