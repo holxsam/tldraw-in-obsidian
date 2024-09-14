@@ -54,6 +54,9 @@ type TldrawAppOptions = {
 
 export type TldrawAppProps = {
 	plugin: TldrawPlugin;
+	/**
+	 * The data that is initially loaded onto the {@link Tldraw} or {@link TldrawImage} image component.
+	 */
 	initialData: {
 		meta: TldrawPluginMetaData,
 		initialSnapshot: ReturnType<TLStore['getStoreSnapshot']>,
@@ -131,6 +134,22 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 			// We do this, otherwise the view will start bugging out. Do not remove.
 			setEditor(undefined);
 		},
+		onFileModified(newInitialData) {
+			if (!displayImage) {
+				console.log('New document data ignored when in interactive mode');
+				// We are in the the Tldraw editor, i.e. "interactive" mode
+				// The editor view is already kept in-sync when it is using the "persistenceKey" attribute in the Tldraw component,
+				// therefore we do not need to update the snapshot in this case.
+				return;
+			}
+			const newUUID = newInitialData.meta.uuid;
+			const originalUUID = initialData.meta.uuid;
+			if (newUUID !== originalUUID) {
+				throw new Error(`Tldraw document UUID does not match the original: new - ${newUUID}, original - ${originalUUID}`);
+			}
+			console.log('New document data detected for UUID:', originalUUID);
+			setSnapshot(processInitialData(newInitialData).snapshot);
+		},
 	});
 
 	useTldrawAppEffects({
@@ -201,14 +220,8 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	);
 };
 
-export const createRootAndRenderTldrawApp = (
-	node: Element,
-	initialData: TLDataDocument,
-	setFileData: SetTldrawFileData,
-	plugin: TldrawPlugin,
-	options: TldrawAppOptions = {}
-) => {
-	const metaStore: {
+function processInitialData(initialData: TLDataDocument) {
+	const { meta, store }: {
 		meta: TldrawPluginMetaData,
 		store: TLStore,
 	} = (() => {
@@ -225,17 +238,31 @@ export const createRootAndRenderTldrawApp = (
 		}
 	})();
 
+	return {
+		meta,
+		snapshot: store.getStoreSnapshot()
+	};
+}
+
+export const createRootAndRenderTldrawApp = (
+	node: Element,
+	initialData: TLDataDocument,
+	setFileData: SetTldrawFileData,
+	plugin: TldrawPlugin,
+	options: TldrawAppOptions = {}
+) => {
+	const { meta, snapshot } = processInitialData(initialData);
 	const root = createRoot(node);
 
 	root.render(
 		<TldrawApp
 			setFileData={(tldrawFile) => setFileData({
-				meta: metaStore.meta,
+				meta,
 				tldrawFile
 			})}
 			initialData={{
-				meta: metaStore.meta,
-				initialSnapshot: metaStore.store.getStoreSnapshot()
+				meta,
+				initialSnapshot: snapshot
 			}}
 			plugin={plugin}
 			options={options}

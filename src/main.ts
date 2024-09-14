@@ -55,6 +55,7 @@ import { TLDRAW_FILE_EXTENSION, TLStore } from "tldraw";
 import { registerCommands } from "./obsidian/plugin/commands";
 import { migrateTldrawFileDataIfNecessary } from "./utils/migrate/tl-data-to-tlstore";
 import { pluginMenuLabel } from "./obsidian/menu";
+import { TldrawFileListenerMap } from "./obsidian/plugin/TldrawFileListenerMap";
 
 @pluginBuild
 export default class TldrawPlugin extends Plugin {
@@ -66,6 +67,7 @@ export default class TldrawPlugin extends Plugin {
 
 	// keeps track of what view mode each tab-file combo should be in:
 	leafFileViewModes: { [leafFileId: string]: ViewType } = {};
+	tldrawFileListeners = new TldrawFileListenerMap(this);
 
 	// misc:
 	settings: TldrawPluginSettings;
@@ -279,6 +281,22 @@ export default class TldrawPlugin extends Plugin {
 				this.updateStatusBarViewMode(viewMode);
 			})
 		);
+
+		this.registerEvent(this.app.vault.on('modify', async (file) => {
+			if(!(file instanceof TFile)) return;
+
+			if(!this.hasTldrawFrontMatterKey(file)) return;
+
+			console.log('Tldraw file has been modified: ', file.path, moment(file.stat.mtime).format('YYYY-MM-DD h:mm:ss a'));
+
+			const listeners = this.tldrawFileListeners.getListeners(file);
+
+			if(listeners === undefined || listeners.length === 0) return;
+
+			console.log('Calling all listeners for:', file.path);
+
+			listeners.forEach((e) => e.call());
+		}))
 	}
 
 	private registerCommands = () => registerCommands(this)
@@ -485,6 +503,10 @@ export default class TldrawPlugin extends Plugin {
 
 	public isTldrawFile(file: TFile) {
 		if (!file) return false;
+		return this.hasTldrawFrontMatterKey(file);
+	}
+	
+	private hasTldrawFrontMatterKey(file: TFile) {
 		const fcache = file ? this.app.metadataCache.getFileCache(file) : null;
 		return !!fcache?.frontmatter && !!fcache.frontmatter[FRONTMATTER_KEY];
 	}

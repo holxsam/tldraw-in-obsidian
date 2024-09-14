@@ -140,14 +140,28 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
     //timer to avoid the image flickering when the user is typing
     let timer: NodeJS.Timeout | null = null;
 
+    const parseData = async () => {
+        const fileData = await plugin.app.vault.read(file);
+        return parseTLDataDocument(plugin.manifest.version, fileData);
+    }
+
+    // TODO: When the workspace leaf is closed, be sure to call fileListener.remove()
+    const fileListener = plugin.tldrawFileListeners.addListener(file, async () => {
+        console.log(file.path, 'has been modified.');
+        controller.setUpdatedData(await parseData())
+    }, { immediatelyPause: true });
+
     const activateReactRoot = async () => {
         if (timer) {
             clearTimeout(timer);
         }
         try {
+            fileListener.isPaused = true;
+            const parsedData = await parseData();
             reactRoot = await createReactTldrawAppRoot({
-                controller, file, plugin, tldrawEmbedViewContent, embedValues
+                controller, parsedData, plugin, tldrawEmbedViewContent, embedValues
             })
+            fileListener.isPaused = false;
             // log(`React root loaded.`);
         } catch (e) {
             console.error('There was an error while mounting the tldraw app: ', e);
@@ -188,6 +202,7 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
     const observerParent = new CustomMutationObserver(function markdownParentObserverFn(m) {
         // log(`${markdownParentObserverFn.name} watching`, m, parent);
         if (!parent.contains(internalEmbedDiv)) {
+            fileListener.isPaused = true;
             // log(`${markdownParentObserverFn.name}: Unmounting react root`);
             reactRoot?.unmount();
             reactRoot = undefined;
@@ -309,16 +324,14 @@ function parseEmbedValues(el: HTMLElement, imageBounds = {
 type EmbedValues = ReturnType<typeof parseEmbedValues>;
 
 async function createReactTldrawAppRoot({
-    controller, file, plugin, tldrawEmbedViewContent, embedValues
+    controller, parsedData, plugin, tldrawEmbedViewContent, embedValues
 }: {
-    file: TFile,
+    parsedData: ReturnType<typeof parseTLDataDocument>,
     plugin: TldrawPlugin,
     tldrawEmbedViewContent: HTMLElement,
     controller: TldrawAppViewModeController,
     embedValues: EmbedValues
 }) {
-    const fileData = await plugin.app.vault.read(file);
-    const parsedData = parseTLDataDocument(plugin.manifest.version, fileData);
     const { imageSize } = embedValues;
     return createRootAndRenderTldrawApp(tldrawEmbedViewContent,
         parsedData,

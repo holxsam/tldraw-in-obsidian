@@ -1,10 +1,11 @@
 import { Editor } from "tldraw";
 import { useEffect, useState } from "react";
 import { TldrawAppViewModeController, ImageViewModeOptions, ViewMode } from "src/obsidian/helpers/TldrawAppEmbedViewController";
+import { TLDataDocument } from "src/utils/document";
 
 export function useViewModeState(editor: Editor | undefined,
     {
-        controller, initialImageSize, onViewModeChanged
+        controller, initialImageSize, onFileModified, onViewModeChanged
     }: {
         controller?: TldrawAppViewModeController,
         // initialBounds?: BoxLike,
@@ -12,7 +13,8 @@ export function useViewModeState(editor: Editor | undefined,
         /**
          * Called before the view mode is set.
          */
-        onViewModeChanged: (mode: ViewMode) => void
+        onViewModeChanged: (mode: ViewMode) => void,
+        onFileModified: (newInitialData: TLDataDocument) => void,
     },
 ) {
     const [imageSize, setImageSize] = useState<undefined | { width: number, height: number }>(initialImageSize);
@@ -38,7 +40,8 @@ export function useViewModeState(editor: Editor | undefined,
                 setImageViewOptions({
                     ...o,
                 })
-            }
+            },
+            onFileModified,
         });
         return () => {
             removeViewModeImageListener?.();
