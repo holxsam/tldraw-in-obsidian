@@ -147,7 +147,6 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 			if (newUUID !== originalUUID) {
 				throw new Error(`Tldraw document UUID does not match the original: new - ${newUUID}, original - ${originalUUID}`);
 			}
-			console.log('New document data detected for UUID:', originalUUID);
 			setSnapshot(processInitialData(newInitialData).snapshot);
 		},
 	});

@@ -287,13 +287,9 @@ export default class TldrawPlugin extends Plugin {
 
 			if(!this.hasTldrawFrontMatterKey(file)) return;
 
-			console.log('Tldraw file has been modified: ', file.path, moment(file.stat.mtime).format('YYYY-MM-DD h:mm:ss a'));
-
 			const listeners = this.tldrawFileListeners.getListeners(file);
 
 			if(listeners === undefined || listeners.length === 0) return;
-
-			console.log('Calling all listeners for:', file.path);
 
 			listeners.forEach((e) => e.call());
 		}))

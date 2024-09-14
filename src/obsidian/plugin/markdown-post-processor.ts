@@ -147,7 +147,6 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
 
     // TODO: When the workspace leaf is closed, be sure to call fileListener.remove()
     const fileListener = plugin.tldrawFileListeners.addListener(file, async () => {
-        console.log(file.path, 'has been modified.');
         controller.setUpdatedData(await parseData())
     }, { immediatelyPause: true });
 
