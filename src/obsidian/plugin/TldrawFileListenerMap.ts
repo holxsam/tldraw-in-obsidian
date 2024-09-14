@@ -35,15 +35,15 @@ export class TldrawFileListenerMap {
 
         const { path } = tFile;
 
-            let listeners = this.map.get(path);
+        let listeners = this.map.get(path);
         if (listeners === undefined) {
             this.map.set(path, listeners = []);
         }
-        
+
         const listener = {
             isPaused: immediatelyPause,
             call() {
-                if(this.isPaused) return;
+                if (this.isPaused) return;
                 callback()
             },
             remove: () => {
@@ -61,6 +61,8 @@ export class TldrawFileListenerMap {
     }
 
     getListeners(tFile: TFile) {
-        return this.map.get(tFile.path);
+        const listeners = this.map.get(tFile.path);
+        if (listeners === undefined) return;
+        return [...listeners];
     }
 }

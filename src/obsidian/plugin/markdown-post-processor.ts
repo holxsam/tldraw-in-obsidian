@@ -145,8 +145,11 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
         return parseTLDataDocument(plugin.manifest.version, fileData);
     }
 
-    // TODO: When the workspace leaf is closed, be sure to call fileListener.remove()
     const fileListener = plugin.tldrawFileListeners.addListener(file, async () => {
+        if (reactRoot === undefined) {
+            fileListener.remove();
+            return;
+        }
         controller.setUpdatedData(await parseData())
     }, { immediatelyPause: true });
 
@@ -213,6 +216,11 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
         }
     }, "markdownPostProcessorObserverFn");
     observerParent.observe(parent, { childList: true });
+
+    new CustomMutationObserver(function (m) {
+        if (parent.isConnected) return;
+        fileListener.remove();
+    }, 'markdownTldrawFileListener').observe(parent, { childList: true })
 
     await activateReactRoot();
 }
