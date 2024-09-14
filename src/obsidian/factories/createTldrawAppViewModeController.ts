@@ -1,4 +1,4 @@
-import { BoxLike } from "@tldraw/tldraw";
+import { BoxLike } from "tldraw";
 import { TldrawAppViewModeController, ViewMode, ImageViewModeOptions, OnChangeHandlers } from "../helpers/TldrawAppEmbedViewController";
 
 export function createTldrawAppViewModeController(initialBounds?: BoxLike): TldrawAppViewModeController {
@@ -23,6 +23,9 @@ export function createTldrawAppViewModeController(initialBounds?: BoxLike): Tldr
         setImageBounds(bounds) {
             this.viewOptions.bounds = bounds;
             this.onChangeHandlers?.onImageBounds(bounds);
+        },
+        setUpdatedData(tlDataDocument) {
+            this.onChangeHandlers?.onFileModified(tlDataDocument);
         },
         setViewMode(viewMode) {
             this.viewMode = viewMode;
@@ -50,9 +53,9 @@ export function createTldrawAppViewModeController(initialBounds?: BoxLike): Tldr
                 this.setViewMode('interactive');
             }
         },
-    } as TldrawAppViewModeController & {
+    } satisfies TldrawAppViewModeController & {
         viewMode: ViewMode,
         viewOptions: ImageViewModeOptions,
         onChangeHandlers?: OnChangeHandlers,
-    };
+    } as TldrawAppViewModeController;
 }

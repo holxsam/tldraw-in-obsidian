@@ -1,4 +1,4 @@
-import { JsonObject, SerializedStore, TldrawFile, TLRecord, TLStore } from "@tldraw/tldraw";
+import { JsonObject, SerializedStore, TldrawFile, TLRecord, TLStore } from "tldraw";
 import {
 	TLDATA_DELIMITER_END,
 	TLDATA_DELIMITER_START,

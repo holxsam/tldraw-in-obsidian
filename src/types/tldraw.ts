@@ -1,4 +1,4 @@
-import { TldrawProps } from "@tldraw/tldraw";
+import { TldrawProps } from "tldraw";
 import { iconTypes } from "src/obsidian/settings/constants";
 
 export type IconTypes = typeof iconTypes[number] | string & NonNullable<unknown>;

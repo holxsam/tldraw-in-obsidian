@@ -1,23 +1,22 @@
-import { Box, BoxLike, Editor } from "@tldraw/tldraw";
-import * as React from "react";
+import { Editor } from "tldraw";
 import { useEffect, useState } from "react";
-import { TldrawAppViewModeController, ImageViewModeOptions } from "src/obsidian/helpers/TldrawAppEmbedViewController";
+import { TldrawAppViewModeController, ImageViewModeOptions, ViewMode } from "src/obsidian/helpers/TldrawAppEmbedViewController";
+import { TLDataDocument } from "src/utils/document";
 
-function maybeBox(boxLike?: BoxLike) {
-    return boxLike === undefined ? undefined : Box.From(boxLike);
-}
-
-export function useViewModeState(
-    editorRef: ReturnType<typeof React.useRef<Editor | null>>,
+export function useViewModeState(editor: Editor | undefined,
     {
-        controller, initialBounds, initialImageSize
+        controller, initialImageSize, onFileModified, onViewModeChanged
     }: {
         controller?: TldrawAppViewModeController,
-        initialBounds?: BoxLike,
+        // initialBounds?: BoxLike,
         initialImageSize?: { width: number, height: number },
-    }
+        /**
+         * Called before the view mode is set.
+         */
+        onViewModeChanged: (mode: ViewMode) => void,
+        onFileModified: (newInitialData: TLDataDocument) => void,
+    },
 ) {
-    const [bounds, setImageBounds] = useState<BoxLike | undefined>(maybeBox(initialBounds))
     const [imageSize, setImageSize] = useState<undefined | { width: number, height: number }>(initialImageSize);
     const [displayImage, setDisplayImage] = useState<boolean>(controller?.getViewMode() === 'image')
     const [viewOptions, setImageViewOptions] = useState<ImageViewModeOptions>(controller?.getViewOptions() ?? {})
@@ -25,31 +24,33 @@ export function useViewModeState(
     useEffect(() => {
         const removeViewModeImageListener = controller?.setOnChangeHandlers({
             onViewMode: (mode) => {
+                onViewModeChanged(mode);
                 setDisplayImage(mode === 'image')
-                const bounds = editorRef?.current?.getViewportPageBounds();
+                const bounds = editor?.getViewportPageBounds();
                 if (bounds) {
-                    controller.setImageBounds(bounds)
+                    controller?.setImageBounds(bounds)
                 }
             },
-            onImageBounds: setImageBounds,
+            onImageBounds: (bounds) => setImageViewOptions({
+                ...viewOptions,
+                bounds,
+            }),
             onImageSize: setImageSize,
             onViewOptions: (o) => {
                 setImageViewOptions({
                     ...o,
                 })
-            }
+            },
+            onFileModified,
         });
         return () => {
             removeViewModeImageListener?.();
         }
-    }, []);
+    }, [editor]);
 
     return {
         displayImage,
         imageSize,
-        viewOptions: {
-            ...viewOptions,
-            bounds: maybeBox(bounds)
-        },
+        viewOptions,
     }
 }

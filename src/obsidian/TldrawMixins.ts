@@ -4,7 +4,8 @@ import TldrawPlugin from "src/main";
 import { MARKDOWN_ICON_NAME, VIEW_TYPE_MARKDOWN } from "src/utils/constants";
 import wrapReactRoot from "src/utils/wrap-react-root";
 import { TLDataDocument } from "src/utils/document";
-import { createRootAndRenderTldrawApp, SetTldrawFileData, TldrawAppProps } from "src/components/TldrawApp";
+import { createRootAndRenderTldrawApp, TldrawAppProps } from "src/components/TldrawApp";
+import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
 
 /**
  * Implements overrides for {@linkcode FileView.onload} and {@linkcode FileView.onunload}

@@ -4,7 +4,7 @@ import {
 	serializeTldrawJsonBlob,
 	Editor,
 	useDefaultHelpers,
-} from "@tldraw/tldraw";
+} from "tldraw";
 import TldrawPlugin from "src/main";
 import { migrateTldrawFileDataIfNecessary } from "./migrate/tl-data-to-tlstore";
 import { Platform, TFile } from "obsidian";

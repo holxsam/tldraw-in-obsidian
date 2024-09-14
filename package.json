@@ -21,22 +21,22 @@
 	"author": "Sam Alhaqab",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
-		"@types/react": "^18.2.15",
-		"@types/react-dom": "^18.2.7",
+		"@types/react": "^18.3.5",
+		"@types/react-dom": "^18.3.0",
 		"@typescript-eslint/eslint-plugin": "7.12.0",
 		"@typescript-eslint/parser": "7.12.0",
 		"builtin-modules": "3.3.0",
-		"esbuild": "0.17.3",
+		"esbuild": "^0.23.1",
 		"obsidian": "latest",
 		"tslib": "2.6.3",
 		"typescript": "^5.5.4"
 	},
 	"dependencies": {
-		"@tldraw/tldraw": "2.4.4",
 		"monkey-around": "^2.3.0",
 		"patch-package": "^8.0.0",
-		"react": "^18.2.0",
-		"react-dom": "^18.2.0",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"tldraw": "^2.4.6",
 		"use-debounce": "^9.0.4",
 		"zustand": "^4.3.9"
 	}

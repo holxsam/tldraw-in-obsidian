@@ -3,7 +3,7 @@ import { TldrawAppViewModeController } from "../helpers/TldrawAppEmbedViewContro
 import { MARKDOWN_ICON_NAME } from "src/utils/constants";
 import TldrawPlugin from "src/main";
 import { pluginMenuLabel } from ".";
-import { BoxLike } from "@tldraw/tldraw";
+import { BoxLike } from "tldraw";
 
 type TldrAppControllerForMenu = Pick<
     TldrawAppViewModeController, 'getViewMode' | 'toggleInteractive' | 'toggleBackground' | 'getViewOptions'

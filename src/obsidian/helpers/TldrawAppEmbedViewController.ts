@@ -1,4 +1,5 @@
-import { BoxLike, TldrawImageProps } from "@tldraw/tldraw";
+import { TLDataDocument } from "src/utils/document";
+import { BoxLike, TldrawImageProps } from "tldraw";
 
 export type ViewMode = 'image' | 'interactive';
 
@@ -9,6 +10,7 @@ export type OnChangeHandlers = {
     onImageBounds: (bounds?: BoxLike) => void;
     onImageSize: (size?: { width: number, height: number }) => void;
     onViewOptions: (options: ImageViewModeOptions) => void;
+    onFileModified: (newInitialData: TLDataDocument) => void
 };
 
 /**
@@ -30,9 +32,10 @@ export type ImageViewModeOptions = {
 export type TldrawAppViewModeController = {
     getViewMode: () => ViewMode;
     getViewOptions: () => ImageViewModeOptions;
+    setUpdatedData: (tlDataDocument: TLDataDocument) => void;
     setViewMode: (viewMode: ViewMode) => void;
     setImageBounds: (bounds?: BoxLike) => void;
-    setImageSize: (size?: {width: number, height: number}) => void;
+    setImageSize: (size?: { width: number, height: number }) => void;
     /**
      * @returns A function that unsets on-change handlers.
      */
