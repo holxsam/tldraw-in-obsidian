@@ -146,7 +146,7 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
     }
 
     const fileListener = plugin.tldrawFileListeners.addListener(file, async () => {
-        if (reactRoot === undefined) {
+        if (!parent.isConnected) {
             fileListener.remove();
             return;
         }
