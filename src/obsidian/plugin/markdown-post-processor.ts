@@ -162,7 +162,10 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
             fileListener.isPaused = true;
             const parsedData = await parseData();
             reactRoot = await createReactTldrawAppRoot({
-                assetStore: new ObsidianTLAssetStore(plugin, file, undefined),
+                assetStore: new ObsidianTLAssetStore(plugin, file, {
+                    persistenceKey: parsedData.meta.uuid,
+                    storeAsset: undefined,
+                }),
                 controller, parsedData, plugin, tldrawEmbedViewContent, embedValues
             })
             fileListener.isPaused = false;

@@ -48,21 +48,25 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
         }
 
         protected getTldrawOptions(): TldrawAppProps['options'] {
-            if(!this.file) {
-                throw new Error('There is no file associated with this tldraw view.');
-            }
-            return {
-                assetStore: new ObsidianTLAssetStore(this.plugin, this.file, this.storeAsset)
-            };
+            return {};
         }
 
         private createReactRoot(entryPoint: Element, tldata: TLDataDocument) {
+            if (!this.file) {
+                throw new Error('There is no file associated with this tldraw view.');
+            }
             return createRootAndRenderTldrawApp(
                 entryPoint,
                 tldata,
                 this.setFileData,
                 this.plugin,
-                this.getTldrawOptions()
+                {
+                    assetStore: new ObsidianTLAssetStore(this.plugin, this.file, {
+                        persistenceKey: tldata.meta.uuid,
+                        storeAsset: this.storeAsset
+                    }),
+                    ...this.getTldrawOptions()
+                }
             );
         }
 
