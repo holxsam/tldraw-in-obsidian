@@ -1,6 +1,6 @@
 import { FileView, Menu, Notice, TFile, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
-import { SetTldrawFileData, TldrawAppProps } from "src/components/TldrawApp";
+import { TldrawAppProps } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import { PaneTarget, TLDRAW_ICON_NAME, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_FILE, VIEW_TYPE_TLDRAW_READ_ONLY, ViewType } from "src/utils/constants";
 import { parseTLDataDocument } from "src/utils/parse";
@@ -10,6 +10,7 @@ import { TLDRAW_FILE_EXTENSION } from "tldraw";
 import { getTLMetaTemplate } from "src/utils/document";
 import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
 import { pluginMenuLabel } from "./menu";
+import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
 
 export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     plugin: TldrawPlugin;

@@ -7,6 +7,7 @@ import {
 	DefaultMainMenuContent,
 	defaultShapeUtils,
 	Editor,
+	TLAssetStore,
 	TLComponents,
 	Tldraw,
 	TldrawFile,
@@ -29,6 +30,7 @@ type TldrawAppOptions = {
 	controller?: TldrawAppViewModeController;
 	isReadonly?: boolean,
 	autoFocus?: boolean,
+	assetStore?: TLAssetStore,
 	inputFocus?: boolean,
 	initialImageSize?: { width: number, height: number },
 	/**
@@ -92,6 +94,7 @@ function LocalFileMenu(props: { plugin: TldrawPlugin }) {
 }
 
 const TldrawApp = ({ plugin, initialData, setFileData, options: {
+	assetStore,
 	autoFocus = true,
 	controller,
 	hideUi = false,
@@ -183,6 +186,7 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 						<TldrawImage
 							snapshot={storeSnapshot}
 							padding={0}
+							assets={assetStore}
 							assetUrls={assetUrls.current}
 							bounds={bounds === undefined ? undefined : Box.From(bounds)}
 							{...viewOptionsOther}
@@ -209,6 +213,7 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 						hideUi={hideUi}
 						overrides={overridesUi.current}
 						components={overridesUiComponents.current}
+						assets={assetStore}
 						// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
 						autoFocus={autoFocus}
 						onMount={setAppState}
