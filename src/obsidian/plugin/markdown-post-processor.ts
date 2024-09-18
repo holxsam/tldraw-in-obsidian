@@ -8,6 +8,7 @@ import { parseTLDataDocument } from "src/utils/parse";
 import { createTldrawAppViewModeController } from "../factories/createTldrawAppViewModeController";
 import { Root } from "react-dom/client";
 import { showEmbedContextMenu } from "../helpers/show-embed-context-menu";
+import { ObsidianTLAssetStore } from "src/tldraw/asset-store";
 
 /**
  * Processes the embed view for a tldraw white when including it in another obsidian note.
@@ -161,6 +162,7 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
             fileListener.isPaused = true;
             const parsedData = await parseData();
             reactRoot = await createReactTldrawAppRoot({
+                assetStore: new ObsidianTLAssetStore(plugin, file, undefined),
                 controller, parsedData, plugin, tldrawEmbedViewContent, embedValues
             })
             fileListener.isPaused = false;
@@ -331,8 +333,9 @@ function parseEmbedValues(el: HTMLElement, imageBounds = {
 type EmbedValues = ReturnType<typeof parseEmbedValues>;
 
 async function createReactTldrawAppRoot({
-    controller, parsedData, plugin, tldrawEmbedViewContent, embedValues
+    assetStore, controller, parsedData, plugin, tldrawEmbedViewContent, embedValues
 }: {
+    assetStore: ObsidianTLAssetStore,
     parsedData: ReturnType<typeof parseTLDataDocument>,
     plugin: TldrawPlugin,
     tldrawEmbedViewContent: HTMLElement,
@@ -347,6 +350,7 @@ async function createReactTldrawAppRoot({
         },
         plugin,
         {
+            assetStore,
             isReadonly: true,
             controller,
             inputFocus: true,

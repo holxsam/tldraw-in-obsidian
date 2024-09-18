@@ -75,10 +75,31 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 			stringifiedData
 		);
 
+		// Do this to prevent the data from being reset by Obsidian.
+		this.data = result;
 		// saves the new data to file:
 		if (!this.file) return;
 		await this.app.vault.modify(this.file, result);
 	};
+
+	protected storeAsset = async (id: string, assetFile: TFile): Promise<void> => {
+		const { file } = this;
+		if (!file) return;
+
+		const internalLink = this.plugin.app.fileManager.generateMarkdownLink(assetFile, file.path);
+		const linkBlock = `${internalLink}\n^${id}`;
+
+		// Set to the result of "process" to prevent the data from being reset by Obsidian.
+		this.data = await this.plugin.app.vault.process(file, (data) => {
+			const { start, end } = this.plugin.app.metadataCache.getFileCache(file)?.frontmatterPosition ?? {
+				start: { offset: 0 }, end: { offset: 0 }
+			};
+
+			const frontmatter = data.slice(start.offset, end.offset)
+			const rest = data.slice(end.offset);
+			return `${frontmatter}\n${linkBlock}\n${rest}`;
+		});
+	}
 }
 
 
@@ -121,7 +142,9 @@ export class TldrawFileView extends TldrawView {
 	protected override getTldrawOptions(): TldrawAppProps["options"] {
 		return {
 			...super.getTldrawOptions(),
-			persistenceKey: this.file?.path
+			persistenceKey: this.file?.path,
+			// Since TldrawFileView is only meant to be used with .tldr files we disable the Obsidian based asset store.
+			assetStore: undefined,
 		}
 	}
 

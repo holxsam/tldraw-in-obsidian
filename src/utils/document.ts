@@ -76,7 +76,8 @@ export const codeBlockTemplate = (data: TLData) => {
 	str += "```json" + ` ${TLDATA_DELIMITER_START}`;
 	str += "\n";
 	str += `${JSON.stringify(data, null, "\t")}\n`;
-	str += `${TLDATA_DELIMITER_END} ` + "```";
+	str += `${TLDATA_DELIMITER_END}\n`
+	str += "```";
 	return str;
 };
 
