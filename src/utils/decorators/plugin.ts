@@ -7,16 +7,6 @@ type ObsidianPluginConstructor = new (
 ) => TldrawPlugin;
 
 /**
- * https://www.typescriptlang.org/docs/handbook/decorators.html#class-decorators
- * @param target 
- * @param args 
- */
-function sealed(target: NewableFunction, args: unknown) {
-    Object.seal(target);
-    Object.seal(target.prototype);
-}
-
-/**
  * Mark
  * @param Base 
  * @param args 
@@ -36,7 +26,6 @@ export function pluginBuild<T extends ObsidianPluginConstructor>(Base: T, args: 
      * 
      * Try to keep this class as minimal as possible to help assist with development cycles.
      */
-    @sealed
     class TldrawPluginDevelopment extends Base {
         onload() {
             logClass(TldrawPluginDevelopment, this.onload, `Loading plugin '${decoratedPlugin}.`);
