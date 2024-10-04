@@ -51,7 +51,7 @@ import { pluginBuild } from "./utils/decorators/plugin";
 import { markdownPostProcessor } from "./obsidian/plugin/markdown-post-processor";
 import { processFontOverrides, processIconOverrides } from "./obsidian/plugin/settings";
 import { createRawTldrawFile } from "./utils/tldraw-file";
-import { TLDRAW_FILE_EXTENSION, TLStore } from "tldraw";
+import { Editor, TLDRAW_FILE_EXTENSION, TLStore } from "tldraw";
 import { registerCommands } from "./obsidian/plugin/commands";
 import { migrateTldrawFileDataIfNecessary } from "./utils/migrate/tl-data-to-tlstore";
 import { pluginMenuLabel } from "./obsidian/menu";
@@ -68,6 +68,7 @@ export default class TldrawPlugin extends Plugin {
 	// keeps track of what view mode each tab-file combo should be in:
 	leafFileViewModes: { [leafFileId: string]: ViewType } = {};
 	tldrawFileListeners = new TldrawFileListenerMap(this);
+	currTldrawEditor?: Editor;
 
 	// misc:
 	settings: TldrawPluginSettings;

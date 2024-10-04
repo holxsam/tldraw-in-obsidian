@@ -25,6 +25,7 @@ import { Platform } from "obsidian";
 import { TldrawAppViewModeController } from "src/obsidian/helpers/TldrawAppEmbedViewController";
 import { SetTldrawFileData, useTldrawAppEffects } from "src/hooks/useTldrawAppHook";
 import { useViewModeState } from "src/hooks/useViewModeController";
+import { useClickAwayListener } from "src/hooks/useClickAwayListener";
 
 type TldrawAppOptions = {
 	controller?: TldrawAppViewModeController;
@@ -160,19 +161,25 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 		settingsProvider: plugin.settingsProvider,
 	});
 
+	const [isFocused, setIsFocused] = React.useState(false);
+
+	const editorContainerRef = useClickAwayListener<HTMLDivElement>({
+		enableClickAwayListener: isFocused,
+		handler() {
+			editor?.blur();
+			setIsFocused(false);
+			const { currTldrawEditor } = plugin;
+			if (currTldrawEditor) {
+				if (currTldrawEditor === editor) {
+					plugin.currTldrawEditor = undefined;
+				}
+			}
+		}
+	});
+
 	return (
 		<div
 			className="tldraw-view-root"
-			onBlur={!inputFocus ? undefined : (e) => {
-				editor?.selectNone();
-				editor?.blur();
-			}}
-			onFocus={!inputFocus ? undefined : (e) => {
-				editor?.focus();
-				// NOTE: Below is buggy... menus overlay on top of each other.
-				// We stop propagation here so that we can still access the menus in the embed view when clicking within this div.
-				// e.stopPropagation();
-			}}
 		>
 			{displayImage ? (
 				<div className="ptl-tldraw-image-container" style={{
@@ -201,6 +208,21 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 					// Obsidian thinks they're swiping down, left, or right so it opens various menus.
 					// By preventing the event from propagating, we can prevent those actions menus from opening.
 					onTouchStart={(e) => e.stopPropagation()}
+					ref={editorContainerRef}
+					onFocus={(e) => {
+						console.log('onFocus');
+						const { currTldrawEditor } = plugin;
+						if (currTldrawEditor !== editor) {
+							if (currTldrawEditor) {
+								currTldrawEditor.blur();
+							}
+							if (editor) {
+								editor.focus()
+								setIsFocused(true);
+								plugin.currTldrawEditor = editor;
+							}
+						}
+					}}
 					style={{
 						width: '100%',
 						height: '100%',
@@ -215,7 +237,7 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 						components={overridesUiComponents.current}
 						assets={assetStore}
 						// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
-						autoFocus={autoFocus}
+						autoFocus={false}
 						onMount={setAppState}
 					/>
 				</div>

@@ -6,7 +6,7 @@ export const VIEW_TYPE_TLDRAW_READ_ONLY = "tldraw-read-only"; // custom view typ
 export const VIEW_TYPE_MARKDOWN = "markdown"; // NOT ACTUALLY A CUSTOM VIEW TYPE, its built in from obsidian
 export const VIEW_TYPES = [VIEW_TYPE_MARKDOWN, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_FILE, VIEW_TYPE_TLDRAW_READ_ONLY] as const;
 
-export const TLDRAW_VERSION = "2.4.4";
+export const TLDRAW_VERSION = "2.4.6";
 export const FILE_EXTENSION = ".md";
 export const FRONTMATTER_KEY = "tldraw-file";
 export const TLDATA_DELIMITER_START =
