@@ -70,8 +70,15 @@ export class TldrawSettingsTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
+		this.fileSettings();
+		this.startUpSettings();
+		this.fontSettings();
+		this.iconsSettings();
+	}
 
-		this.containerEl.createEl("h1", { text: "File" });
+	fileSettings() {
+		const { containerEl } = this;
+		containerEl.createEl("h1", { text: "File" });
 
 		new Setting(containerEl)
 			.setName("Save folder")
@@ -86,7 +93,7 @@ export class TldrawSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-			
+
 		new Setting(containerEl)
 			.setName("Use attachments folder")
 			.setDesc("Use the location defined in the \"Files and links\" options tab for newly created tldraw files if they are embed as an attachment.")
@@ -188,8 +195,11 @@ export class TldrawSettingsTab extends PluginSettingTab {
 					this.display();
 				});
 		});
+	}
 
-		this.containerEl.createEl("h1", { text: "Start up" });
+	startUpSettings() {
+		const { containerEl } = this;
+		containerEl.createEl("h1", { text: "Start up" });
 
 		new Setting(containerEl)
 			.setName("Theme")
@@ -281,105 +291,106 @@ export class TldrawSettingsTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+	}
 
-		{ // Fonts settings
-			this.containerEl.createEl("h1", { text: "Fonts" });
+	fontSettings() {
+		const { containerEl } = this;
+		containerEl.createEl("h1", { text: "Fonts" });
 
-			this.containerEl.createEl("h2", { text: "Default font overrides" });
+		containerEl.createEl("h2", { text: "Default font overrides" });
 
-			const saveFontSettings = async (updates: {
-				draw?: string | null,
-				sansSerif?: string | null,
-				serif?: string | null,
-				monospace?: string | null
-			}) => {
-				this.plugin.settings.fonts = {
-					overrides: updateFontOverrides(
-						this.plugin.settings.fonts?.overrides, updates
-					)
-				}
-				await this.plugin.saveSettings();
+		const saveFontSettings = async (updates: {
+			draw?: string | null,
+			sansSerif?: string | null,
+			serif?: string | null,
+			monospace?: string | null
+		}) => {
+			this.plugin.settings.fonts = {
+				overrides: updateFontOverrides(
+					this.plugin.settings.fonts?.overrides, updates
+				)
 			}
+			await this.plugin.saveSettings();
+		}
 
-			const newFontOverrideSetting = (args: {
-				name: string,
-				font: keyof Parameters<typeof saveFontSettings>[0],
-				appearsAs: string,
-			}) => {
-				const currentValue = () => this.plugin.settings.fonts?.overrides?.[args.font];
-				let resetButton: undefined | ExtraButtonComponent;
-				const setFont = async (fontPath: string | null) => {
-					if (fontPath !== null && fontPath.length === 0) {
-						fontPath = null;
-					}
-					await saveFontSettings({ [args.font]: fontPath });
-					if (fontPath) {
-						new Notice(`Updated font override for "${args.font}" to "${fontPath}"`);
-					} else {
-						new Notice(`Reset font "${args.font}" to default.`);
-					}
-					textInput?.setValue(currentValue() ?? '')
-					resetButton?.setDisabled(currentValue() === undefined)
+		const newFontOverrideSetting = (args: {
+			name: string,
+			font: keyof Parameters<typeof saveFontSettings>[0],
+			appearsAs: string,
+		}) => {
+			const currentValue = () => this.plugin.settings.fonts?.overrides?.[args.font];
+			let resetButton: undefined | ExtraButtonComponent;
+			const setFont = async (fontPath: string | null) => {
+				if (fontPath !== null && fontPath.length === 0) {
+					fontPath = null;
 				}
-				let textInput: undefined | TextComponent;
-				const current = currentValue();
-				return new Setting(containerEl)
-					.setName(args.name)
-					.setDesc(`Appears as "${args.appearsAs}" in the style panel.`)
-					.addText((text) => {
-						textInput = text
-							.setValue(current ?? '')
-							.setPlaceholder('[ DEFAULT ]')
-						textInput.inputEl.readOnly = true;
+				await saveFontSettings({ [args.font]: fontPath });
+				if (fontPath) {
+					new Notice(`Updated font override for "${args.font}" to "${fontPath}"`);
+				} else {
+					new Notice(`Reset font "${args.font}" to default.`);
+				}
+				textInput?.setValue(currentValue() ?? '')
+				resetButton?.setDisabled(currentValue() === undefined)
+			}
+			let textInput: undefined | TextComponent;
+			const current = currentValue();
+			return new Setting(containerEl)
+				.setName(args.name)
+				.setDesc(`Appears as "${args.appearsAs}" in the style panel.`)
+				.addText((text) => {
+					textInput = text
+						.setValue(current ?? '')
+						.setPlaceholder('[ DEFAULT ]')
+					textInput.inputEl.readOnly = true;
+				})
+				.addButton((button) => {
+					button.setIcon('file-search').onClick(() => {
+						new FileSearchModal(this.plugin, {
+							extensions: [...fontTypes],
+							initialValue: currentValue(),
+							onEmptyStateText: (searchPath) => (
+								`No folders or fonts at "${searchPath}".`
+							),
+							setSelection: (file) => setFont(file.path),
+						}).open()
 					})
-					.addButton((button) => {
-						button.setIcon('file-search').onClick(() => {
-							new FileSearchModal(this.plugin, {
-								extensions: [...fontTypes],
-								initialValue: currentValue(),
-								onEmptyStateText: (searchPath) => (
-									`No folders or fonts at "${searchPath}".`
-								),
-								setSelection: (file) => setFont(file.path),
-							}).open()
+				})
+				.addExtraButton((button) => {
+					resetButton = button.setIcon('rotate-ccw')
+						.setTooltip('Use default')
+						.setDisabled(current === undefined)
+						.onClick(async () => {
+							await setFont(null)
 						})
-					})
-					.addExtraButton((button) => {
-						resetButton = button.setIcon('rotate-ccw')
-							.setTooltip('Use default')
-							.setDisabled(current === undefined)
-							.onClick(async () => {
-								await setFont(null)
-							})
-					})
-			}
-
-			newFontOverrideSetting({
-				name: 'Draw (handwriting) font',
-				font: 'draw',
-				appearsAs: 'draw',
-			});
-			newFontOverrideSetting({
-				name: 'Sans-serif font',
-				font: 'sansSerif',
-				appearsAs: 'sans',
-			});
-			newFontOverrideSetting({
-				name: 'Serif font',
-				font: 'serif',
-				appearsAs: 'serif',
-			});
-			newFontOverrideSetting({
-				name: 'Monospace font',
-				font: 'monospace',
-				appearsAs: 'mono',
-			});
+				})
 		}
 
-		{ // Icons settings
-			this.containerEl.createEl("h1", { text: "Icons" });
-			this.containerEl.createEl("h2", { text: "Default icon overrides" });
-			createIconOverridesSettingsEl(this.plugin, this.containerEl)
-		}
+		newFontOverrideSetting({
+			name: 'Draw (handwriting) font',
+			font: 'draw',
+			appearsAs: 'draw',
+		});
+		newFontOverrideSetting({
+			name: 'Sans-serif font',
+			font: 'sansSerif',
+			appearsAs: 'sans',
+		});
+		newFontOverrideSetting({
+			name: 'Serif font',
+			font: 'serif',
+			appearsAs: 'serif',
+		});
+		newFontOverrideSetting({
+			name: 'Monospace font',
+			font: 'monospace',
+			appearsAs: 'mono',
+		});
+	}
+
+	iconsSettings() {
+		this.containerEl.createEl("h1", { text: "Icons" });
+		this.containerEl.createEl("h2", { text: "Default icon overrides" });
+		createIconOverridesSettingsEl(this.plugin, this.containerEl)
 	}
 }
