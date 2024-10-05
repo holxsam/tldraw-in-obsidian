@@ -525,7 +525,7 @@ export default class TldrawPlugin extends Plugin {
 	async loadSettings() {
 		// We destructure the defaults for nested properties, e.g `embeds`, so that we can merge them separately since Object.assign does not merge nested properties.
 		const { embeds: embedsDefault, ...restDefault } = DEFAULT_SETTINGS;
-		const { embeds, ...rest } = await this.loadData() as TldrawPluginSettings;
+		const { embeds, ...rest } = await this.loadData() as Partial<TldrawPluginSettings> || {};
 		const embedsMerged = Object.assign({}, embedsDefault, embeds)
 		const restMerged = Object.assign({}, restDefault, rest);
 
