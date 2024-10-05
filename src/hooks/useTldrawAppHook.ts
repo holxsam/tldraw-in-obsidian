@@ -13,7 +13,7 @@ export type SetTldrawFileData = (data: {
 }) => void;
 
 export function useTldrawAppEffects({
-    editor, bounds, initialTool, isReadonly, settingsProvider, selectNone, setFileData, zoomToBounds
+    editor, bounds, initialTool, isReadonly, settingsProvider, selectNone, setFileData, setFocusedEditor, zoomToBounds
 }: {
     editor?: Editor,
     bounds: ReturnType<typeof useViewModeState>['viewOptions']['bounds']
@@ -23,6 +23,7 @@ export function useTldrawAppEffects({
     selectNone: boolean,
     zoomToBounds: boolean,
     setFileData?: (tldrawFile: TldrawFile) => void,
+    setFocusedEditor: (editor?: Editor) => void,
 }) {
     const [settings, setSettings] = React.useState(() => settingsProvider.getCurrent());
 
@@ -66,6 +67,7 @@ export function useTldrawAppEffects({
 
     React.useEffect(() => {
         if (!editor) return;
+        setFocusedEditor(editor);
 
         if (selectNone) {
             editor.selectNone();

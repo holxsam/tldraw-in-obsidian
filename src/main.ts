@@ -51,7 +51,7 @@ import { pluginBuild } from "./utils/decorators/plugin";
 import { markdownPostProcessor } from "./obsidian/plugin/markdown-post-processor";
 import { processFontOverrides, processIconOverrides } from "./obsidian/plugin/settings";
 import { createRawTldrawFile } from "./utils/tldraw-file";
-import { TLDRAW_FILE_EXTENSION, TLStore } from "tldraw";
+import { Editor, TLDRAW_FILE_EXTENSION, TLStore } from "tldraw";
 import { registerCommands } from "./obsidian/plugin/commands";
 import { migrateTldrawFileDataIfNecessary } from "./utils/migrate/tl-data-to-tlstore";
 import { pluginMenuLabel } from "./obsidian/menu";
@@ -68,6 +68,7 @@ export default class TldrawPlugin extends Plugin {
 	// keeps track of what view mode each tab-file combo should be in:
 	leafFileViewModes: { [leafFileId: string]: ViewType } = {};
 	tldrawFileListeners = new TldrawFileListenerMap(this);
+	currTldrawEditor?: Editor;
 
 	// misc:
 	settings: TldrawPluginSettings;
@@ -283,13 +284,13 @@ export default class TldrawPlugin extends Plugin {
 		);
 
 		this.registerEvent(this.app.vault.on('modify', async (file) => {
-			if(!(file instanceof TFile)) return;
+			if (!(file instanceof TFile)) return;
 
-			if(!this.hasTldrawFrontMatterKey(file)) return;
+			if (!this.hasTldrawFrontMatterKey(file)) return;
 
 			const listeners = this.tldrawFileListeners.getListeners(file);
 
-			if(listeners === undefined || listeners.length === 0) return;
+			if (listeners === undefined || listeners.length === 0) return;
 
 			listeners.forEach((e) => e.call());
 		}))
@@ -501,7 +502,7 @@ export default class TldrawPlugin extends Plugin {
 		if (!file) return false;
 		return this.hasTldrawFrontMatterKey(file);
 	}
-	
+
 	private hasTldrawFrontMatterKey(file: TFile) {
 		const fcache = file ? this.app.metadataCache.getFileCache(file) : null;
 		return !!fcache?.frontmatter && !!fcache.frontmatter[FRONTMATTER_KEY];
@@ -522,11 +523,16 @@ export default class TldrawPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData()
-		);
+		// We destructure the defaults for nested properties, e.g `embeds`, so that we can merge them separately since Object.assign does not merge nested properties.
+		const { embeds: embedsDefault, ...restDefault } = DEFAULT_SETTINGS;
+		const { embeds, ...rest } = await this.loadData() as TldrawPluginSettings;
+		const embedsMerged = Object.assign({}, embedsDefault, embeds)
+		const restMerged = Object.assign({}, restDefault, rest);
+
+		this.settings = {
+			embeds: embedsMerged,
+			...restMerged
+		};
 	}
 
 	async saveSettings() {
@@ -547,7 +553,7 @@ export default class TldrawPlugin extends Plugin {
 
 	settingsProvider = {
 		getCurrent: () => this.settings,
-		listen: (callback: () => void) => { 
+		listen: (callback: () => void) => {
 			// TODO: Listen to updates on settings.
 			console.log(`TODO: Settings listener callback not implemented.`);
 			return () => {

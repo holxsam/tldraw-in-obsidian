@@ -13,21 +13,7 @@ export function showEmbedContextMenu(ev: MouseEvent | undefined, {
 }) {
     createEmbedMenu({
         tFile, plugin,
-        controller: {
-            toggleBackground: () => {
-                return controller.toggleBackground();
-            },
-            toggleInteractive: () => {
-                controller.toggleInteractive();
-                focusContainer.focus();
-            },
-            getViewMode: () => {
-                return controller.getViewMode();
-            },
-            getViewOptions: () => {
-                return controller.getViewOptions();
-            }
-        },
+        controller,
         selectEmbedLinkText: (ev) => {
             focusContainer.dispatchEvent(new MouseEvent('click', {
                 bubbles: ev.bubbles,

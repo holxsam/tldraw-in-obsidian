@@ -1,19 +1,27 @@
 import { BoxLike } from "tldraw";
 import { TldrawAppViewModeController, ViewMode, ImageViewModeOptions, OnChangeHandlers } from "../helpers/TldrawAppEmbedViewController";
 
-export function createTldrawAppViewModeController(initialBounds?: BoxLike): TldrawAppViewModeController {
+export function createTldrawAppViewModeController({
+    initialBounds, showBg
+}: {
+    initialBounds?: BoxLike,
+    showBg: boolean,
+}): TldrawAppViewModeController {
     return {
         viewMode: 'image',
         viewOptions: {
             // TODO: Create a plugin setting that allows the use of other image formats for previewing.
             format: 'svg',
-            background: true,
+            background: showBg,
             bounds: initialBounds,
             // FIXME: Image aspect ratio is ruined in reading mode when viewing with png format due to 300px height restriction on `.ptl-markdown-embed .ptl-view-content`
             // format: 'png',
             // preserveAspectRatio: '',
         },
         onChangeHandlers: undefined,
+        onClickAway() {
+            this.setViewMode('image')
+        },
         getViewMode() {
             return this.viewMode;
         },
@@ -23,6 +31,10 @@ export function createTldrawAppViewModeController(initialBounds?: BoxLike): Tldr
         setImageBounds(bounds) {
             this.viewOptions.bounds = bounds;
             this.onChangeHandlers?.onImageBounds(bounds);
+        },
+        setShowBackground(showBg) {
+            this.viewOptions.background = showBg;
+            this.onChangeHandlers?.onViewOptions(this.viewOptions);
         },
         setUpdatedData(tlDataDocument) {
             this.onChangeHandlers?.onFileModified(tlDataDocument);
@@ -43,8 +55,7 @@ export function createTldrawAppViewModeController(initialBounds?: BoxLike): Tldr
             }
         },
         toggleBackground() {
-            this.viewOptions.background = !this.viewOptions.background;
-            this.onChangeHandlers?.onViewOptions(this.viewOptions);
+            this.setShowBackground(!this.viewOptions.background);
         },
         toggleInteractive() {
             if (this.viewMode !== 'image') {
