@@ -103,11 +103,17 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             // internalEmbedDiv.addClass("image-embed");
         }
 
-        const embedValues = parseEmbedValues(internalEmbedDiv);
-        const controller = createTldrawAppViewModeController(embedValues.bounds);
+        const embedValues = parseEmbedValues(internalEmbedDiv, {
+            showBgDefault: plugin.settings.embeds.showBg
+        });
+        const controller = createTldrawAppViewModeController({
+            showBg: embedValues.showBg,
+            initialBounds: embedValues.bounds,
+        });
 
         const { tldrawEmbedViewContent } = createTldrawEmbedView(internalEmbedDiv, {
-            file, plugin, controller
+            file, plugin, controller,
+            showBgDots: plugin.settings.embeds.showBgDots
         });
 
         const parent = internalEmbedDiv.parentElement;
@@ -195,9 +201,12 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
             clearTimeout(timer);
         }
 
-        const { bounds, imageSize } = parseEmbedValues(target)
+        const { bounds, imageSize, showBg } = parseEmbedValues(target, {
+            showBgDefault: plugin.settings.embeds.showBg
+        })
 
         timer = setTimeout(async () => {
+            controller.setShowBackground(showBg);
             controller.setImageSize(imageSize)
             controller.setImageBounds(bounds);
         }, 500);
@@ -231,15 +240,18 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
 }
 
 function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
-    file, plugin, controller
+    file, plugin, controller, showBgDots
 }: {
     file: TFile,
     plugin: TldrawPlugin,
-    controller: TldrawAppViewModeController
+    controller: TldrawAppViewModeController,
+    showBgDots: boolean,
 }) {
     const tldrawEmbedView = internalEmbedDiv.createDiv({ cls: 'ptl-markdown-embed' },)
 
-    const tldrawEmbedViewContent = tldrawEmbedView.createDiv({ cls: 'ptl-view-content' })
+    const tldrawEmbedViewContent = tldrawEmbedView.createDiv({ cls: 'ptl-view-content', attr: {
+        'data-showBgDots': showBgDots
+    } })
 
     // Prevent the Obsidian editor from selecting the embed link with the editing cursor when a user interacts with the view.
     tldrawEmbedView.addEventListener('click', (ev) => {
@@ -285,12 +297,21 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
     }
 }
 
-function parseEmbedValues(el: HTMLElement, imageBounds = {
-    pos: { x: 0, y: 0 },
-    size: {
-        w: Number.NaN,
-        h: Number.NaN
-    },
+function parseEmbedValues(el: HTMLElement, {
+    showBgDefault,
+    imageBounds = {
+        pos: { x: 0, y: 0 },
+        size: {
+            w: Number.NaN,
+            h: Number.NaN
+        },
+    }
+}: {
+    showBgDefault: boolean,
+    imageBounds?: {
+        pos: { x: number, y: number },
+        size: { w: number, h: number },
+    }
 }) {
     const alt = el.attributes.getNamedItem('alt')?.value ?? '';
     const altSplit = alt.split(';').map((e) => e.trim())
@@ -309,12 +330,26 @@ function parseEmbedValues(el: HTMLElement, imageBounds = {
         width: Number.parseFloat(el.attributes.getNamedItem('width')?.value ?? ''),
         height: Number.parseFloat(el.attributes.getNamedItem('height')?.value ?? ''),
     };
+
+    const showBg = (() => {
+        switch (altNamedProps['showBg']) {
+            case 'true':
+            case 'yes':
+                return true;
+            case 'false':
+            case 'no':
+                return false;
+            default:
+                return showBgDefault;
+        }
+    })()
     return {
         bounds: bounds === undefined ? undefined : {
             ...bounds.pos,
             ...bounds.size,
         },
         imageSize,
+        showBg,
     };
 }
 

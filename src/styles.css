@@ -152,6 +152,9 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 
 .ptl-markdown-embed .ptl-view-content {
 	height: 300px;
+}
+
+.ptl-markdown-embed .ptl-view-content[data-showBgDots="true"] {
 	background-image: 
         radial-gradient(rgb(78, 78, 78) 1px, transparent 1px),
         radial-gradient(rgb(78, 78, 78) 1px, transparent 1px);

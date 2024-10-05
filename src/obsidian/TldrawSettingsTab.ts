@@ -43,6 +43,16 @@ export interface TldrawPluginSettings {
 	 * Use the attachments folder defined in the Obsidian "Files and links" settings. 
 	 */
 	useAttachmentsFolder: boolean,
+	embeds: {
+		/**
+		 * Default value to control whether to show the background for markdown embeds
+		 */
+		showBg: boolean
+		/**
+		 * Default value to control whether to show the background dotted pattern for markdown embeds
+		 */
+		showBgDots: boolean;
+	}
 }
 
 export const DEFAULT_SETTINGS = {
@@ -56,7 +66,11 @@ export const DEFAULT_SETTINGS = {
 	snapMode: false,
 	debugMode: false,
 	focusMode: false,
-	useAttachmentsFolder: true
+	useAttachmentsFolder: true,
+	embeds: {
+		showBg: true,
+		showBgDots: true,
+	}
 } as const satisfies TldrawPluginSettings;
 
 export class TldrawSettingsTab extends PluginSettingTab {
@@ -72,6 +86,7 @@ export class TldrawSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 		this.fileSettings();
 		this.startUpSettings();
+		this.embedsSettings();
 		this.fontSettings();
 		this.iconsSettings();
 	}
@@ -288,6 +303,40 @@ export class TldrawSettingsTab extends PluginSettingTab {
 				cb.setValue(this.plugin.settings.debugMode);
 				cb.onChange(async (value) => {
 					this.plugin.settings.debugMode = value;
+					await this.plugin.saveSettings();
+				});
+			});
+	}
+
+	embedsSettings() {
+		const { containerEl } = this;
+		containerEl.createEl("h1", { text: "Embeds" });
+
+		containerEl.createEl('p', {
+			text: 'Reload Obsidian to apply changes'
+		})
+
+		new Setting(containerEl)
+			.setName("Show background")
+			.setDesc(
+				"Whether to show the background for a markdown embed by default"
+			)
+			.addToggle((cb) => {
+				cb.setValue(this.plugin.settings.embeds.showBg);
+				cb.onChange(async (value) => {
+					this.plugin.settings.embeds.showBg = value;
+					await this.plugin.saveSettings();
+				});
+			});
+		new Setting(containerEl)
+			.setName("Show background dotted pattern")
+			.setDesc(
+				"Whether to show the background dotted pattern for a markdown embed by default"
+			)
+			.addToggle((cb) => {
+				cb.setValue(this.plugin.settings.embeds.showBgDots);
+				cb.onChange(async (value) => {
+					this.plugin.settings.embeds.showBgDots = value;
 					await this.plugin.saveSettings();
 				});
 			});
