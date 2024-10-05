@@ -14,6 +14,9 @@ export function createTldrawAppViewModeController(initialBounds?: BoxLike): Tldr
             // preserveAspectRatio: '',
         },
         onChangeHandlers: undefined,
+        onClickAway() {
+            this.setViewMode('image')
+        },
         getViewMode() {
             return this.viewMode;
         },

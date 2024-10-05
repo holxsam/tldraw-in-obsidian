@@ -26,6 +26,7 @@ import { TldrawAppViewModeController } from "src/obsidian/helpers/TldrawAppEmbed
 import { SetTldrawFileData, useTldrawAppEffects } from "src/hooks/useTldrawAppHook";
 import { useViewModeState } from "src/hooks/useViewModeController";
 import { useClickAwayListener } from "src/hooks/useClickAwayListener";
+import { nextTick } from "process";
 
 type TldrawAppOptions = {
 	controller?: TldrawAppViewModeController;
@@ -155,18 +156,35 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 		},
 	});
 
+	const [isFocused, setIsFocused] = React.useState(false);
+
+	const setFocusedEditor = (editor?: Editor) => {
+		const { currTldrawEditor } = plugin;
+		if (currTldrawEditor !== editor) {
+			if (currTldrawEditor) {
+				currTldrawEditor.blur();
+			}
+			if (editor) {
+				editor.focus()
+				setIsFocused(true);
+				plugin.currTldrawEditor = editor;
+			}
+		}
+	}
+
 	useTldrawAppEffects({
 		bounds, editor, initialTool, isReadonly,
-		setFileData, selectNone, zoomToBounds,
+		setFileData, setFocusedEditor, selectNone, zoomToBounds,
 		settingsProvider: plugin.settingsProvider,
 	});
-
-	const [isFocused, setIsFocused] = React.useState(false);
 
 	const editorContainerRef = useClickAwayListener<HTMLDivElement>({
 		enableClickAwayListener: isFocused,
 		handler() {
 			editor?.blur();
+			nextTick(() => {
+				controller?.onClickAway();
+			})
 			setIsFocused(false);
 			const { currTldrawEditor } = plugin;
 			if (currTldrawEditor) {
@@ -211,17 +229,7 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 					ref={editorContainerRef}
 					onFocus={(e) => {
 						console.log('onFocus');
-						const { currTldrawEditor } = plugin;
-						if (currTldrawEditor !== editor) {
-							if (currTldrawEditor) {
-								currTldrawEditor.blur();
-							}
-							if (editor) {
-								editor.focus()
-								setIsFocused(true);
-								plugin.currTldrawEditor = editor;
-							}
-						}
+						setFocusedEditor(editor);
 					}}
 					style={{
 						width: '100%',

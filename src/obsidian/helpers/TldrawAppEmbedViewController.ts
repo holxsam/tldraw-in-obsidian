@@ -32,6 +32,7 @@ export type ImageViewModeOptions = {
 export type TldrawAppViewModeController = {
     getViewMode: () => ViewMode;
     getViewOptions: () => ImageViewModeOptions;
+    onClickAway: () => void;
     setUpdatedData: (tlDataDocument: TLDataDocument) => void;
     setViewMode: (viewMode: ViewMode) => void;
     setImageBounds: (bounds?: BoxLike) => void;
