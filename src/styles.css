@@ -174,3 +174,11 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 	object-fit: contain;
 	object-position: top;
 }
+
+.ptl-download-error {
+	color: red;
+}
+
+.ptl-download-success {
+	color: green;
+}

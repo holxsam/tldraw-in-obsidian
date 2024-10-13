@@ -1,3 +1,4 @@
+import { IconNames } from "src/types/tldraw";
 import { TldrawPluginSettings } from "../TldrawSettingsTab";
 import { iconTypes } from "../settings/constants";
 
@@ -37,7 +38,7 @@ export function processFontOverrides(
 
 export function processIconOverrides(
     overrides: IconOverridesSettings,
-    getResourcePath: (font: string) => string
+    getResourcePath: (iconPath: string) => string
 ): IconOverridesSettings {
     if (overrides === undefined) return undefined;
 
@@ -45,7 +46,7 @@ export function processIconOverrides(
 
     for (const [iconName, override] of Object.entries(overrides)) {
         if (override === undefined) continue;
-        processed[iconName] = getResourcePath(override)
+        processed[iconName as IconNames] = getResourcePath(override)
     }
 
     return processed;

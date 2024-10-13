@@ -4,7 +4,6 @@ import {
 	App,
 	ExtraButtonComponent,
 	MomentFormatComponent,
-	Notice,
 	PluginSettingTab,
 	Setting,
 	TextComponent,
@@ -15,10 +14,13 @@ import {
 	MIN_SAVE_DELAY,
 } from "src/utils/constants";
 import { FileSearchModal } from "./modal/FileSearchModal";
-import { updateFontOverrides } from "./plugin/settings";
-import { FontOverrides, IconOverrides } from "src/types/tldraw";
+import { FontOverrides, FontTypes, IconNames, IconOverrides } from "src/types/tldraw";
 import { createIconOverridesSettingsEl } from "./settings/icon-overrides";
-import { fontTypes } from "./settings/constants";
+import { defaultFonts, fontExtensions } from "./settings/constants";
+import IconsSettingsManager from "./settings/IconsSettingsManager";
+import FontsSettingsManager from "./settings/FontsSettingsManager";
+import DownloadManagerModal from "./modal/DownloadManagerModal";
+import { DownloadInfo } from "src/utils/fetch/download";
 
 export type ThemePreference = "match-theme" | "dark" | "light";
 
@@ -42,7 +44,7 @@ export interface TldrawPluginSettings {
 	/**
 	 * Use the attachments folder defined in the Obsidian "Files and links" settings. 
 	 */
-	useAttachmentsFolder: boolean,
+	useAttachmentsFolder: boolean;
 	embeds: {
 		/**
 		 * Default value to control whether to show the background for markdown embeds
@@ -52,7 +54,11 @@ export interface TldrawPluginSettings {
 		 * Default value to control whether to show the background dotted pattern for markdown embeds
 		 */
 		showBgDots: boolean;
-	}
+	};
+	/**
+	 * The location where tldraw assets will be downloaded in
+	 */
+	assetsFolder: string;
 }
 
 export const DEFAULT_SETTINGS = {
@@ -70,15 +76,22 @@ export const DEFAULT_SETTINGS = {
 	embeds: {
 		showBg: true,
 		showBgDots: true,
-	}
-} as const satisfies TldrawPluginSettings;
+	},
+	assetsFolder: 'tldraw/assets'
+} as const satisfies Partial<TldrawPluginSettings>;
 
 export class TldrawSettingsTab extends PluginSettingTab {
 	plugin: TldrawPlugin;
+	fontsSettingsManager: FontsSettingsManager;
+	iconsSettingsManager: IconsSettingsManager;
+	downloadManagerModal: DownloadManagerModal;
 
 	constructor(app: App, plugin: TldrawPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+		this.fontsSettingsManager = new FontsSettingsManager(this.plugin);
+		this.iconsSettingsManager = new IconsSettingsManager(this.plugin);
+		this.downloadManagerModal = new DownloadManagerModal(this.app);
 	}
 
 	display(): void {
@@ -87,8 +100,7 @@ export class TldrawSettingsTab extends PluginSettingTab {
 		this.fileSettings();
 		this.startUpSettings();
 		this.embedsSettings();
-		this.fontSettings();
-		this.iconsSettings();
+		this.assetsSettings();
 	}
 
 	fileSettings() {
@@ -342,48 +354,85 @@ export class TldrawSettingsTab extends PluginSettingTab {
 			});
 	}
 
-	fontSettings() {
-		const { containerEl } = this;
-		containerEl.createEl("h1", { text: "Fonts" });
+	downloadFont(font: FontTypes, config: DownloadInfo) {
+		return this.downloadManagerModal.startDownload(config,
+			async (tFile) => this.fontsSettingsManager.setFontPath(font, tFile.path)
+		)
+	}
 
-		containerEl.createEl("h2", { text: "Default font overrides" });
-
-		const saveFontSettings = async (updates: {
-			draw?: string | null,
-			sansSerif?: string | null,
-			serif?: string | null,
-			monospace?: string | null
-		}) => {
-			this.plugin.settings.fonts = {
-				overrides: updateFontOverrides(
-					this.plugin.settings.fonts?.overrides, updates
-				)
-			}
-			await this.plugin.saveSettings();
+	async downloadAllFonts() {
+		const configs = this.fontsSettingsManager.getAllAssetsConfigs();
+		for (const [font, downloadInfo] of configs) {
+			await this.downloadFont(font, downloadInfo);
 		}
+	}
+
+	downloadIcon(icon: IconNames, config: DownloadInfo) {
+		return this.downloadManagerModal.startDownload(config,
+			async (tFile) => this.iconsSettingsManager.setIconPath(icon, tFile.path)
+		)
+	}
+
+	async downloadAllIcons() {
+		const configs = this.iconsSettingsManager.getAllDownloadConfigs();
+		for (const [icon, downloadInfo] of configs) {
+			await this.downloadIcon(icon, downloadInfo);
+		}
+	}
+
+	assetsSettings() {
+		this.containerEl.createEl("h1", { text: "Assets" });
+
+		const offlineFonts = new Setting(this.containerEl).setName('Offline assets')
+			.setDesc('Download all assets offline use')
+			.addButton((button) => button.setButtonText('Download all').onClick(async () => {
+				await this.downloadAllFonts();
+				await this.downloadAllIcons();
+			}));
+
+		offlineFonts.descEl.createEl("code", {
+			cls: "ptl-default-code",
+			text: `Vault folder: ${this.plugin.settings.assetsFolder}`,
+		});
+
+		this.fontSettings();
+		this.iconsSettings();
+	}
+
+	fontSettings() {
+		const { containerEl, fontsSettingsManager } = this;
+		containerEl.createEl("h2", { text: "Fonts" });
+
+		const offlineFonts = new Setting(this.containerEl).setName('Offline fonts')
+			.setDesc('Download all fonts for offline use')
+			.addButton((button) => button.setButtonText('Download all').onClick(async () => {
+				await this.downloadAllFonts();
+			}));
+
+		offlineFonts.descEl.createEl("code", {
+			cls: "ptl-default-code",
+			text: `Vault folder: ${this.plugin.settings.assetsFolder}/fonts`,
+		});
+
+		containerEl.createEl("h2", { text: "Font assets overrides" });
 
 		const newFontOverrideSetting = (args: {
 			name: string,
-			font: keyof Parameters<typeof saveFontSettings>[0],
+			font: keyof typeof defaultFonts,
 			appearsAs: string,
 		}) => {
-			const currentValue = () => this.plugin.settings.fonts?.overrides?.[args.font];
+			const currentValue = () => fontsSettingsManager.overrides[args.font];
 			let resetButton: undefined | ExtraButtonComponent;
-			const setFont = async (fontPath: string | null) => {
-				if (fontPath !== null && fontPath.length === 0) {
-					fontPath = null;
-				}
-				await saveFontSettings({ [args.font]: fontPath });
-				if (fontPath) {
-					new Notice(`Updated font override for "${args.font}" to "${fontPath}"`);
-				} else {
-					new Notice(`Reset font "${args.font}" to default.`);
-				}
+			const setFont = async (fontPath: string | null) => fontsSettingsManager.setFontPath(args.font, fontPath)
+
+			fontsSettingsManager.onChanged(args.font, () => {
 				textInput?.setValue(currentValue() ?? '')
 				resetButton?.setDisabled(currentValue() === undefined)
-			}
+			});
+
 			let textInput: undefined | TextComponent;
 			const current = currentValue();
+			const config = fontsSettingsManager.getDownloadConfig(args.font);
 			return new Setting(containerEl)
 				.setName(args.name)
 				.setDesc(`Appears as "${args.appearsAs}" in the style panel.`)
@@ -396,7 +445,7 @@ export class TldrawSettingsTab extends PluginSettingTab {
 				.addButton((button) => {
 					button.setIcon('file-search').onClick(() => {
 						new FileSearchModal(this.plugin, {
-							extensions: [...fontTypes],
+							extensions: [...fontExtensions],
 							initialValue: currentValue(),
 							onEmptyStateText: (searchPath) => (
 								`No folders or fonts at "${searchPath}".`
@@ -404,6 +453,11 @@ export class TldrawSettingsTab extends PluginSettingTab {
 							setSelection: (file) => setFont(file.path),
 						}).open()
 					})
+				})
+				.addExtraButton((button) => {
+					button.setIcon('download')
+						.setTooltip(`Download from ${config.url}`)
+						.onClick(() => this.downloadFont(args.font, config))
 				})
 				.addExtraButton((button) => {
 					resetButton = button.setIcon('rotate-ccw')
@@ -438,8 +492,22 @@ export class TldrawSettingsTab extends PluginSettingTab {
 	}
 
 	iconsSettings() {
-		this.containerEl.createEl("h1", { text: "Icons" });
-		this.containerEl.createEl("h2", { text: "Default icon overrides" });
-		createIconOverridesSettingsEl(this.plugin, this.containerEl)
+		this.containerEl.createEl("h2", { text: "Icons" });
+
+		const offlineIcons = new Setting(this.containerEl).setName('Offline icons')
+			.setDesc('Download all icons for offline use')
+			.addButton((button) => button.setButtonText('Download all').onClick(async () => {
+				await this.downloadAllIcons();
+			}));
+
+		offlineIcons.descEl.createEl("code", {
+			cls: "ptl-default-code",
+			text: `Vault folder: ${this.plugin.settings.assetsFolder}/icons`,
+		});
+
+		this.containerEl.createEl("h2", { text: "Icon assets overrides" });
+		createIconOverridesSettingsEl(this.plugin, this.containerEl, this.iconsSettingsManager,
+			(icon, config) => this.downloadIcon(icon, config)
+		);
 	}
 }

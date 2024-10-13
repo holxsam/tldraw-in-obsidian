@@ -1,25 +1,23 @@
 import { ExtraButtonComponent, Notice, TextComponent, Setting, TFolder, TFile } from "obsidian";
 import { FileSearchModal } from "../modal/FileSearchModal";
-import { updateIconOverrides } from "../plugin/settings";
 import TldrawPlugin from "src/main";
-import { IconTypes } from "src/types/tldraw";
+import { IconNames } from "src/types/tldraw";
 import { iconTypes } from "./constants";
 import { iconExtensions } from "./constants";
+import { TLDRAW_VERSION } from "src/utils/constants";
+import IconsSettingsManager from "./IconsSettingsManager";
+import { DownloadInfo } from "src/utils/fetch/download";
 
-export function createIconOverridesSettingsEl(plugin: TldrawPlugin, containerEl: HTMLElement) {
-    const currentValue = () => Object.entries(plugin.settings.icons?.overrides ?? {})
+export function createIconOverridesSettingsEl(plugin: TldrawPlugin, containerEl: HTMLElement,
+    manager: IconsSettingsManager, downloadIcon: (icon: IconNames, config: DownloadInfo) => void
+) {
+    const currentValue = () => Object.entries(manager.overrides)
         .filter((e): e is [typeof e[0], NonNullable<typeof e[1]>] => e[1] !== undefined);
     let resetButton: undefined | ExtraButtonComponent;
-    const saveIconSettings = async (updates: {
-        [iconName in IconTypes]?: string | null
+    const _saveIconSettings = async (updates: {
+        [iconName in IconNames]?: string | null
     } | null) => {
-        plugin.settings.icons = updates === null ? undefined : {
-            overrides: updateIconOverrides(
-                plugin.settings.icons?.overrides, updates
-            )
-        }
-        await plugin.saveSettings();
-
+        await manager.saveIconSettings(updates);
         resetButton?.setDisabled(currentValue().length === 0);
     }
 
@@ -31,18 +29,18 @@ export function createIconOverridesSettingsEl(plugin: TldrawPlugin, containerEl:
                 new FileSearchModal(plugin, {
                     setSelection: async (file) => {
                         if (file instanceof TFolder) {
-                            const updates: NonNullable<Parameters<typeof saveIconSettings>[0]> = {};
+                            const updates: NonNullable<Parameters<typeof _saveIconSettings>[0]> = {};
                             for (const child of file.children) {
                                 if (!(child instanceof TFile)) continue;
 
                                 if ((iconExtensions as readonly string[]).includes(child.extension)
                                     && (iconTypes as readonly string[]).includes(child.basename)
                                 ) {
-                                    updates[child.basename] = child.path;
+                                    updates[child.basename as IconNames] = child.path;
                                 }
 
                             }
-                            await saveIconSettings(updates);
+                            await _saveIconSettings(updates);
 
                             new Notice(`Updated icon overrides for ${Object.entries(updates).length}`);
                         }
@@ -60,28 +58,23 @@ export function createIconOverridesSettingsEl(plugin: TldrawPlugin, containerEl:
                 .setTooltip('Clear all overrides')
                 .setDisabled(currentValue().length === 0)
                 .onClick(async () => {
-                    await saveIconSettings(null)
+                    await _saveIconSettings(null)
                 })
         })
 
-    const newIconOverrideSetting = (icon: IconTypes) => {
-        const currentValue = () => plugin.settings.icons?.overrides?.[icon];
+    const newIconOverrideSetting = (icon: IconNames) => {
+        const currentValue = () => manager.overrides[icon];
         let resetButton: undefined | ExtraButtonComponent;
-        const setIcon = async (iconPath: string | null) => {
-            if (iconPath !== null && iconPath.length === 0) {
-                iconPath = null;
-            }
-            await saveIconSettings({ [icon]: iconPath });
-            if (iconPath) {
-                new Notice(`Updated icon override for "${icon}" to "${iconPath}"`);
-            } else {
-                new Notice(`Reset icon "${icon}" to default.`);
-            }
+        const setIcon = async (iconPath: string | null) => manager.setIconPath(icon, iconPath);
+
+        manager.onChanged(icon, () => {
             textInput?.setValue(currentValue() ?? '')
             resetButton?.setDisabled(currentValue() === undefined)
-        }
+        })
+
         let textInput: undefined | TextComponent;
         const current = currentValue();
+        const config = manager.getDownloadConfig(icon);
         return new Setting(containerEl)
             .addText((text) => {
                 textInput = text
@@ -102,31 +95,40 @@ export function createIconOverridesSettingsEl(plugin: TldrawPlugin, containerEl:
                 })
             })
             .addExtraButton((button) => {
+                button.setIcon('download')
+                    .setTooltip(`Download from ${config.url}`)
+                    .onClick(() => downloadIcon(icon, config))
+            })
+            .addExtraButton((button) => {
                 resetButton = button.setIcon('rotate-ccw')
                     .setTooltip('Use default')
                     .setDisabled(current === undefined)
                     .onClick(async () => {
                         await setIcon(null)
                     })
-            })
+            });
     }
 
     containerEl.createEl("h2", { text: "Individual icon overrides." });
     containerEl.createEl('p', {
-        text:  'Click an icon name to view the default in your web browser. All of the default icons are hosted on '
+        text: 'Click an icon name to view the default in your web browser. All of the default icons are available to browse on '
     }, (el) => {
+        const href = `https://github.com/tldraw/tldraw/tree/v${TLDRAW_VERSION}/assets/icons/icon`;
         el.createEl('a', {
             text: 'tldraw\'s GitHub repository',
-            href: 'https://github.com/tldraw/tldraw/tree/main/assets/icons/icon'
+            href,
+            title: href
         })
         el.appendText('.')
     })
 
     for (const icon of iconTypes) {
         const setting = newIconOverrideSetting(icon);
+        const href = `https://github.com/tldraw/tldraw/blob/v${TLDRAW_VERSION}/assets/icons/icon/${icon}.svg`;
         setting.nameEl.createEl('a', {
             text: icon,
-            href: `https://github.com/tldraw/tldraw/blob/main/assets/icons/icon/${icon}.svg`
+            href,
+            title: href
         });
     }
 }
