@@ -39,6 +39,10 @@ Tldraw in Obsidian is now available on the official community plugins list!
 -   Copy and paste over `main.js`, `styles.css`, `manifest.json` into the newly created `/tldraw-in-obsidian` folder.
 -   Make sure you enable the plugin by going into Settings > Community plugins > Installed plugins > toggle 'Tldraw'.
 
+## Guides
+
+- [Custom icons and fonts](https://github.com/holxsam/tldraw-in-obsidian/issues/58#issue-2571070259)
+
 ## Development
 
 -   Clone this repo or a fork to a local development folder.
