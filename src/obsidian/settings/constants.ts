@@ -1,12 +1,19 @@
-export const fontTypes = [
-    'otf',
-    'ttf',
-    'woff',
-    'woff2'
+export const defaultFonts = {
+	monospace: 'IBMPlexMono-Medium.woff2',
+	sansSerif: 'IBMPlexSans-Medium.woff2',
+	serif: 'IBMPlexSerif-Medium.woff2',
+	draw: 'Shantell_Sans-Tldrawish.woff2',
+} as const;
+
+export const fontExtensions = [
+	'otf',
+	'ttf',
+	'woff',
+	'woff2'
 ] as const;
 
 export const iconExtensions = [
-    'svg'
+	'svg'
 ] as const;
 
 // https://github.com/tldraw/tldraw/blob/eacdc6b6eada7a710586a2c6978b1ac75ca9b7d3/packages/tldraw/src/lib/ui/icon-types.ts#L149C1-L291C11

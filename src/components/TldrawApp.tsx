@@ -228,7 +228,6 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 					onTouchStart={(e) => e.stopPropagation()}
 					ref={editorContainerRef}
 					onFocus={(e) => {
-						console.log('onFocus');
 						setFocusedEditor(editor);
 					}}
 					style={{
