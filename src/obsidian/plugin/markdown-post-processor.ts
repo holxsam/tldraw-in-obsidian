@@ -8,7 +8,7 @@ import { parseTLDataDocument } from "src/utils/parse";
 import { createTldrawAppViewModeController } from "../factories/createTldrawAppViewModeController";
 import { Root } from "react-dom/client";
 import { showEmbedContextMenu } from "../helpers/show-embed-context-menu";
-import { ObsidianTLAssetStore } from "src/tldraw/asset-store";
+import { ObsidianReadOnlyMarkdownFileTLAssetStoreProxy, ObsidianTLAssetStore } from "src/tldraw/asset-store";
 
 /**
  * Processes the embed view for a tldraw white when including it in another obsidian note.
@@ -147,6 +147,8 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
     //timer to avoid the image flickering when the user is typing
     let timer: NodeJS.Timeout | null = null;
 
+    const assetStoreProxy = new ObsidianReadOnlyMarkdownFileTLAssetStoreProxy(plugin, file);
+
     const parseData = async () => {
         const fileData = await plugin.app.vault.read(file);
         return parseTLDataDocument(plugin.manifest.version, fileData);
@@ -168,10 +170,7 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
             fileListener.isPaused = true;
             const parsedData = await parseData();
             reactRoot = await createReactTldrawAppRoot({
-                assetStore: new ObsidianTLAssetStore(plugin, file, {
-                    persistenceKey: parsedData.meta.uuid,
-                    storeAsset: undefined,
-                }),
+                assetStore: new ObsidianTLAssetStore(parsedData.meta.uuid, assetStoreProxy),
                 controller, parsedData, plugin, tldrawEmbedViewContent, embedValues
             })
             fileListener.isPaused = false;

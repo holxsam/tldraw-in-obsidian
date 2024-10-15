@@ -11,16 +11,26 @@ import { getTLMetaTemplate } from "src/utils/document";
 import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
 import { pluginMenuLabel } from "./menu";
 import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
+import { ObsidianReadOnlyMarkdownFileTLAssetStoreProxy } from "src/tldraw/asset-store";
 
 export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     plugin: TldrawPlugin;
     reactRoot?: Root;
+
+	#tlAssetStoreProxy?: ObsidianReadOnlyMarkdownFileTLAssetStoreProxy;
 
     constructor(leaf: WorkspaceLeaf, plugin: TldrawPlugin) {
         super(leaf);
         this.plugin = plugin;
         this.navigation = true;
     }
+
+	get tlAssetStoreProxy(): ObsidianReadOnlyMarkdownFileTLAssetStoreProxy {
+		if(!this.#tlAssetStoreProxy) {
+			throw new Error(`${TldrawReadonly.name}: tlAssetStoreProxy is undefined.`);
+		}
+		return this.#tlAssetStoreProxy;
+	}
 
     getViewType(): string {
         return VIEW_TYPE_TLDRAW_READ_ONLY;
@@ -43,6 +53,7 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     }
 
     async onLoadFile(file: TFile): Promise<void> {
+		this.#tlAssetStoreProxy = new ObsidianReadOnlyMarkdownFileTLAssetStoreProxy(this.plugin, file);
         const fileData = await this.app.vault.read(file);
         if (!file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
             const parsedData = parseTLDataDocument(this.plugin.manifest.version, fileData);
@@ -53,6 +64,12 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
                 store: migrateTldrawFileDataIfNecessary(fileData)
             })
         }
+    }
+
+    onUnloadFile(file: TFile): Promise<void> {
+		this.#tlAssetStoreProxy?.dispose();
+		this.#tlAssetStoreProxy = undefined;
+        return super.onUnloadFile(file);
     }
 
     override onPaneMenu(menu: Menu, source: "more-options" | "tab-header" | string): void {

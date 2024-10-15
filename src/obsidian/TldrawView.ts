@@ -1,4 +1,4 @@
-import { TextFileView, TFile, WorkspaceLeaf } from "obsidian";
+import { Notice, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
 import {
 	TLDATA_DELIMITER_END,
@@ -15,15 +15,25 @@ import { TldrawAppProps } from "src/components/TldrawApp";
 import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
 import { tldrawFileToJson } from "src/utils/tldraw-file/tldraw-file-to-json";
 import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
+import { ObsidianMarkdownFileTLAssetStoreProxy } from "src/tldraw/asset-store";
 
 export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 	plugin: TldrawPlugin;
 	reactRoot?: Root;
 
+	#tlAssetStoreProxy?: ObsidianMarkdownFileTLAssetStoreProxy;
+
 	constructor(leaf: WorkspaceLeaf, plugin: TldrawPlugin) {
 		super(leaf);
 		this.plugin = plugin;
 		this.navigation = true;
+	}
+
+	get tlAssetStoreProxy(): ObsidianMarkdownFileTLAssetStoreProxy {
+		if(!this.#tlAssetStoreProxy) {
+			throw new Error(`${TldrawView.name}: tlAssetStoreProxy is undefined.`);
+		}
+		return this.#tlAssetStoreProxy;
 	}
 
 	getViewType() {
@@ -55,6 +65,22 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 		return parseTLDataDocument(this.plugin.manifest.version, rawFileData);
 	};
 
+	override onLoadFile(file: TFile): Promise<void> {
+		this.#tlAssetStoreProxy = new ObsidianMarkdownFileTLAssetStoreProxy(this.plugin, file,
+			(fileContents, _, assetFile) => {
+				new Notice(`Added asset: ${assetFile.path}`);
+				this.data = fileContents;
+			}
+		);
+		return super.onLoadFile(file);
+	}
+
+	override onUnloadFile(file: TFile): Promise<void> {
+		this.#tlAssetStoreProxy?.dispose();
+		this.#tlAssetStoreProxy = undefined;
+		return super.onUnloadFile(file);
+	}
+
 	protected override setFileData: SetTldrawFileData = async (data) => {
 		const tldrawData = getTLDataTemplate(
 			this.plugin.manifest.version,
@@ -81,25 +107,6 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 		if (!this.file) return;
 		await this.app.vault.modify(this.file, result);
 	};
-
-	protected storeAsset = async (id: string, assetFile: TFile): Promise<void> => {
-		const { file } = this;
-		if (!file) return;
-
-		const internalLink = this.plugin.app.fileManager.generateMarkdownLink(assetFile, file.path);
-		const linkBlock = `${internalLink}\n^${id}`;
-
-		// Set to the result of "process" to prevent the data from being reset by Obsidian.
-		this.data = await this.plugin.app.vault.process(file, (data) => {
-			const { start, end } = this.plugin.app.metadataCache.getFileCache(file)?.frontmatterPosition ?? {
-				start: { offset: 0 }, end: { offset: 0 }
-			};
-
-			const frontmatter = data.slice(start.offset, end.offset)
-			const rest = data.slice(end.offset);
-			return `${frontmatter}\n${linkBlock}\n${rest}`;
-		});
-	}
 }
 
 
@@ -153,5 +160,9 @@ export class TldrawFileView extends TldrawView {
 		await this.app.vault.modify(this.file, JSON.stringify(
 			tldrawFileToJson(data.tldrawFile))
 		);
+	}
+
+	getAsset(): Promise<ArrayBuffer | null> {
+		throw new Error('Can only retrieve assets from markdown tldraw files');
 	}
 }

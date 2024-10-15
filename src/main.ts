@@ -68,6 +68,7 @@ export default class TldrawPlugin extends Plugin {
 	// keeps track of what view mode each tab-file combo should be in:
 	leafFileViewModes: { [leafFileId: string]: ViewType } = {};
 	tldrawFileListeners = new TldrawFileListenerMap(this);
+	tldrawFileMetadataListeners = new TldrawFileListenerMap(this);
 	currTldrawEditor?: Editor;
 
 	// misc:
@@ -289,6 +290,18 @@ export default class TldrawPlugin extends Plugin {
 			if (!this.hasTldrawFrontMatterKey(file)) return;
 
 			const listeners = this.tldrawFileListeners.getListeners(file);
+
+			if (listeners === undefined || listeners.length === 0) return;
+
+			listeners.forEach((e) => e.call());
+		}))
+
+		this.registerEvent(this.app.metadataCache.on('changed', async (file) => {
+			if (!(file instanceof TFile)) return;
+
+			if (!this.hasTldrawFrontMatterKey(file)) return;
+
+			const listeners = this.tldrawFileMetadataListeners.getListeners(file);
 
 			if (listeners === undefined || listeners.length === 0) return;
 

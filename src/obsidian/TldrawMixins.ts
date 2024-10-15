@@ -1,4 +1,4 @@
-import { FileView, TFile } from "obsidian";
+import { FileView } from "obsidian";
 import { Root } from "react-dom/client";
 import TldrawPlugin from "src/main";
 import { MARKDOWN_ICON_NAME, VIEW_TYPE_MARKDOWN } from "src/utils/constants";
@@ -6,7 +6,7 @@ import wrapReactRoot from "src/utils/wrap-react-root";
 import { TLDataDocument } from "src/utils/document";
 import { createRootAndRenderTldrawApp, TldrawAppProps } from "src/components/TldrawApp";
 import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
-import { ObsidianTLAssetStore } from "src/tldraw/asset-store";
+import { ObsidianMarkdownFileTLAssetStoreProxy, ObsidianTLAssetStore } from "src/tldraw/asset-store";
 
 /**
  * Implements overrides for {@linkcode FileView.onload} and {@linkcode FileView.onunload}
@@ -23,9 +23,9 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
     abstract class _TldrawLoadableMixin extends Base {
         abstract plugin: TldrawPlugin;
         abstract reactRoot?: Root;
+        abstract get tlAssetStoreProxy(): ObsidianMarkdownFileTLAssetStoreProxy;
 
         protected abstract setFileData: SetTldrawFileData;
-        protected storeAsset?: (id: string, tFile: TFile) => Promise<void>;
 
         protected get tldrawContainer() { return this.containerEl.children[1]; }
 
@@ -52,19 +52,13 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
         }
 
         private createReactRoot(entryPoint: Element, tldata: TLDataDocument) {
-            if (!this.file) {
-                throw new Error('There is no file associated with this tldraw view.');
-            }
             return createRootAndRenderTldrawApp(
                 entryPoint,
                 tldata,
                 this.setFileData,
                 this.plugin,
                 {
-                    assetStore: new ObsidianTLAssetStore(this.plugin, this.file, {
-                        persistenceKey: tldata.meta.uuid,
-                        storeAsset: this.storeAsset
-                    }),
+                    assetStore: new ObsidianTLAssetStore(tldata.meta.uuid, this.tlAssetStoreProxy),
                     ...this.getTldrawOptions()
                 }
             );

@@ -1,7 +1,7 @@
 import { TFile } from "obsidian";
 import TldrawPlugin from "src/main";
 
-type TldrawFileListener = {
+export type TldrawFileListener = {
     /**
      * Set this to true to pause the listener, or set it to false to resume.
      */
