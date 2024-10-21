@@ -3,9 +3,7 @@ import * as React from "react";
 import { useViewModeState } from "src/hooks/useViewModeController";
 import TldrawPlugin from "src/main";
 import { TldrawPluginMetaData } from "src/utils/document";
-import { isObsidianThemeDark, safeSecondsToMs } from "src/utils/utils";
-import { useDebouncedCallback } from "use-debounce";
-import { createRawTldrawFile } from "src/utils/tldraw-file";
+import { isObsidianThemeDark } from "src/utils/utils";
 
 export type SetTldrawFileData = (data: {
     meta: TldrawPluginMetaData
@@ -13,7 +11,8 @@ export type SetTldrawFileData = (data: {
 }) => void;
 
 export function useTldrawAppEffects({
-    editor, bounds, initialTool, isReadonly, settingsProvider, selectNone, setFileData, setFocusedEditor, zoomToBounds
+    editor, bounds, initialTool, isReadonly, settingsProvider, selectNone,
+    setFocusedEditor, zoomToBounds
 }: {
     editor?: Editor,
     bounds: ReturnType<typeof useViewModeState>['viewOptions']['bounds']
@@ -22,7 +21,6 @@ export function useTldrawAppEffects({
     settingsProvider: TldrawPlugin['settingsProvider'],
     selectNone: boolean,
     zoomToBounds: boolean,
-    setFileData?: (tldrawFile: TldrawFile) => void,
     setFocusedEditor: (editor?: Editor) => void,
 }) {
     const [settings, setSettings] = React.useState(() => settingsProvider.getCurrent());
@@ -43,27 +41,6 @@ export function useTldrawAppEffects({
          */
         settingsProvider
     ])
-
-    const safeSeconds = safeSecondsToMs(settings.saveFileDelay);
-
-    const debouncedSaveDataToFile = useDebouncedCallback((e: unknown) => {
-        const { store } = editor ?? {};
-        if (!setFileData || !store) return;
-        setFileData(createRawTldrawFile(store));
-    }, safeSeconds);
-
-    React.useEffect(() => {
-        const { store } = editor ?? {};
-        if (!store) return;
-
-        const removeListener = store.listen(debouncedSaveDataToFile, {
-            scope: "document",
-        });
-
-        return () => {
-            removeListener();
-        }
-    }, [debouncedSaveDataToFile, editor]);
 
     React.useEffect(() => {
         if (!editor) return;
@@ -113,7 +90,5 @@ export function useTldrawAppEffects({
         // NOTE: These could probably be utilized for storing assets as files in the vault instead of tldraw's default indexedDB.
         // editor.registerExternalAssetHandler
         // editor.registerExternalContentHandler
-
-        // setStoreSnapshot(store.getStoreSnapshot());
     }, [editor]);
 }

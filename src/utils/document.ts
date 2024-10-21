@@ -5,6 +5,9 @@ import {
 	TLDRAW_VERSION,
 } from "./constants";
 import { tldrawFileToJson } from "./tldraw-file/tldraw-file-to-json";
+import { PluginManifest } from "obsidian";
+import { createRawTldrawFile } from "./tldraw-file";
+import { replaceBetweenKeywords } from "./utils";
 
 export type TldrawPluginMetaData = {
 	"plugin-version": string;
@@ -36,6 +39,11 @@ export type TLDataDocument = TLExistingDataDocument | {
 	store?: undefined
 	raw?: undefined
 };
+
+export type TLDataDocumentStore = {
+	meta: TldrawPluginMetaData,
+	store: TLStore
+}
 
 export type TLData = {
 	meta: TldrawPluginMetaData;
@@ -88,3 +96,31 @@ export const tlFileTemplate = (frontmatter: string, codeblock: string) => {
 	str += codeblock;
 	return str;
 };
+
+/**
+ * 
+ * @param manifest 
+ * @param data Data to update
+ * @param documentStore Will be serialized to update the data.
+ * @returns 
+ */
+export async function updateFileData(manifest: PluginManifest, data: string, documentStore: TLDataDocumentStore) {
+	const tldrawData = getTLDataTemplate(
+		manifest.version,
+		createRawTldrawFile(documentStore.store),
+		documentStore.meta.uuid
+	);
+
+	// If you do not use `null, "\t"` as arguments for stringify(),
+	// Obsidian will lag when you try to open the file in markdown view.
+	// It may have to do with if you don't format the string,
+	// it'll be a really long line and that lags the markdown view.
+	const stringifiedData = JSON.stringify(tldrawData, null, "\t");
+
+	return replaceBetweenKeywords(
+		data,
+		TLDATA_DELIMITER_START,
+		TLDATA_DELIMITER_END,
+		stringifiedData
+	);
+}

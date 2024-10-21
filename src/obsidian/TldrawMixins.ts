@@ -3,10 +3,7 @@ import { Root } from "react-dom/client";
 import TldrawPlugin from "src/main";
 import { MARKDOWN_ICON_NAME, VIEW_TYPE_MARKDOWN } from "src/utils/constants";
 import wrapReactRoot from "src/utils/wrap-react-root";
-import { TLDataDocument } from "src/utils/document";
-import { createRootAndRenderTldrawApp, TldrawAppProps } from "src/components/TldrawApp";
-import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
-import { ObsidianMarkdownFileTLAssetStoreProxy, ObsidianTLAssetStore } from "src/tldraw/asset-store";
+import { createRootAndRenderTldrawApp, TldrawAppProps, TldrawAppStoreProps } from "src/components/TldrawApp";
 
 /**
  * Implements overrides for {@linkcode FileView.onload} and {@linkcode FileView.onunload}
@@ -23,9 +20,6 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
     abstract class _TldrawLoadableMixin extends Base {
         abstract plugin: TldrawPlugin;
         abstract reactRoot?: Root;
-        abstract get tlAssetStoreProxy(): ObsidianMarkdownFileTLAssetStoreProxy;
-
-        protected abstract setFileData: SetTldrawFileData;
 
         protected get tldrawContainer() { return this.containerEl.children[1]; }
 
@@ -51,33 +45,32 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
             return {};
         }
 
-        private createReactRoot(entryPoint: Element, tldata: TLDataDocument) {
+        private createReactRoot(entryPoint: Element, store: TldrawAppStoreProps) {
             return createRootAndRenderTldrawApp(
                 entryPoint,
-                tldata,
-                this.setFileData,
                 this.plugin,
                 {
-                    assetStore: new ObsidianTLAssetStore(tldata.meta.uuid, this.tlAssetStoreProxy),
-                    ...this.getTldrawOptions()
+                    app: this.getTldrawOptions(),
+                    store,
                 }
             );
         }
 
         /**
-         * Set the data to be rendered inside the react root element.
-         * @param tldata 
+         * Set the store to be used inside the react root element.
+         * @param store 
          * @returns 
          */
-        protected async setTlData(tldata: TLDataDocument, useIframe = false) {
+        protected async setStore(store?: TldrawAppStoreProps, useIframe = false) {
             const tldrawContainer = this.tldrawContainer;
             this.reactRoot?.unmount();
+            if (!store) return;
             if (!useIframe) {
-                this.reactRoot = this.createReactRoot(tldrawContainer, tldata);
+                this.reactRoot = this.createReactRoot(tldrawContainer, store);
                 return;
             }
             this.reactRoot = await wrapReactRoot(
-                tldrawContainer, (entryPoint) => this.createReactRoot(entryPoint, tldata)
+                tldrawContainer, (entryPoint) => this.createReactRoot(entryPoint, store)
             );
         }
 

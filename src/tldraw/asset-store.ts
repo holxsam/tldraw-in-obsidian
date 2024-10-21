@@ -70,17 +70,18 @@ export class ObsidianMarkdownFileTLAssetStoreProxy {
 
         const internalLink = this.plugin.app.fileManager.generateMarkdownLink(assetFile, this.tFile.path);
         const linkBlock = `${internalLink}\n^${blockRefId}`;
-        const contents = await this.plugin.app.vault.process(this.tFile, (data) => {
+        const assetSrc = `${blockRefAssetPrefix}${blockRefId}` as const;
+        await this.plugin.app.vault.process(this.tFile, (data) => {
             const { start, end } = this.cachedMetadata.frontmatterPosition ?? {
                 start: { offset: 0 }, end: { offset: 0 }
             };
 
             const frontmatter = data.slice(start.offset, end.offset)
             const rest = data.slice(end.offset);
-            return `${frontmatter}\n${linkBlock}\n${rest}`;
+            const contents = `${frontmatter}\n${linkBlock}\n${rest}`;
+            this.onContentsChanged?.(contents, assetSrc, assetFile);
+            return contents;
         });
-        const assetSrc = `${blockRefAssetPrefix}${blockRefId}` as const;
-        this.onContentsChanged?.(contents, assetSrc, assetFile);
 
         const assetDataUri = URL.createObjectURL(file);
         this.#resolvedAssetDataCache.set(assetSrc, assetDataUri);
@@ -164,6 +165,14 @@ export class ObsidianTLAssetStore implements TLAssetStore {
         this.upload = this.upload.bind(this);
         this.resolve = this.resolve.bind(this);
         this.db = new TldrawAssetsViewIndexedDB(persistenceKey)
+    }
+
+    dispose() {
+        this.proxy.dispose();
+        // We want to avoid memory leaks: https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL_static#memory_management
+        for (const objectURL of this.resolvedIDBCache.values()) {
+            URL.revokeObjectURL(objectURL);
+        }
     }
 
     async upload(asset: TLAsset, file: File): Promise<string> {

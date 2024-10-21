@@ -56,6 +56,7 @@ import { registerCommands } from "./obsidian/plugin/commands";
 import { migrateTldrawFileDataIfNecessary } from "./utils/migrate/tl-data-to-tlstore";
 import { pluginMenuLabel } from "./obsidian/menu";
 import { TldrawFileListenerMap } from "./obsidian/plugin/TldrawFileListenerMap";
+import TLDataDocumentStoreManager from "./obsidian/plugin/TLDataDocumentStoreManager";
 
 @pluginBuild
 export default class TldrawPlugin extends Plugin {
@@ -69,6 +70,7 @@ export default class TldrawPlugin extends Plugin {
 	leafFileViewModes: { [leafFileId: string]: ViewType } = {};
 	tldrawFileListeners = new TldrawFileListenerMap(this);
 	tldrawFileMetadataListeners = new TldrawFileListenerMap(this);
+	tlDataDocumentStoreManager = new TLDataDocumentStoreManager(this);
 	currTldrawEditor?: Editor;
 
 	// misc:

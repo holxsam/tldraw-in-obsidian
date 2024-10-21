@@ -3,34 +3,20 @@ import { Root } from "react-dom/client";
 import { TldrawAppProps } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import { PaneTarget, TLDRAW_ICON_NAME, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_FILE, VIEW_TYPE_TLDRAW_READ_ONLY, ViewType } from "src/utils/constants";
-import { parseTLDataDocument } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
-import { logClass } from "src/utils/logging";
 import { TLDRAW_FILE_EXTENSION } from "tldraw";
-import { getTLMetaTemplate } from "src/utils/document";
 import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
 import { pluginMenuLabel } from "./menu";
-import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
-import { ObsidianReadOnlyMarkdownFileTLAssetStoreProxy } from "src/tldraw/asset-store";
 
 export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     plugin: TldrawPlugin;
     reactRoot?: Root;
-
-	#tlAssetStoreProxy?: ObsidianReadOnlyMarkdownFileTLAssetStoreProxy;
 
     constructor(leaf: WorkspaceLeaf, plugin: TldrawPlugin) {
         super(leaf);
         this.plugin = plugin;
         this.navigation = true;
     }
-
-	get tlAssetStoreProxy(): ObsidianReadOnlyMarkdownFileTLAssetStoreProxy {
-		if(!this.#tlAssetStoreProxy) {
-			throw new Error(`${TldrawReadonly.name}: tlAssetStoreProxy is undefined.`);
-		}
-		return this.#tlAssetStoreProxy;
-	}
 
     getViewType(): string {
         return VIEW_TYPE_TLDRAW_READ_ONLY;
@@ -53,23 +39,20 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     }
 
     async onLoadFile(file: TFile): Promise<void> {
-		this.#tlAssetStoreProxy = new ObsidianReadOnlyMarkdownFileTLAssetStoreProxy(this.plugin, file);
         const fileData = await this.app.vault.read(file);
         if (!file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
-            const parsedData = parseTLDataDocument(this.plugin.manifest.version, fileData);
-            await this.setTlData(parsedData);
+            const storeInstance = this.plugin.tlDataDocumentStoreManager.register(file, () => fileData, () => { }, false);
+            this.register(() => storeInstance.unregister());
+            await this.setStore({
+                plugin: storeInstance.documentStore
+            });
         } else {
-            await this.setTlData({
-                meta: getTLMetaTemplate(this.plugin.manifest.version),
-                store: migrateTldrawFileDataIfNecessary(fileData)
+            await this.setStore({
+                tldraw: {
+                    store: migrateTldrawFileDataIfNecessary(fileData)
+                }
             })
         }
-    }
-
-    onUnloadFile(file: TFile): Promise<void> {
-		this.#tlAssetStoreProxy?.dispose();
-		this.#tlAssetStoreProxy = undefined;
-        return super.onUnloadFile(file);
     }
 
     override onPaneMenu(menu: Menu, source: "more-options" | "tab-header" | string): void {
@@ -88,10 +71,6 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
                     await this.app.openWithDefaultApp(file.path);
                 })
             )
-    }
-
-    protected override setFileData: SetTldrawFileData = () => {
-        logClass(TldrawReadonly, this.setFileData, 'Ignore saving file due to read only mode.');
     }
 
     protected override getTldrawOptions(): TldrawAppProps['options'] {
