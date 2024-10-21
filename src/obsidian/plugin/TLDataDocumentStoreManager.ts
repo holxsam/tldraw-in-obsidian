@@ -6,6 +6,7 @@ import { safeSecondsToMs } from "src/utils/utils";
 import TldrawStoresManager, { MainStore, StoreGroup, StoreListenerContext, StoreInstanceInfo } from "src/tldraw/TldrawStoresManager";
 import { parseTLDataDocument } from "src/utils/parse";
 import TldrawPlugin from "src/main";
+import { loadSnapshot } from "tldraw";
 
 type MainData = {
     documentStore: TLDataDocumentStore,
@@ -145,7 +146,6 @@ export default class TLDataDocumentStoreManager {
      * If {@linkcode isExternal} is provided, then we should treat it as if it was modified by hand.
      * 
      * - #TODO: Ensure the data is properly checked for errors
-     * - #TODO: Ensure active editors are updated with the data
      * 
      * ---
      * @param tFile 
@@ -155,6 +155,15 @@ export default class TLDataDocumentStoreManager {
      * @returns 
      */
     private propagateData(workspace: Workspace, storeGroup: StoreGroup<MainData, InstanceData>, data: string, isExternal: boolean = false) {
+        if (isExternal) {
+            const snapshot = processInitialData(parseTLDataDocument(this.plugin.manifest.version, data))
+                .store.getStoreSnapshot();
+            loadSnapshot(storeGroup.main.store, snapshot);
+            for (const instance of storeGroup.instances) {
+                loadSnapshot(instance.store, snapshot);
+            }
+        }
+
         storeGroup.main.data.fileData = data;
         for (const instance of storeGroup.instances) {
             instance.source.data.onUpdatedData(data);
