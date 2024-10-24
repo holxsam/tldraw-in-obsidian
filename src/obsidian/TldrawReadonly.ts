@@ -42,7 +42,7 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
         const fileData = await this.app.vault.read(file);
         if (!file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
             const storeInstance = this.plugin.tlDataDocumentStoreManager.register(file, () => fileData, () => { }, false);
-            this.register(() => storeInstance.unregister());
+            this.registerOnUnloadFile(() => storeInstance.unregister());
             await this.setStore({
                 plugin: storeInstance.documentStore
             });

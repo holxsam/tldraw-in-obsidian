@@ -43,7 +43,7 @@ export default class TldrawStoreExistsIndexedDBModal extends Modal {
     ) {
         super(view.app);
 
-        view.register(() => {
+        view.registerOnUnloadFile(() => {
             this.close();
             rej(new TldrawStoreConflictResolveFileUnloaded());
         });
@@ -119,7 +119,9 @@ export default class TldrawStoreExistsIndexedDBModal extends Modal {
             {
                 store: {
                     tldraw: {
-                        persistenceKey: this.documentStore.meta.uuid
+                        persistenceKey: this.documentStore.meta.uuid,
+                        // We use share the same asset store since some assets may have been stored in the markdown.
+                        assets: sharedAppProps.assetStore,
                     }
                 },
                 app: {

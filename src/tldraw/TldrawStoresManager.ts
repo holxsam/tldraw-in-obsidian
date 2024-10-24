@@ -125,9 +125,11 @@ export default class TldrawStoresManager<MainData, InstanceData> {
 function createSourceStore<Group extends StoreGroup>(storeGroup: Group, instanceId: string, syncToMain: boolean): TLStore {
     const snapshot = storeGroup.main.store.getStoreSnapshot();
     const store = createTLStore({
-        assets: storeGroup.main.store.props.assets,
         snapshot: snapshot,
     });
+
+    // NOTE: We want to preserve the assets object that is attached to props, otherwise the context will be lost if provided as a param in createTLStore
+    store.props.assets = storeGroup.main.store.props.assets;
 
     if(syncToMain) {
         store.listen((entry) => storeGroup.apply(instanceId, entry), { scope: 'document' });

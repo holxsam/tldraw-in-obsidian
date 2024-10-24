@@ -56,7 +56,7 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 			true
 		);
 
-		this.register(() => storeInstance.unregister());
+		this.registerOnUnloadFile(() => storeInstance.unregister());
 
 		this.checkConflictingData(this.file, storeInstance.documentStore).then(
 			(snapshot) => this.loadStore(storeInstance.documentStore, snapshot)
@@ -64,7 +64,7 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 			if (e instanceof TldrawStoreConflictResolveFileUnloaded) {
 				// The FileView was unloaded before the conflict was resolved. Do nothing.
 				return;
-			} else if(e instanceof TldrawStoreConflictResolveCanceled) {
+			} else if (e instanceof TldrawStoreConflictResolveCanceled) {
 				// TODO: allow the modal to be recreated and shown.
 				console.warn(e);
 				return;
@@ -81,8 +81,7 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 	 * @param snapshot If defined, then it will replace the store data in {@linkcode documentStore}
 	 */
 	loadStore(documentStore: TLDataDocumentStore, snapshot?: Awaited<ReturnType<typeof this.checkConflictingData>>) {
-		if(snapshot) {
-			console.log('replacing with snapshot', snapshot)
+		if (snapshot) {
 			loadSnapshot(documentStore.store, snapshot);
 		}
 		this.setStore({ plugin: documentStore });
@@ -156,7 +155,7 @@ export class TldrawFileView extends TldrawLoadableMixin(TextFileView) {
 			)
 		});
 
-		this.register(() => documentStore.store.dispose());
+		this.registerOnUnloadFile(() => documentStore.store.dispose());
 
 		const removeListener = documentStore.store.listen(debounce(
 			async () => {

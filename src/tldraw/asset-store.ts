@@ -134,6 +134,12 @@ export class ObsidianMarkdownFileTLAssetStoreProxy {
         this.#resolvedAssetDataCache.set(blockRefAssetId, assetUri);
         return assetUri;
     }
+
+    async getAll(): Promise<BlockRefAssetId[]> {
+        return Object.values(this.cachedMetadata.blocks ?? {}).map(
+            (e) => `${blockRefAssetPrefix}${e.id}` as const
+        );
+    }
 }
 
 /**
@@ -153,7 +159,7 @@ export class ObsidianReadOnlyMarkdownFileTLAssetStoreProxy extends ObsidianMarkd
  * https://tldraw.dev/examples/data/assets/hosted-images
  */
 export class ObsidianTLAssetStore implements TLAssetStore {
-    private readonly db: TldrawStoreIndexedDB;
+    private db?: null | TldrawStoreIndexedDB;
     private readonly resolvedIDBCache = new Map<string, string>();
 
     constructor(
@@ -165,7 +171,6 @@ export class ObsidianTLAssetStore implements TLAssetStore {
     ) {
         this.upload = this.upload.bind(this);
         this.resolve = this.resolve.bind(this);
-        this.db = new TldrawStoreIndexedDB(persistenceKey)
     }
 
     dispose() {
@@ -198,14 +203,38 @@ export class ObsidianTLAssetStore implements TLAssetStore {
         return this.proxy.getCached(assetId as BlockRefAssetId)
     }
 
+    async getFromMarkdown(assetSrc: BlockRefAssetId) {
+        return this.proxy.getCached(assetSrc);
+    }
+
+    async tryOpenDb() {
+        if(this.db === null) {
+            // Already tried
+            return null;
+        }
+        return this.db = await TldrawStoreIndexedDB.open(this.persistenceKey);
+    }
+
     async getFromIndexedDB(assetSrc: `asset:${string}`): Promise<string | null> {
         const cachedAssetUri = this.resolvedIDBCache.get(assetSrc);
         if (cachedAssetUri) return cachedAssetUri;
-        await this.db.openDb();
-        const blob = await this.db.getAsset(assetSrc)
+        const db = await this.tryOpenDb();
+        if(!db) return null;
+        const blob = await db.getAsset(assetSrc)
         if (!blob) return null;
         const assetUri = URL.createObjectURL(blob);
         this.resolvedIDBCache.set(assetSrc, assetUri);
         return assetUri;
+    }
+
+    async getAllFromIndexedDB(): Promise<`asset:${string}`[]> {
+        const db = await this.tryOpenDb();
+        if(!db) return [];
+        await db.openDb();
+        return db.getAllAssetSources();
+    }
+
+    async getAllFromMarkdownFile(): Promise<BlockRefAssetId[]> {
+        return this.proxy.getAll();
     }
 }

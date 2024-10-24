@@ -1,9 +1,10 @@
-import { FileView } from "obsidian";
+import { FileView, TFile } from "obsidian";
 import { Root } from "react-dom/client";
 import TldrawPlugin from "src/main";
 import { MARKDOWN_ICON_NAME, VIEW_TYPE_MARKDOWN } from "src/utils/constants";
 import wrapReactRoot from "src/utils/wrap-react-root";
 import { createRootAndRenderTldrawApp, TldrawAppProps, TldrawAppStoreProps } from "src/components/TldrawApp";
+import TldrawAssetsModal from "./modal/TldrawAssetsModal";
 
 /**
  * Implements overrides for {@linkcode FileView.onload} and {@linkcode FileView.onunload}
@@ -20,6 +21,7 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
     abstract class _TldrawLoadableMixin extends Base {
         abstract plugin: TldrawPlugin;
         abstract reactRoot?: Root;
+        private onUnloadCallbacks: (() => void)[] = [];
 
         protected get tldrawContainer() { return this.containerEl.children[1]; }
 
@@ -41,6 +43,17 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
             this.reactRoot?.unmount();
         }
 
+        override onUnloadFile(file: TFile): Promise<void> {
+            const callbacks = [...this.onUnloadCallbacks];
+            this.onUnloadCallbacks = [];
+            callbacks.forEach((e) => e());
+            return super.onUnloadFile(file);
+        }
+
+        public registerOnUnloadFile(cb: () => void) {
+            this.onUnloadCallbacks.push(cb);
+        }
+
         protected getTldrawOptions(): TldrawAppProps['options'] {
             return {};
         }
@@ -57,25 +70,38 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
         }
 
         /**
-         * Set the store to be used inside the react root element.
-         * @param store 
+         * Set the store props to be used inside the react root element.
+         * @param storeProps 
          * @returns 
          */
-        protected async setStore(store?: TldrawAppStoreProps, useIframe = false) {
+        protected async setStore(storeProps?: TldrawAppStoreProps, useIframe = false) {
             const tldrawContainer = this.tldrawContainer;
             this.reactRoot?.unmount();
-            if (!store) return;
+            if (!storeProps) return;
+            this.addViewAssetsAction(storeProps);
             if (!useIframe) {
-                this.reactRoot = this.createReactRoot(tldrawContainer, store);
+                this.reactRoot = this.createReactRoot(tldrawContainer, storeProps);
                 return;
             }
             this.reactRoot = await wrapReactRoot(
-                tldrawContainer, (entryPoint) => this.createReactRoot(entryPoint, store)
+                tldrawContainer, (entryPoint) => this.createReactRoot(entryPoint, storeProps)
             );
         }
 
         protected viewAsMarkdownClicked() {
             this.plugin.updateViewMode(VIEW_TYPE_MARKDOWN);
+        }
+
+        private addViewAssetsAction(storeProps: TldrawAppStoreProps) {
+            const viewAssetsAction = this.addAction('library', 'View assets', () => {
+                const assetsModal = new TldrawAssetsModal(this.app, storeProps, this.file)
+                assetsModal.open();
+                this.registerOnUnloadFile(() => assetsModal.close());
+            });
+
+            this.registerOnUnloadFile(() => {
+                viewAssetsAction.remove()
+            });
         }
     }
 
