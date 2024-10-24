@@ -30,8 +30,19 @@
 /* OVERRIDING button:not(.clickable-icon) back to tldraw's original styles: */
 .tldraw-view-root .tlui-button {
 	background-color: transparent;
+	color: currentColor;
 	padding: 0px 13px;
 	box-shadow: none;
+}
+
+/* Overriding back to original style */
+.tldraw-view-root .tlui-button:disabled {
+	color: var(--color-text-3);
+}
+
+/* Overriding back to original style */
+.tldraw-view-root .tlui-button__tool[aria-checked='true'] {
+	color: var(--color-selected-contrast);
 }
 
 /* OVERRIDING button:not(.clickable-icon) */
