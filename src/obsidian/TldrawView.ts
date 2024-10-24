@@ -5,15 +5,17 @@ import {
 	VIEW_TYPE_TLDRAW_FILE,
 } from "../utils/constants";
 import TldrawPlugin from "../main";
-import { getTLMetaTemplate } from "src/utils/document";
+import { getTLMetaTemplate, TLDataDocumentStore } from "src/utils/document";
 import { TldrawLoadableMixin } from "./TldrawMixins";
 import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
 import { tldrawFileToJson } from "src/utils/tldraw-file/tldraw-file-to-json";
-import { TldrawFile } from "tldraw";
+import { loadSnapshot, TldrawFile } from "tldraw";
 import { processInitialData } from "src/tldraw/helpers";
 import { createRawTldrawFile } from "src/utils/tldraw-file";
 import { safeSecondsToMs } from "src/utils/utils";
 import { logClass } from "src/utils/logging";
+import { TldrawStoreIndexedDB } from "src/tldraw/indexeddb-store";
+import TldrawStoreExistsIndexedDBModal, { TldrawStoreConflictResolveCanceled, TldrawStoreConflictResolveFileUnloaded } from "./modal/TldrawStoreExistsIndexedDBModal";
 
 export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 	plugin: TldrawPlugin;
@@ -56,10 +58,51 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 
 		this.register(() => storeInstance.unregister());
 
-		this.setStore({ plugin: storeInstance.documentStore });
+		this.checkConflictingData(this.file, storeInstance.documentStore).then(
+			(snapshot) => this.loadStore(storeInstance.documentStore, snapshot)
+		).catch((e) => {
+			if (e instanceof TldrawStoreConflictResolveFileUnloaded) {
+				// The FileView was unloaded before the conflict was resolved. Do nothing.
+				return;
+			} else if(e instanceof TldrawStoreConflictResolveCanceled) {
+				// TODO: allow the modal to be recreated and shown.
+				console.warn(e);
+				return;
+			}
+			throw e;
+		});
 	}
 
 	clear(): void { }
+
+	/**
+	 * Sets the view to use the {@linkcode documentStore}, and optionally replaces the data with {@linkcode snapshot}.
+	 * @param documentStore Contains the store to load.
+	 * @param snapshot If defined, then it will replace the store data in {@linkcode documentStore}
+	 */
+	loadStore(documentStore: TLDataDocumentStore, snapshot?: Awaited<ReturnType<typeof this.checkConflictingData>>) {
+		if(snapshot) {
+			console.log('replacing with snapshot', snapshot)
+			loadSnapshot(documentStore.store, snapshot);
+		}
+		this.setStore({ plugin: documentStore });
+	}
+
+	/**
+	 * Previous version of this plugin utilized a built-in feature of the tldraw package to synchronize drawings across workspace leafs.
+	 * As a result, the tldraw store was persisted in the IndexedDB. Let's check if that is the case for this particular document and
+	 * prompt the user to delete or ignore it.
+	 * 
+	 * @param documentStore 
+	 * @returns A promise that resolves with undefined, or a snapshot that can be used to replace the contents of the store in {@linkcode documentStore}
+	 */
+	private async checkConflictingData(tFile: TFile, documentStore: TLDataDocumentStore) {
+		const exists = await TldrawStoreIndexedDB.exists(documentStore.meta.uuid);
+		if (!exists) {
+			return;
+		}
+		return TldrawStoreExistsIndexedDBModal.showResolverModal(this, tFile, documentStore);
+	}
 }
 
 /**

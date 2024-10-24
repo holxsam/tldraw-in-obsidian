@@ -193,3 +193,15 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 .ptl-download-success {
 	color: green;
 }
+
+.ptl-compare-tldraw-container {
+    display: flex;
+    height: 800px;
+    width: 100%;
+    flex-direction: column;
+    gap: 4em;
+}
+
+.ptl-compare-tldraw-container .ptl-compare-tldraw {
+	flex: 1;
+}

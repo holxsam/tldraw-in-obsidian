@@ -12,6 +12,7 @@ import {
 	TldrawImage,
 	TldrawUiMenuItem,
 	TldrawUiMenuSubmenu,
+	TLStoreSnapshot,
 	useActions,
 } from "tldraw";
 import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION } from "src/utils/file";
@@ -48,6 +49,12 @@ type TldrawAppOptions = {
 	 * If {@linkcode TldrawAppOptions.initialBounds} is not provided, then the page bounds are used.
 	 */
 	zoomToBounds?: boolean,
+	/**
+	 * 
+	 * @param snapshot The snapshot that is initially loaded into the editor.
+	 * @returns 
+	 */
+	onInitialSnapshot?: (snapshot: TLStoreSnapshot) => void
 };
 
 /**
@@ -115,6 +122,7 @@ const TldrawApp = ({ plugin, store, options: {
 	initialImageSize,
 	initialTool,
 	isReadonly = false,
+	onInitialSnapshot,
 	selectNone = false,
 	zoomToBounds = false,
 } }: TldrawAppProps) => {
@@ -129,11 +137,16 @@ const TldrawApp = ({ plugin, store, options: {
 	);
 	const storeSnapshot = useSnapshotFromStoreProps(storeProps);
 
-	const [editor, setEditor] = React.useState<Editor>()
+	const [editor, setEditor] = React.useState<Editor>();
 
+	const [_onInitialSnapshot, setOnInitialSnapshot] = React.useState<typeof onInitialSnapshot>(() => onInitialSnapshot);
 	const setAppState = React.useCallback((editor: Editor) => {
 		setEditor(editor);
-	}, [])
+		if(_onInitialSnapshot) {
+			_onInitialSnapshot(editor.store.getStoreSnapshot());
+			setOnInitialSnapshot(undefined);
+		}
+	}, [_onInitialSnapshot])
 
 	const { displayImage, imageSize, viewOptions: {
 		bounds, ...viewOptionsOther

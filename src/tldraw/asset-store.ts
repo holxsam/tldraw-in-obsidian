@@ -3,6 +3,7 @@ import TldrawPlugin from "src/main";
 import { TldrawFileListener } from "src/obsidian/plugin/TldrawFileListenerMap";
 import { createAttachmentFilepath } from "src/utils/utils";
 import { TLAsset, TLAssetContext, TLAssetStore } from "tldraw";
+import { TldrawStoreIndexedDB } from "./indexeddb-store";
 
 const blockRefAssetPrefix = 'obsidian.blockref.';
 type BlockRefAssetId = `${typeof blockRefAssetPrefix}${string}`;
@@ -152,7 +153,7 @@ export class ObsidianReadOnlyMarkdownFileTLAssetStoreProxy extends ObsidianMarkd
  * https://tldraw.dev/examples/data/assets/hosted-images
  */
 export class ObsidianTLAssetStore implements TLAssetStore {
-    private readonly db: TldrawAssetsViewIndexedDB;
+    private readonly db: TldrawStoreIndexedDB;
     private readonly resolvedIDBCache = new Map<string, string>();
 
     constructor(
@@ -164,7 +165,7 @@ export class ObsidianTLAssetStore implements TLAssetStore {
     ) {
         this.upload = this.upload.bind(this);
         this.resolve = this.resolve.bind(this);
-        this.db = new TldrawAssetsViewIndexedDB(persistenceKey)
+        this.db = new TldrawStoreIndexedDB(persistenceKey)
     }
 
     dispose() {
@@ -206,58 +207,5 @@ export class ObsidianTLAssetStore implements TLAssetStore {
         const assetUri = URL.createObjectURL(blob);
         this.resolvedIDBCache.set(assetSrc, assetUri);
         return assetUri;
-    }
-}
-
-// const vars from tldraw source code: packages/editor/src/lib/utils/sync/LocalIndexedDb.ts
-const STORE_PREFIX = 'TLDRAW_DOCUMENT_v2'
-const DB_VERSION = 4;
-const ASSETS_STORE_NAME = 'assets';
-class TldrawAssetsViewIndexedDB {
-    db?: IDBDatabase;
-    dbName: string;
-    constructor(persistenceKey: string,) {
-        this.dbName = STORE_PREFIX + persistenceKey;
-    }
-
-    openDb() {
-        if (this.db) return;
-        return new Promise<void>((res, rej) => {
-            const dbReq = window.indexedDB.open(this.dbName, DB_VERSION);
-
-            dbReq.onsuccess = () => {
-                this.db = dbReq.result;
-                res();
-            }
-
-            dbReq.onerror = () => {
-                rej(dbReq.error);
-            }
-        });
-    }
-
-    getAsset(assetSrc: `asset:${string}`) {
-        const { db } = this;
-        if (db === undefined) {
-            throw new Error('tldraw IndexedDB has not been opened yet.');
-        }
-        return new Promise<File | undefined>((res, rej) => {
-            const transaction = db.transaction(ASSETS_STORE_NAME, 'readonly');
-            let fileBlob: File | undefined;
-
-            transaction.oncomplete = () => {
-                res(fileBlob);
-            }
-
-            transaction.onerror = () => {
-                rej(transaction.error);
-            }
-
-            const getRes = transaction.objectStore(ASSETS_STORE_NAME).get(assetSrc);
-
-            getRes.onsuccess = () => {
-                fileBlob = getRes.result;
-            }
-        });
     }
 }
