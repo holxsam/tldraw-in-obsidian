@@ -96,6 +96,9 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 	 * @returns A promise that resolves with undefined, or a snapshot that can be used to replace the contents of the store in {@linkcode documentStore}
 	 */
 	private async checkConflictingData(tFile: TFile, documentStore: TLDataDocumentStore) {
+		if(TldrawStoreExistsIndexedDBModal.ignoreIndexedDBStoreModal(this.app.metadataCache, tFile)) {
+			return;
+		}
 		const exists = await TldrawStoreIndexedDB.exists(documentStore.meta.uuid);
 		if (!exists) {
 			return;

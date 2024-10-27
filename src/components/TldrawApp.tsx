@@ -32,7 +32,7 @@ type TldrawAppOptions = {
 	isReadonly?: boolean,
 	autoFocus?: boolean,
 	assetStore?: TLAssetStore,
-	inputFocus?: boolean,
+	focusOnMount?: boolean,
 	initialImageSize?: { width: number, height: number },
 	/**
 	 * Takes precedence over the user's plugin preference
@@ -118,6 +118,7 @@ function getEditorStoreProps(storeProps: TldrawAppStoreProps) {
 const TldrawApp = ({ plugin, store, options: {
 	assetStore,
 	controller,
+	focusOnMount = true,
 	hideUi = false,
 	initialImageSize,
 	initialTool,
@@ -142,7 +143,7 @@ const TldrawApp = ({ plugin, store, options: {
 	const [_onInitialSnapshot, setOnInitialSnapshot] = React.useState<typeof onInitialSnapshot>(() => onInitialSnapshot);
 	const setAppState = React.useCallback((editor: Editor) => {
 		setEditor(editor);
-		if(_onInitialSnapshot) {
+		if (_onInitialSnapshot) {
 			_onInitialSnapshot(editor.store.getStoreSnapshot());
 			setOnInitialSnapshot(undefined);
 		}
@@ -164,11 +165,15 @@ const TldrawApp = ({ plugin, store, options: {
 
 	const [isFocused, setIsFocused] = React.useState(false);
 
-	const setFocusedEditor = (editor?: Editor) => {
+	const setFocusedEditor = (isMounting: boolean, editor?: Editor) => {
 		const { currTldrawEditor } = plugin;
 		if (currTldrawEditor !== editor) {
 			if (currTldrawEditor) {
 				currTldrawEditor.blur();
+			}
+			if(isMounting && !focusOnMount) {
+				plugin.currTldrawEditor = undefined;
+				return;
 			}
 			if (editor) {
 				editor.focus()
@@ -180,8 +185,9 @@ const TldrawApp = ({ plugin, store, options: {
 
 	useTldrawAppEffects({
 		bounds, editor, initialTool, isReadonly,
-		setFocusedEditor, selectNone, zoomToBounds,
+		selectNone, zoomToBounds,
 		settingsProvider: plugin.settingsProvider,
+		setFocusedEditor: (editor) => setFocusedEditor(true, editor),
 	});
 
 	const editorContainerRef = useClickAwayListener<HTMLDivElement>({
@@ -240,7 +246,7 @@ const TldrawApp = ({ plugin, store, options: {
 					onTouchStart={(e) => e.stopPropagation()}
 					ref={editorContainerRef}
 					onFocus={(e) => {
-						setFocusedEditor(editor);
+						setFocusedEditor(false, editor);
 					}}
 					style={{
 						width: '100%',

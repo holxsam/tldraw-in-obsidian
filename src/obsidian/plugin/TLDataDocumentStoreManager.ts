@@ -78,6 +78,7 @@ export default class TLDataDocumentStoreManager {
         const documentStore = processInitialData(parseTLDataDocument(this.plugin.manifest.version, fileData));
         const debouncedSave = this.createDebouncedSaveStoreListener(documentStore);
         let onExternalModificationsRef: undefined | EventRef;
+        let onQuickPreviewRef: undefined | EventRef;
         let assetStore: undefined | ObsidianTLAssetStore;
         return {
             store: documentStore.store,
@@ -87,8 +88,13 @@ export default class TLDataDocumentStoreManager {
                 documentStore: documentStore,
             },
             init: (storeGroup) => {
-                // view.app.vault.on('modify'); #TODO
-                onExternalModificationsRef = workspace.on('quick-preview', (file, data) => {
+                onExternalModificationsRef = app.vault.on('modify', async (file) => {
+                    if (!(file instanceof TFile) || file.path !== storeGroup.main.data.tFile.path) return;
+                    const data = await app.vault.cachedRead(file);
+                    this.onExternalModification(workspace, storeGroup, data);
+                });
+
+                onQuickPreviewRef = workspace.on('quick-preview', (file, data) => {
                     if (file.path !== storeGroup.main.data.tFile.path) return;
                     this.onExternalModification(workspace, storeGroup, data)
                 });
@@ -106,6 +112,9 @@ export default class TLDataDocumentStoreManager {
                 assetStore?.dispose();
                 if (onExternalModificationsRef) {
                     workspace.offref(onExternalModificationsRef);
+                }
+                if (onQuickPreviewRef) {
+                    workspace.offref(onQuickPreviewRef);
                 }
             },
             storeListener: (entry, context) => debouncedSave(context)

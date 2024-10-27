@@ -375,7 +375,6 @@ async function createReactTldrawAppRoot({
                 assetStore: documentStore.store.props.assets,
                 isReadonly: true,
                 controller,
-                inputFocus: true,
                 selectNone: true,
                 initialTool: 'hand',
                 initialImageSize: imageSize,

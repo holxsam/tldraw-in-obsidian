@@ -102,9 +102,7 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 	}
 }
 
-.plugin-tldraw
-	.ptl-statusbar-viewmode-box
-	.ptl-viewmode-btn.ptl-viewmode-active {
+.plugin-tldraw .ptl-statusbar-viewmode-box .ptl-viewmode-btn.ptl-viewmode-active {
 	box-shadow: inset 0px 0px 0px 1px currentColor;
 	border-radius: 4px;
 }
@@ -137,22 +135,22 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 }
 
 .ptl-embed-context-bar {
-    padding: 2px;
+	padding: 2px;
 	display: flex;
-    background: var(--background-primary-alt);
+	background: var(--background-primary-alt);
 }
 
 .ptl-embed-title-bar {
-    font-size: var(--font-smallest);
+	font-size: var(--font-smallest);
 	margin-left: 8px;
 	align-self: center;
 }
 
 /* Render the context bar for embeds in the top right corner. */
 .ptl-markdown-embed .ptl-embed-context-bar {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
 	position: absolute;
 	top: 0;
 }
@@ -166,11 +164,13 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 }
 
 .ptl-markdown-embed .ptl-view-content[data-showBgDots="true"] {
-	background-image: 
-        radial-gradient(rgb(78, 78, 78) 1px, transparent 1px),
-        radial-gradient(rgb(78, 78, 78) 1px, transparent 1px);
-    background-size: 48px 48px; /* Size of the grid cells */
-    background-position: 0 0, 24px 24px; /* Offset for the dotted pattern */
+	background-image:
+		radial-gradient(rgb(78, 78, 78) 1px, transparent 1px),
+		radial-gradient(rgb(78, 78, 78) 1px, transparent 1px);
+	background-size: 48px 48px;
+	/* Size of the grid cells */
+	background-position: 0 0, 24px 24px;
+	/* Offset for the dotted pattern */
 }
 
 .ptl-markdown-embed .ptl-tldraw-image-container {
@@ -194,14 +194,36 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 	color: green;
 }
 
+.ptl-compare-modal {
+	width: 100%;
+	height: 100%;
+}
+
+.ptl-compare-modal-content {
+	display: flex;
+	flex-direction: column;
+}
+
+.ptl-conflict-body {
+	flex: 1;
+}
+
 .ptl-compare-tldraw-container {
-    display: flex;
-    height: 800px;
-    width: 100%;
-    flex-direction: column;
-    gap: 4em;
+	display: flex;
+	height: 100%;
+	width: 100%;
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 2em;
 }
 
 .ptl-compare-tldraw-container .ptl-compare-tldraw {
 	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-width: 250px;
+}
+
+.ptl-compare-preview {
+	height: 400px;
 }

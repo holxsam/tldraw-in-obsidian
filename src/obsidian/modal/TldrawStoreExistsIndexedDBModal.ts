@@ -1,10 +1,11 @@
-import { ButtonComponent, Modal, TFile } from "obsidian";
+import { ButtonComponent, MetadataCache, Modal, Setting, TextComponent, TFile } from "obsidian";
 import { TldrawView } from "../TldrawView";
 import { StoreSnapshot, TLRecord } from "tldraw";
 import { TLDataDocumentStore } from "src/utils/document";
 import { createRootAndRenderTldrawApp, TldrawAppProps } from "src/components/TldrawApp";
 import { Root } from "react-dom/client";
 import { tldrawStoreIndexedDBName } from "src/tldraw/indexeddb-store";
+import { getFrontMatterList } from "../helpers/front-matter";
 
 export class TldrawStoreConflictResolveFileUnloaded extends Error { }
 export class TldrawStoreConflictResolveCanceled extends Error {
@@ -19,12 +20,21 @@ export class TldrawStoreConflictResolveCanceled extends Error {
     }
 }
 
+const dataDocumentFlagsKey = 'tl-data-document-flags';
+const ignoreIndexedDbStoreFlag = 'ignore-indexed-db-store';
+
 export default class TldrawStoreExistsIndexedDBModal extends Modal {
     private markdownStorePreview: HTMLElement;
     private indexedDBStorePreview: HTMLElement;
     private markdownTldrawRoot?: Root;
     private indexedDBTldrawRoot?: Root;
     private replaceButton?: ButtonComponent;
+
+    static ignoreIndexedDBStoreModal(metadataCache: MetadataCache, tFile: TFile) {
+        const tlDataDocumentFlags = getFrontMatterList(metadataCache, tFile, dataDocumentFlagsKey);
+        return !tlDataDocumentFlags
+            ? false : tlDataDocumentFlags.includes(ignoreIndexedDbStoreFlag);
+    }
 
     static showResolverModal(view: TldrawView, tFile: TFile, documentStore: TLDataDocumentStore): Promise<StoreSnapshot<TLRecord> | undefined> {
         return new Promise((res, rej) => {
@@ -48,38 +58,88 @@ export default class TldrawStoreExistsIndexedDBModal extends Modal {
             rej(new TldrawStoreConflictResolveFileUnloaded());
         });
 
+        this.modalEl.addClass('ptl-compare-modal');
+
         this.setTitle(`Conflict resolver - ${tFile.path}`);
 
-        const compareEl = this.contentEl.createDiv({
+        this.contentEl.addClass('ptl-compare-modal-content');
+
+        this.contentEl.createEl('p', {
+            cls: 'ptl-conflict-reason',
+            text: 'Why are you seeing this? Previous versions of this plugin stored the tldraw document in the markdown file and in Obsidian\'s IndexedDB. We no longer store drawings in the IndexedDB, so here are a few options:'
+        })
+
+        this.contentEl.createDiv({
+            cls: 'ptl-conflict-options'
+        }, (div) => {
+            new Setting(div)
+                .setName('Ignore pop-up')
+                .setDesc(`Don't show this pop-up again for this file. It adds a "${ignoreIndexedDbStoreFlag}" flag in the property "${dataDocumentFlagsKey}", so removing that flag shows this pop-up again.`)
+                .addToggle((toggle) => {
+                    const ignoreIndexedDbStore = TldrawStoreExistsIndexedDBModal.ignoreIndexedDBStoreModal(this.app.metadataCache, tFile);
+                    toggle.setValue(ignoreIndexedDbStore);
+                    toggle.onChange((ignoreIndexedDbStore) => {
+                        this.app.fileManager.processFrontMatter(tFile, (frontMatter) => {
+                            const tlDataDocumentFlags = frontMatter[dataDocumentFlagsKey];
+                            if (Array.isArray(tlDataDocumentFlags)) {
+                                if (!ignoreIndexedDbStore) {
+                                    tlDataDocumentFlags.remove(ignoreIndexedDbStoreFlag);
+                                } else {
+                                    !tlDataDocumentFlags.includes(ignoreIndexedDbStoreFlag) && tlDataDocumentFlags.push(ignoreIndexedDbStoreFlag);
+                                }
+                                frontMatter[dataDocumentFlagsKey] = tlDataDocumentFlags;
+                            } else if (ignoreIndexedDbStore) {
+                                frontMatter[dataDocumentFlagsKey] = [ignoreIndexedDbStoreFlag];
+                            }
+                        });
+                    });
+                });
+            new Setting(div)
+                .setName('Edit markdown version')
+                .setDesc('Uses the tldraw data stored in the markdown file and opens the editor.')
+                .addButton(
+                    (button) => button.setButtonText('Edit').onClick(() => {
+                        res();
+                        this.close();
+                    })
+                );
+            new Setting(div)
+                .setName('Restore IndexedDB version')
+                .setDesc('Replaces the data in the markdown file with the data in the IndexedDB and opens the editor.')
+                .addButton(
+                    (button) => this.replaceButton = button.setButtonText('Loading snapshot').setDisabled(true)
+                );
+        })
+
+        const conflictBodyEl = this.contentEl.createDiv({ cls: 'ptl-conflict-body' });
+
+        const compareEl = conflictBodyEl.createDiv({
             cls: 'ptl-compare-tldraw-container'
         });
 
         compareEl.createDiv({
             cls: 'ptl-compare-tldraw'
         }, (div) => {
-            div.createEl('b', { text: `Markdown Store - ${tFile.path}` });
-            new ButtonComponent(div).setButtonText('Use this version').onClick(() => {
-                res();
-                this.close();
-            })
+            div.createEl('b', { text: `Markdown file store` });
+            new TextComponent(div)
+                .setValue(tFile.path)
+                .inputEl.readOnly = true;
+
             this.markdownStorePreview = div.createDiv({
-                cls: 'ptl-markdown-preview',
-                attr: {
-                    style: 'height: 100%;'
-                }
+                cls: 'ptl-compare-preview',
             });
         });
 
         compareEl.createDiv({
             cls: 'ptl-compare-tldraw'
         }, (div) => {
-            div.createEl('b', { text: `IndexedDB Store - ${tldrawStoreIndexedDBName(documentStore.meta.uuid)}` });
-            this.replaceButton = new ButtonComponent(div).setButtonText('Loading snapshot').setDisabled(true);
+            div.createEl('b', { text: `IndexedDB Store` });
+            new TextComponent(div)
+                .setValue(tldrawStoreIndexedDBName(documentStore.meta.uuid))
+                .inputEl.readOnly = true;
+
             this.indexedDBStorePreview = div.createDiv({
-                cls: 'ptl-indexed-db-preview',
-                attr: {
-                    style: 'height: 100%;'
-                }
+                cls: 'ptl-compare-preview',
             });
         });
     }
@@ -97,10 +157,9 @@ export default class TldrawStoreExistsIndexedDBModal extends Modal {
 
         const sharedAppProps = {
             assetStore: this.documentStore.store.props.assets,
+            focusOnMount: false,
             isReadonly: true,
-            inputFocus: true,
             selectNone: true,
-            hideUi: true,
             initialTool: 'hand',
             zoomToBounds: true,
         } satisfies TldrawAppProps['options'];
@@ -127,7 +186,7 @@ export default class TldrawStoreExistsIndexedDBModal extends Modal {
                 app: {
                     ...sharedAppProps,
                     onInitialSnapshot: (snapshot) => {
-                        this.replaceButton?.setButtonText('Replace with this version').onClick(() => {
+                        this.replaceButton?.setButtonText('Restore').onClick(() => {
                             this.res(snapshot);
                             this.close();
                         }).setDisabled(false);

@@ -21,7 +21,7 @@ export function useTldrawAppEffects({
     settingsProvider: TldrawPlugin['settingsProvider'],
     selectNone: boolean,
     zoomToBounds: boolean,
-    setFocusedEditor: (editor?: Editor) => void,
+    setFocusedEditor: (editor: Editor) => void,
 }) {
     const [settings, setSettings] = React.useState(() => settingsProvider.getCurrent());
 
