@@ -19,7 +19,7 @@ export default class IconsSettingsManager {
     getDownloadConfig(icon: IconNames): DownloadInfo {
         return {
             url: IconsSettingsManager.getIconUrl(icon),
-            destination: `${this.plugin.settings.assetsFolder}/icons/${icon}.svg`,
+            destination: `${this.plugin.settings.fileDestinations.assetsFolder}/icons/${icon}.svg`,
         };
     }
 

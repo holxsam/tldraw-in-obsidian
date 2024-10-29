@@ -83,15 +83,17 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     protected override viewAsMarkdownClicked(): void {
         const { file } = this;
         if (file !== null && file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
-            this.create(file, 'new-tab', 'markdown');
+            this.createAndOpen(file, 'new-tab', 'markdown');
             return;
+        } else {
+            super.viewAsMarkdownClicked()
         }
-        super.viewAsMarkdownClicked()
     }
 
-    private async create(tFile: TFile, location: PaneTarget, viewType: ViewType) {
+    private async createAndOpen(tFile: TFile, location: PaneTarget, viewType: ViewType) {
         // TODO: Add a dialog to confirm the creation of a file.
         const newFile = await this.plugin.createUntitledTldrFile({
+            inMarkdown: true,
             tlStore:
                 // NOTE: Maybe this should be retreiving the current tlStore from the tldraw editor instead of re-reading the file.
                 migrateTldrawFileDataIfNecessary(

@@ -86,11 +86,18 @@ export function createIconOverridesSettingsEl(plugin: TldrawPlugin, containerEl:
                 button.setIcon('file-search').onClick(() => {
                     new FileSearchModal(plugin, {
                         extensions: [...iconExtensions],
-                        initialValue: currentValue(),
+                        initialSearchPath: currentValue(),
                         onEmptyStateText: (searchPath) => (
                             `No folders or icons found at "${searchPath}"`
                         ),
-                        setSelection: (file) => setIcon(file.path),
+                        setSelection: (file) => {
+                            if (!(file instanceof TFile)) {
+                                const path = typeof file === 'string' ? file : file.path;
+                                new Notice(`"${path}" is not a valid file.`);
+                                return;
+                            }
+                            return setIcon(file.path);
+                        },
                     }).open()
                 })
             })

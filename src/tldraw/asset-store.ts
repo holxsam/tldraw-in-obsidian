@@ -63,7 +63,10 @@ export class ObsidianMarkdownFileTLAssetStoreProxy {
         const {
             filename,
             folder
-        } = await createAttachmentFilepath(!ext ? objectName : `${objectName}.${ext}`, this.tFile, this.plugin.app.fileManager);
+        } = await createAttachmentFilepath(
+            this.plugin.app.fileManager,
+            !ext ? objectName : `${objectName}.${ext}`, this.tFile,
+        );
 
         const assetFile = await this.plugin.app.vault.createBinary(`${folder}/${filename}`,
             await file.arrayBuffer()
@@ -208,7 +211,7 @@ export class ObsidianTLAssetStore implements TLAssetStore {
     }
 
     async tryOpenDb() {
-        if(this.db === null) {
+        if (this.db === null) {
             // Already tried
             return null;
         }
@@ -219,7 +222,7 @@ export class ObsidianTLAssetStore implements TLAssetStore {
         const cachedAssetUri = this.resolvedIDBCache.get(assetSrc);
         if (cachedAssetUri) return cachedAssetUri;
         const db = await this.tryOpenDb();
-        if(!db) return null;
+        if (!db) return null;
         const blob = await db.getAsset(assetSrc)
         if (!blob) return null;
         const assetUri = URL.createObjectURL(blob);
@@ -229,7 +232,7 @@ export class ObsidianTLAssetStore implements TLAssetStore {
 
     async getAllFromIndexedDB(): Promise<`asset:${string}`[]> {
         const db = await this.tryOpenDb();
-        if(!db) return [];
+        if (!db) return [];
         await db.openDb();
         return db.getAllAssetSources();
     }

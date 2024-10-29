@@ -12,12 +12,12 @@ import {
 import { TldrawFileView, TldrawView } from "./obsidian/TldrawView";
 import {
 	DEFAULT_SETTINGS,
+	FileDestinationsSettings,
 	TldrawPluginSettings,
 	TldrawSettingsTab,
 } from "./obsidian/TldrawSettingsTab";
 import {
 	checkAndCreateFolder,
-	createAttachmentFilepath,
 	getNewUniqueFilepath,
 	isValidViewType,
 } from "./utils/utils";
@@ -57,6 +57,8 @@ import { migrateTldrawFileDataIfNecessary } from "./utils/migrate/tl-data-to-tls
 import { pluginMenuLabel } from "./obsidian/menu";
 import { TldrawFileListenerMap } from "./obsidian/plugin/TldrawFileListenerMap";
 import TLDataDocumentStoreManager from "./obsidian/plugin/TLDataDocumentStoreManager";
+import { getTldrawFileDestination } from "./obsidian/plugin/file-destination";
+import { tldrawFileToJson } from "./utils/tldraw-file/tldraw-file-to-json";
 
 @pluginBuild
 export default class TldrawPlugin extends Plugin {
@@ -101,9 +103,10 @@ export default class TldrawPlugin extends Plugin {
 		addIcon(MARKDOWN_ICON_NAME, MARKDOWN_ICON);
 
 		// this creates an icon in the left ribbon:
-		this.addRibbonIcon(TLDRAW_ICON_NAME, RIBBON_NEW_FILE, () =>
-			this.createAndOpenUntitledTldrFile("current-tab")
-		);
+		this.addRibbonIcon(TLDRAW_ICON_NAME, RIBBON_NEW_FILE, async () => {
+			const file = await this.createUntitledTldrFile();
+			await this.openTldrFile(file, "current-tab");
+		});
 
 		// status bar:
 		this.statusBarRoot = this.addStatusBarItem();
@@ -410,10 +413,10 @@ export default class TldrawPlugin extends Plugin {
 
 	public async createFile(
 		filename: string,
-		foldername?: string,
+		foldername: string,
 		data?: string
 	): Promise<TFile> {
-		const folderpath = normalizePath(foldername || this.settings.folder);
+		const folderpath = normalizePath(foldername);
 		await checkAndCreateFolder(folderpath, this.app.vault); //create folder if it does not exist
 		const fname = getNewUniqueFilepath(
 			this.app.vault,
@@ -425,18 +428,24 @@ export default class TldrawPlugin extends Plugin {
 	}
 
 	public createTldrFile = async (filename: string, {
-		foldername, tlStore
-	}: { foldername?: string, tlStore?: TLStore } = {}) => {
-		// adds the markdown extension if the filename does not already include it:
-		filename = filename.endsWith(FILE_EXTENSION)
+		foldername, inMarkdown, tlStore
+	}: { foldername: string, inMarkdown: boolean, tlStore?: TLStore }) => {
+		const extension = inMarkdown ? FILE_EXTENSION : TLDRAW_FILE_EXTENSION;
+		// adds the extension if the filename does not already include it:
+		filename = filename.endsWith(extension)
 			? filename
-			: filename + FILE_EXTENSION;
+			: filename + extension;
 
-		// constructs the markdown content thats a template:
-		const tlData = getTLDataTemplate(this.manifest.version, createRawTldrawFile(tlStore), window.crypto.randomUUID());
-		const frontmatter = frontmatterTemplate(`${FRONTMATTER_KEY}: true`);
-		const codeblock = codeBlockTemplate(tlData);
-		const fileData = tlFileTemplate(frontmatter, codeblock);
+		const tldrawFile = createRawTldrawFile(tlStore);
+		const fileData = !inMarkdown ? JSON.stringify(tldrawFileToJson(tldrawFile)) : (
+			() => {
+				// constructs the markdown content thats a template:
+				const tlData = getTLDataTemplate(this.manifest.version, tldrawFile, window.crypto.randomUUID());
+				const frontmatter = frontmatterTemplate(`${FRONTMATTER_KEY}: true`);
+				const codeblock = codeBlockTemplate(tlData);
+				return tlFileTemplate(frontmatter, codeblock);
+			}
+		)();
 
 		return await this.createFile(filename, foldername, fileData);
 	};
@@ -466,16 +475,19 @@ export default class TldrawPlugin extends Plugin {
 	 * @returns 
 	 */
 	public createUntitledTldrFile = async ({
-		attachTo, tlStore
-	}: { attachTo?: TFile, tlStore?: TLStore } = {}) => {
+		attachTo, tlStore, inMarkdown = true,
+	}: {
+		attachTo?: TFile, tlStore?: TLStore,
+		/**
+		 * @default true
+		 */
+		inMarkdown?: boolean
+	} = {}) => {
 		const filename = this.createDefaultFilename();
-		const { folder, useAttachmentsFolder } = this.settings;
-		const res = !useAttachmentsFolder || attachTo === undefined
-			? { filename, folder }
-			: await createAttachmentFilepath(filename, attachTo, this.app.fileManager);
-
-		return await this.createTldrFile(res.filename, {
+		const res = await getTldrawFileDestination(this, filename, attachTo);
+		return this.createTldrFile(res.filename, {
 			tlStore,
+			inMarkdown,
 			foldername: res.folder,
 		});
 	};
@@ -495,22 +507,6 @@ export default class TldrawPlugin extends Plugin {
 
 		await leaf.openFile(file);
 		await this.updateViewMode(viewType, leaf);
-	};
-
-	public createAndOpenUntitledTldrFile = async (location: PaneTarget, {
-		inMarkdown = true
-	}: { inMarkdown?: boolean } = {}) => {
-		if (inMarkdown) {
-			const file = await this.createUntitledTldrFile();
-			this.openTldrFile(file, location);
-		} else {
-			const filename = this.createDefaultFilename();
-			this.openTldrFile(
-				await this.createFile(`${filename}.tldr`, this.settings.folder),
-				location,
-				VIEW_TYPE_TLDRAW_FILE
-			);
-		}
 	};
 
 	public isTldrawFile(file: TFile) {
@@ -539,13 +535,26 @@ export default class TldrawPlugin extends Plugin {
 
 	async loadSettings() {
 		// We destructure the defaults for nested properties, e.g `embeds`, so that we can merge them separately since Object.assign does not merge nested properties.
-		const { embeds: embedsDefault, ...restDefault } = DEFAULT_SETTINGS;
-		const { embeds, ...rest } = await this.loadData() as Partial<TldrawPluginSettings> || {};
+		const { embeds: embedsDefault, fileDestinations: fileDestinationsDefault, ...restDefault } = DEFAULT_SETTINGS;
+		const { embeds, fileDestinations, ...rest } = await this.loadData() as Partial<TldrawPluginSettings> || {};
+
 		const embedsMerged = Object.assign({}, embedsDefault, embeds)
+		const fileDestinationsMerged = Object.assign({}, fileDestinationsDefault,
+			{ // Migrate old settings
+				defaultFolder: rest.folder,
+				assetsFolder: rest.assetsFolder,
+				destinationMethod: !rest.useAttachmentsFolder ? undefined : 'attachments-folder',
+			} satisfies Partial<FileDestinationsSettings>,
+			fileDestinations,
+		);
+		delete rest.folder;
+		delete rest.assetsFolder;
+		delete rest.useAttachmentsFolder;
 		const restMerged = Object.assign({}, restDefault, rest);
 
 		this.settings = {
 			embeds: embedsMerged,
+			fileDestinations: fileDestinationsMerged,
 			...restMerged
 		};
 	}

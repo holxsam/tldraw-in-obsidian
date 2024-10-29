@@ -34,4 +34,18 @@ declare module "obsidian" {
          */
         onQuickPreview: (file: TFile, data: string) => void
     }
+
+    interface Vault {
+        config: {
+            attachmentFolderPath: '/' | `./${string}` | (string & NonNullable<unknown>)
+        }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    interface SuggestModal<T = unknown> {
+        /**
+         * This function is present at runtime in the web developer console in Obsidian, but not in the type definition for some reason.
+         */
+        updateSuggestions: () => void;
+    }
 }

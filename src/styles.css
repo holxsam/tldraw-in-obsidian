@@ -227,3 +227,28 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 .ptl-compare-preview {
 	height: 400px;
 }
+
+.ptl-modal-title-with-icon {
+	padding-top: 12px;
+	display: flex;
+	flex-direction: row;
+	gap: 0.25em;
+	align-items: center;
+}
+
+.ptl-modal-title-with-icon span.ptl-modal-icon {
+	display: contents;
+}
+
+.ptl-suggestion-item {
+    display: flex;
+    gap: 0.25em;
+}
+
+.ptl-suggestion-item-icon {
+    display: contents;
+}
+
+.ptl-suggestion-label {
+    font-size: x-small;
+}
