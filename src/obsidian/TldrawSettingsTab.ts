@@ -175,7 +175,7 @@ export class TldrawSettingsTab extends PluginSettingTab {
 			let destination = '';
 			switch (this.plugin.settings.fileDestinations.destinationMethod) {
 				case "attachments-folder":
-					destination = this.app.vault.config.attachmentFolderPath;
+					destination = this.app.vault.config.attachmentFolderPath ?? '/';
 					setting.descEl.createDiv({
 						text: "Use the location defined in the \"Files and links\" options tab for newly created tldraw files if they are embed as an attachment."
 					});

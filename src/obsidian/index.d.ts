@@ -37,7 +37,7 @@ declare module "obsidian" {
 
     interface Vault {
         config: {
-            attachmentFolderPath: '/' | `./${string}` | (string & NonNullable<unknown>)
+            attachmentFolderPath?: '/' | `./${string}` | (string & NonNullable<unknown>)
         }
     }
 

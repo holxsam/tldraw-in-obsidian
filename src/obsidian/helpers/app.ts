@@ -55,7 +55,7 @@ export function getAttachmentsFolder(app: App, attachTo?: TFile): {
     folder: ValidatedFolderPath
 } {
     const { attachmentFolderPath } = app.vault.config;
-    return attachmentFolderPath === '/'
+    return !attachmentFolderPath || attachmentFolderPath === '/'
         ? {
             folder: app.vault.getRoot(),
             path: '/',
