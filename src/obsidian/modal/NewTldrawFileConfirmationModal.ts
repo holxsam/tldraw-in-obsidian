@@ -3,7 +3,8 @@ import { destinationMethods, destinationMethodsRecord } from "../TldrawSettingsT
 import TldrawPlugin from "src/main";
 import { TLDRAW_ICON_NAME } from "src/utils/constants";
 import { FileSearchCanceled, FileSearchModal } from "./FileSearchModal";
-import { getAttachmentsFolder, getColocationFolder, validateFolderPath } from "../helpers/app";
+import { getAttachmentsFolder, validateFolderPath } from "../helpers/app";
+import { getColocationDestination } from "../plugin/file-destination";
 
 type Result = {
     filename: string,
@@ -84,12 +85,12 @@ export default class NewTldrawFileConfirmationModal extends SuggestModal<Suggest
                         folder: this.toConfirm.folder
                     });
                 } break;
-                case "colocate":
+                case "colocate": {
                     suggestions.push({
                         choice: "colocate",
-                        folder: getColocationFolder(this.app)
+                        folder: getColocationDestination(this.plugin)
                     });
-                    break;
+                } break;
                 case "default-folder": {
                     const { defaultFolder } = this.plugin.settings.fileDestinations;
                     suggestions.push({

@@ -544,7 +544,7 @@ export default class TldrawPlugin extends Plugin {
 				defaultFolder: rest.folder,
 				assetsFolder: rest.assetsFolder,
 				destinationMethod: !rest.useAttachmentsFolder ? undefined : 'attachments-folder',
-			} satisfies Partial<FileDestinationsSettings>,
+			} as Partial<FileDestinationsSettings>,
 			fileDestinations,
 		);
 		delete rest.folder;

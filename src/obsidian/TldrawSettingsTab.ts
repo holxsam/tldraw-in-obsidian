@@ -2,6 +2,7 @@ import { clamp, msToSeconds } from "src/utils/utils";
 import TldrawPlugin from "../main";
 import {
 	App,
+	DropdownComponent,
 	ExtraButtonComponent,
 	MomentFormatComponent,
 	Notice,
@@ -9,6 +10,7 @@ import {
 	Setting,
 	TextComponent,
 	TFile,
+	TFolder,
 } from "obsidian";
 import {
 	DEFAULT_SAVE_DELAY,
@@ -23,6 +25,7 @@ import IconsSettingsManager from "./settings/IconsSettingsManager";
 import FontsSettingsManager from "./settings/FontsSettingsManager";
 import DownloadManagerModal from "./modal/DownloadManagerModal";
 import { DownloadInfo } from "src/utils/fetch/download";
+import { validateFolderPath } from "./helpers/app";
 
 export type ThemePreference = "match-theme" | "dark" | "light";
 
@@ -69,6 +72,10 @@ export type FileDestinationsSettings = {
 	 * 
 	 */
 	destinationMethod: DestinationMethod,
+	/**
+	 * When the colocate destination method is used, this folder will be used as its subfolder.
+	 */
+	colocationSubfolder: string,
 };
 
 /**
@@ -135,6 +142,7 @@ export const DEFAULT_SETTINGS = {
 		assetsFolder: "tldraw/assets",
 		destinationMethod: "colocate",
 		defaultFolder: "tldraw",
+		colocationSubfolder: "",
 	},
 	embeds: {
 		showBg: true,
@@ -181,15 +189,15 @@ export class TldrawSettingsTab extends PluginSettingTab {
 					});
 					break;
 				case "colocate":
-					destination = './';
+					destination = './' + this.plugin.settings.fileDestinations.colocationSubfolder;
 					setting.descEl.createDiv({
-						text: "Place files in the same directory as the active note/file."
+						text: "Place files in the same directory as the active note/file. You can also optionally define a subfolder within that directory below."
 					});
 					break;
 				case "default-folder":
-					destination = this.plugin.settings.fileDestinations.defaultFolder
+					destination = this.plugin.settings.fileDestinations.defaultFolder;
 					setting.descEl.createDiv({
-						text: "Use the default folder default above"
+						text: "Use the default folder from below."
 					});
 					break;
 			}
@@ -199,14 +207,16 @@ export class TldrawSettingsTab extends PluginSettingTab {
 				text: `Destination: ${destination}`
 			});
 		}
+		let _dropdown: undefined | DropdownComponent;
 		const updateDestinationMethod = async (method: DestinationMethod) => {
 			this.plugin.settings.fileDestinations.destinationMethod = method;
 			await this.plugin.saveSettings();
 			updateDestinationMethodEl(destinationMethodSetting);
+			_dropdown?.setValue(method);
 		}
 		const destinationMethodSetting = new Setting(containerEl)
 			.setName("File destination method")
-			.addDropdown((dropdown) => dropdown.addOptions(destinationMethodsRecord)
+			.addDropdown((dropdown) => _dropdown = dropdown.addOptions(destinationMethodsRecord)
 				.setValue(this.plugin.settings.fileDestinations.destinationMethod)
 				.onChange(async (value) => {
 					if (!(destinationMethods as readonly string[]).includes(value)) return;
@@ -217,6 +227,21 @@ export class TldrawSettingsTab extends PluginSettingTab {
 				.onClick(() => updateDestinationMethod(DEFAULT_SETTINGS.fileDestinations.destinationMethod))
 			).then(updateDestinationMethodEl)
 
+		new Setting(containerEl)
+			.setName('Colocation subfolder')
+			.setDesc('The folder to use when using the colocation destination. Leave this blank to use the same folder as the current active file.')
+			.addText((text) => text
+				.setValue(this.plugin.settings.fileDestinations.colocationSubfolder)
+				.onChange(async (value) => {
+					const folder = value === '' ? '' : validateFolderPath(this.app, value)
+					if (folder !== '' && !folder) return;
+					this.plugin.settings.fileDestinations.colocationSubfolder = folder instanceof TFolder
+						? folder.path : folder
+						;
+					await this.plugin.saveSettings();
+					updateDestinationMethodEl(destinationMethodSetting);
+				})
+			);
 
 		new Setting(containerEl)
 			.setName("Default folder")
@@ -230,6 +255,7 @@ export class TldrawSettingsTab extends PluginSettingTab {
 						this.plugin.settings.fileDestinations.defaultFolder = value;
 
 						await this.plugin.saveSettings();
+						updateDestinationMethodEl(destinationMethodSetting);
 					})
 			);
 

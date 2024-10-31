@@ -4,6 +4,24 @@ import { getAttachmentsFolder, getColocationFolder, validateFolderPath } from ".
 import NewTldrawFileConfirmationModal from "../modal/NewTldrawFileConfirmationModal";
 
 /**
+ * Get the colocation destination, and add the sub-folder if defined.
+ * @param plugin 
+ * @returns 
+ */
+export function getColocationDestination(plugin: TldrawPlugin) {
+    const subfolder = plugin.settings.fileDestinations.colocationSubfolder;
+    const colocationFolder = getColocationFolder(plugin.app);
+    if(subfolder === '') {
+        return colocationFolder;
+    }
+    const path = `${colocationFolder.path}/${subfolder}`;
+    return {
+        path,
+        folder: validateFolderPath(plugin.app, path)
+    };
+}
+
+/**
  * Will ask for confirmation if the confirmDestination option is true.
  * @param plugin 
  * @param filename 
@@ -22,7 +40,7 @@ export async function getTldrawFileDestination(plugin: TldrawPlugin, filename: s
             return getAttachmentsFolder(plugin.app, attachTo);
         }
         switch (destinationMethod) {
-            case "colocate": return getColocationFolder(plugin.app);
+            case "colocate": return getColocationDestination(plugin);
             case "default-folder": return {
                 path: defaultFolder,
                 folder: validateFolderPath(plugin.app, defaultFolder)
