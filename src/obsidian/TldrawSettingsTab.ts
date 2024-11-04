@@ -2,11 +2,15 @@ import { clamp, msToSeconds } from "src/utils/utils";
 import TldrawPlugin from "../main";
 import {
 	App,
+	DropdownComponent,
 	ExtraButtonComponent,
 	MomentFormatComponent,
+	Notice,
 	PluginSettingTab,
 	Setting,
 	TextComponent,
+	TFile,
+	TFolder,
 } from "obsidian";
 import {
 	DEFAULT_SAVE_DELAY,
@@ -21,11 +25,81 @@ import IconsSettingsManager from "./settings/IconsSettingsManager";
 import FontsSettingsManager from "./settings/FontsSettingsManager";
 import DownloadManagerModal from "./modal/DownloadManagerModal";
 import { DownloadInfo } from "src/utils/fetch/download";
+import { validateFolderPath } from "./helpers/app";
 
 export type ThemePreference = "match-theme" | "dark" | "light";
 
-export interface TldrawPluginSettings {
-	folder: string;
+export const destinationMethods = ['attachments-folder', 'colocate', 'default-folder'] as const;
+
+export type DestinationMethod = typeof destinationMethods[number];
+
+export const destinationMethodsRecord = {
+	'colocate': 'Colocate file',
+	'default-folder': 'Use default folder',
+	'attachments-folder': 'Use attachments folder',
+} satisfies Record<DestinationMethod, string>;
+
+export type FileDestinationsSettings = {
+	/**
+	 * The location where tldraw assets will be downloaded in
+	 */
+	assetsFolder: string;
+	/**
+	 * Whether to show an input to confirm the path of the new file.
+	 * 
+	 * By default, the input will be filled in with the path defined by {@linkcode FileDestinationsSettings.destinationMethod}
+	 * 
+	 * The modal will also show the following options:
+	 * 
+	 * - Colocate file, if there is an active file view
+	 * - Default attachment folder as defined in the Obsidian settings
+	 * - {@linkcode FileDestinationsSettings.defaultFolder}
+	 */
+	confirmDestination: boolean;
+	/**
+	 * The default folder to save new tldraw files in.
+	 */
+	defaultFolder: string,
+	/**
+	 * 
+	 * # `colocate`
+	 * If this is true then create new tldraw files in the same folder as the active note or file view.
+	 * 
+	 * If there is no active note or file view, then root directory is used.
+	 * 
+	 * # `attachments-folder`
+	 * Use the attachments folder defined in the Obsidian "Files and links" settings. 
+	 * 
+	 */
+	destinationMethod: DestinationMethod,
+	/**
+	 * When the colocate destination method is used, this folder will be used as its subfolder.
+	 */
+	colocationSubfolder: string,
+};
+
+/**
+ * These are old settings, the properties have been marked as deprecated to assist the programmer migrate these settings.
+ */
+type DeprecatedFileDestinationSettings = {
+	/**
+	 * @deprecated Migrate to {@linkcode TldrawPluginSettings.fileDestinations}
+	 * The location where tldraw assets will be downloaded in
+	 */
+	assetsFolder?: string;
+	/**
+	 * @deprecated Migrate to {@linkcode TldrawPluginSettings.fileDestinations}
+	 */
+	folder?: string;
+	/**
+	 * @deprecated Migrate to {@linkcode TldrawPluginSettings.fileDestinations}
+	 * Use the attachments folder defined in the Obsidian "Files and links" settings. 
+	 */
+	useAttachmentsFolder?: boolean;
+};
+
+export interface TldrawPluginSettings extends DeprecatedFileDestinationSettings {
+	fileDestinations: FileDestinationsSettings;
 	saveFileDelay: number; // in seconds
 	newFilePrefix: string;
 	newFileTimeFormat: string;
@@ -41,10 +115,6 @@ export interface TldrawPluginSettings {
 	icons?: {
 		overrides?: IconOverrides
 	}
-	/**
-	 * Use the attachments folder defined in the Obsidian "Files and links" settings. 
-	 */
-	useAttachmentsFolder: boolean;
 	embeds: {
 		/**
 		 * Default value to control whether to show the background for markdown embeds
@@ -55,14 +125,9 @@ export interface TldrawPluginSettings {
 		 */
 		showBgDots: boolean;
 	};
-	/**
-	 * The location where tldraw assets will be downloaded in
-	 */
-	assetsFolder: string;
 }
 
 export const DEFAULT_SETTINGS = {
-	folder: "tldraw",
 	saveFileDelay: 0.5,
 	newFilePrefix: "Tldraw ",
 	newFileTimeFormat: "YYYY-MM-DD h.mmA",
@@ -72,12 +137,17 @@ export const DEFAULT_SETTINGS = {
 	snapMode: false,
 	debugMode: false,
 	focusMode: false,
-	useAttachmentsFolder: true,
+	fileDestinations: {
+		confirmDestination: true,
+		assetsFolder: "tldraw/assets",
+		destinationMethod: "colocate",
+		defaultFolder: "tldraw",
+		colocationSubfolder: "",
+	},
 	embeds: {
 		showBg: true,
 		showBgDots: true,
 	},
-	assetsFolder: 'tldraw/assets'
 } as const satisfies Partial<TldrawPluginSettings>;
 
 export class TldrawSettingsTab extends PluginSettingTab {
@@ -107,30 +177,97 @@ export class TldrawSettingsTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.createEl("h1", { text: "File" });
 
+		const updateDestinationMethodEl = (setting: Setting) => {
+			setting.descEl.empty();
+			setting.setDesc("The method to use for all new tldraw files.")
+			let destination = '';
+			switch (this.plugin.settings.fileDestinations.destinationMethod) {
+				case "attachments-folder":
+					destination = this.app.vault.config.attachmentFolderPath ?? '/';
+					setting.descEl.createDiv({
+						text: "Use the location defined in the \"Files and links\" options tab for newly created tldraw files if they are embed as an attachment."
+					});
+					break;
+				case "colocate":
+					destination = './' + this.plugin.settings.fileDestinations.colocationSubfolder;
+					setting.descEl.createDiv({
+						text: "Place files in the same directory as the active note/file. You can also optionally define a subfolder within that directory below."
+					});
+					break;
+				case "default-folder":
+					destination = this.plugin.settings.fileDestinations.defaultFolder;
+					setting.descEl.createDiv({
+						text: "Use the default folder from below."
+					});
+					break;
+			}
+
+			setting.descEl.createEl("code", {
+				cls: "ptl-default-code",
+				text: `Destination: ${destination}`
+			});
+		}
+		let _dropdown: undefined | DropdownComponent;
+		const updateDestinationMethod = async (method: DestinationMethod) => {
+			this.plugin.settings.fileDestinations.destinationMethod = method;
+			await this.plugin.saveSettings();
+			updateDestinationMethodEl(destinationMethodSetting);
+			_dropdown?.setValue(method);
+		}
+		const destinationMethodSetting = new Setting(containerEl)
+			.setName("File destination method")
+			.addDropdown((dropdown) => _dropdown = dropdown.addOptions(destinationMethodsRecord)
+				.setValue(this.plugin.settings.fileDestinations.destinationMethod)
+				.onChange(async (value) => {
+					if (!(destinationMethods as readonly string[]).includes(value)) return;
+					await updateDestinationMethod(value as DestinationMethod);
+				})
+			)
+			.addExtraButton((button) => button.setIcon('reset')
+				.onClick(() => updateDestinationMethod(DEFAULT_SETTINGS.fileDestinations.destinationMethod))
+			).then(updateDestinationMethodEl)
+
 		new Setting(containerEl)
-			.setName("Save folder")
-			.setDesc("The folder that tldraw files will be created in.")
+			.setName('Colocation subfolder')
+			.setDesc('The folder to use when using the colocation destination. Leave this blank to use the same folder as the current active file.')
+			.addText((text) => text
+				.setValue(this.plugin.settings.fileDestinations.colocationSubfolder)
+				.onChange(async (value) => {
+					const folder = value === '' ? '' : validateFolderPath(this.app, value)
+					if (folder !== '' && !folder) return;
+					this.plugin.settings.fileDestinations.colocationSubfolder = folder instanceof TFolder
+						? folder.path : folder
+						;
+					await this.plugin.saveSettings();
+					updateDestinationMethodEl(destinationMethodSetting);
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Default folder")
+			.setDesc(`The folder to create new tldraw files in when the destination method is set to ${destinationMethodsRecord['default-folder']
+				}, and the folder to show when the "Confirm destination" option is toggled.`)
 			.addText((text) =>
 				text
 					.setPlaceholder("root")
-					.setValue(this.plugin.settings.folder)
+					.setValue(this.plugin.settings.fileDestinations.defaultFolder)
 					.onChange(async (value) => {
-						this.plugin.settings.folder = value;
+						this.plugin.settings.fileDestinations.defaultFolder = value;
 
 						await this.plugin.saveSettings();
+						updateDestinationMethodEl(destinationMethodSetting);
 					})
 			);
 
 		new Setting(containerEl)
-			.setName("Use attachments folder")
-			.setDesc("Use the location defined in the \"Files and links\" options tab for newly created tldraw files if they are embed as an attachment.")
-			.addToggle((toggle) => {
-				toggle.setValue(this.plugin.settings.useAttachmentsFolder)
-				toggle.onChange(async (value) => {
-					this.plugin.settings.useAttachmentsFolder = value;
-					await this.plugin.saveSettings()
+			.setName("Confirm destination")
+			.setDesc("Show a pop-up modal that allows confirming or editing the destination and choosing another destination method.")
+			.addToggle((toggle) => toggle.setValue(this.plugin.settings.fileDestinations.confirmDestination)
+				.onChange(async (confirm) => {
+					this.plugin.settings.fileDestinations.confirmDestination = confirm;
+					await this.plugin.saveSettings();
 				})
-			})
+			);
 
 		const defaultDelay = msToSeconds(DEFAULT_SAVE_DELAY);
 		const minDelay = msToSeconds(MIN_SAVE_DELAY);
@@ -392,7 +529,7 @@ export class TldrawSettingsTab extends PluginSettingTab {
 
 		offlineFonts.descEl.createEl("code", {
 			cls: "ptl-default-code",
-			text: `Vault folder: ${this.plugin.settings.assetsFolder}`,
+			text: `Vault folder: ${this.plugin.settings.fileDestinations.assetsFolder}`,
 		});
 
 		this.fontSettings();
@@ -411,7 +548,7 @@ export class TldrawSettingsTab extends PluginSettingTab {
 
 		offlineFonts.descEl.createEl("code", {
 			cls: "ptl-default-code",
-			text: `Vault folder: ${this.plugin.settings.assetsFolder}/fonts`,
+			text: `Vault folder: ${this.plugin.settings.fileDestinations.assetsFolder}/fonts`,
 		});
 
 		containerEl.createEl("h2", { text: "Font assets overrides" });
@@ -446,11 +583,18 @@ export class TldrawSettingsTab extends PluginSettingTab {
 					button.setIcon('file-search').onClick(() => {
 						new FileSearchModal(this.plugin, {
 							extensions: [...fontExtensions],
-							initialValue: currentValue(),
+							initialSearchPath: currentValue(),
 							onEmptyStateText: (searchPath) => (
 								`No folders or fonts at "${searchPath}".`
 							),
-							setSelection: (file) => setFont(file.path),
+							setSelection: (file) => {
+								if (!(file instanceof TFile)) {
+									const path = typeof file === 'string' ? file : file.path;
+									new Notice(`"${path}" is not a valid file.`);
+									return;
+								}
+								setFont(file.path);
+							},
 						}).open()
 					})
 				})
@@ -502,7 +646,7 @@ export class TldrawSettingsTab extends PluginSettingTab {
 
 		offlineIcons.descEl.createEl("code", {
 			cls: "ptl-default-code",
-			text: `Vault folder: ${this.plugin.settings.assetsFolder}/icons`,
+			text: `Vault folder: ${this.plugin.settings.fileDestinations.assetsFolder}/icons`,
 		});
 
 		this.containerEl.createEl("h2", { text: "Icon assets overrides" });

@@ -3,10 +3,8 @@ import { Root } from "react-dom/client";
 import TldrawPlugin from "src/main";
 import { MARKDOWN_ICON_NAME, VIEW_TYPE_MARKDOWN } from "src/utils/constants";
 import wrapReactRoot from "src/utils/wrap-react-root";
-import { TLDataDocument } from "src/utils/document";
-import { createRootAndRenderTldrawApp, TldrawAppProps } from "src/components/TldrawApp";
-import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
-import { ObsidianTLAssetStore } from "src/tldraw/asset-store";
+import { createRootAndRenderTldrawApp, TldrawAppProps, TldrawAppStoreProps } from "src/components/TldrawApp";
+import TldrawAssetsModal from "./modal/TldrawAssetsModal";
 
 /**
  * Implements overrides for {@linkcode FileView.onload} and {@linkcode FileView.onunload}
@@ -23,9 +21,7 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
     abstract class _TldrawLoadableMixin extends Base {
         abstract plugin: TldrawPlugin;
         abstract reactRoot?: Root;
-
-        protected abstract setFileData: SetTldrawFileData;
-        protected storeAsset?: (id: string, tFile: TFile) => Promise<void>;
+        private onUnloadCallbacks: (() => void)[] = [];
 
         protected get tldrawContainer() { return this.containerEl.children[1]; }
 
@@ -47,48 +43,65 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
             this.reactRoot?.unmount();
         }
 
+        override onUnloadFile(file: TFile): Promise<void> {
+            const callbacks = [...this.onUnloadCallbacks];
+            this.onUnloadCallbacks = [];
+            callbacks.forEach((e) => e());
+            return super.onUnloadFile(file);
+        }
+
+        public registerOnUnloadFile(cb: () => void) {
+            this.onUnloadCallbacks.push(cb);
+        }
+
         protected getTldrawOptions(): TldrawAppProps['options'] {
             return {};
         }
 
-        private createReactRoot(entryPoint: Element, tldata: TLDataDocument) {
-            if (!this.file) {
-                throw new Error('There is no file associated with this tldraw view.');
-            }
+        private createReactRoot(entryPoint: Element, store: TldrawAppStoreProps) {
             return createRootAndRenderTldrawApp(
                 entryPoint,
-                tldata,
-                this.setFileData,
                 this.plugin,
                 {
-                    assetStore: new ObsidianTLAssetStore(this.plugin, this.file, {
-                        persistenceKey: tldata.meta.uuid,
-                        storeAsset: this.storeAsset
-                    }),
-                    ...this.getTldrawOptions()
+                    app: this.getTldrawOptions(),
+                    store,
                 }
             );
         }
 
         /**
-         * Set the data to be rendered inside the react root element.
-         * @param tldata 
+         * Set the store props to be used inside the react root element.
+         * @param storeProps 
          * @returns 
          */
-        protected async setTlData(tldata: TLDataDocument, useIframe = false) {
+        protected async setStore(storeProps?: TldrawAppStoreProps, useIframe = false) {
             const tldrawContainer = this.tldrawContainer;
             this.reactRoot?.unmount();
+            if (!storeProps) return;
+            this.addViewAssetsAction(storeProps);
             if (!useIframe) {
-                this.reactRoot = this.createReactRoot(tldrawContainer, tldata);
+                this.reactRoot = this.createReactRoot(tldrawContainer, storeProps);
                 return;
             }
             this.reactRoot = await wrapReactRoot(
-                tldrawContainer, (entryPoint) => this.createReactRoot(entryPoint, tldata)
+                tldrawContainer, (entryPoint) => this.createReactRoot(entryPoint, storeProps)
             );
         }
 
         protected viewAsMarkdownClicked() {
             this.plugin.updateViewMode(VIEW_TYPE_MARKDOWN);
+        }
+
+        private addViewAssetsAction(storeProps: TldrawAppStoreProps) {
+            const viewAssetsAction = this.addAction('library', 'View assets', () => {
+                const assetsModal = new TldrawAssetsModal(this.app, storeProps, this.file)
+                assetsModal.open();
+                this.registerOnUnloadFile(() => assetsModal.close());
+            });
+
+            this.registerOnUnloadFile(() => {
+                viewAssetsAction.remove()
+            });
         }
     }
 

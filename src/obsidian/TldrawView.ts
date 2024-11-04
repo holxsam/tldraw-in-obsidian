@@ -1,20 +1,21 @@
-import { TextFileView, TFile, WorkspaceLeaf } from "obsidian";
+import { debounce, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import { Root } from "react-dom/client";
 import {
-	TLDATA_DELIMITER_END,
-	TLDATA_DELIMITER_START,
 	VIEW_TYPE_TLDRAW,
 	VIEW_TYPE_TLDRAW_FILE,
 } from "../utils/constants";
 import TldrawPlugin from "../main";
-import { replaceBetweenKeywords } from "src/utils/utils";
-import { TLDataDocument, getTLDataTemplate, getTLMetaTemplate } from "src/utils/document";
-import { parseTLDataDocument } from "src/utils/parse";
+import { getTLMetaTemplate, TLDataDocumentStore } from "src/utils/document";
 import { TldrawLoadableMixin } from "./TldrawMixins";
-import { TldrawAppProps } from "src/components/TldrawApp";
 import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
 import { tldrawFileToJson } from "src/utils/tldraw-file/tldraw-file-to-json";
-import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
+import { loadSnapshot, TldrawFile } from "tldraw";
+import { processInitialData } from "src/tldraw/helpers";
+import { createRawTldrawFile } from "src/utils/tldraw-file";
+import { safeSecondsToMs } from "src/utils/utils";
+import { logClass } from "src/utils/logging";
+import { TldrawStoreIndexedDB } from "src/tldraw/indexeddb-store";
+import TldrawStoreExistsIndexedDBModal, { TldrawStoreConflictResolveCanceled, TldrawStoreConflictResolveFileUnloaded } from "./modal/TldrawStoreExistsIndexedDBModal";
 
 export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 	plugin: TldrawPlugin;
@@ -39,76 +40,95 @@ export class TldrawView extends TldrawLoadableMixin(TextFileView) {
 	}
 
 	setViewData(data: string, clear: boolean): void {
+		if (!this.file) {
+			// Bad state
+			return;
+		}
 		// All this initialization is done here because this.data is null in onload() and the constructor().
 		// However, setViewData() gets called by obsidian right after onload() with its data parameter having the file's data (yay)
 		// so we can somewhat safely do initialization stuff in this function.
 		// Its worth nothing that at this point this.data is also available but it does not hurt to use what is given
-		const initialData = this.getTldrawData(data);
-		this.setTlData(initialData);
+		const storeInstance = this.plugin.tlDataDocumentStoreManager.register(this.file,
+			() => data,
+			(data) => {
+				this.data = data;
+			},
+			true
+		);
+
+		this.registerOnUnloadFile(() => storeInstance.unregister());
+
+		this.checkConflictingData(this.file, storeInstance.documentStore).then(
+			(snapshot) => this.loadStore(storeInstance.documentStore, snapshot)
+		).catch((e) => {
+			if (e instanceof TldrawStoreConflictResolveFileUnloaded) {
+				// The FileView was unloaded before the conflict was resolved. Do nothing.
+				return;
+			} else if (e instanceof TldrawStoreConflictResolveCanceled) {
+				// TODO: allow the modal to be recreated and shown.
+				console.warn(e);
+				return;
+			}
+			throw e;
+		});
 	}
 
 	clear(): void { }
 
-	getTldrawData = (rawFileData?: string): TLDataDocument => {
-		rawFileData ??= this.data;
+	/**
+	 * Sets the view to use the {@linkcode documentStore}, and optionally replaces the data with {@linkcode snapshot}.
+	 * @param documentStore Contains the store to load.
+	 * @param snapshot If defined, then it will replace the store data in {@linkcode documentStore}
+	 */
+	loadStore(documentStore: TLDataDocumentStore, snapshot?: Awaited<ReturnType<typeof this.checkConflictingData>>) {
+		if (snapshot) {
+			loadSnapshot(documentStore.store, snapshot);
+		}
+		this.setStore({ plugin: documentStore });
+	}
 
-		return parseTLDataDocument(this.plugin.manifest.version, rawFileData);
-	};
-
-	protected override setFileData: SetTldrawFileData = async (data) => {
-		const tldrawData = getTLDataTemplate(
-			this.plugin.manifest.version,
-			data.tldrawFile,
-			data.meta.uuid
-		);
-
-		// If you do not use `null, "\t"` as arguments for stringify(),
-		// Obsidian will lag when you try to open the file in markdown view.
-		// It may have to do with if you don't format the string,
-		// it'll be a really long line and that lags the markdown view.
-		const stringifiedData = JSON.stringify(tldrawData, null, "\t");
-
-		const result = replaceBetweenKeywords(
-			this.data,
-			TLDATA_DELIMITER_START,
-			TLDATA_DELIMITER_END,
-			stringifiedData
-		);
-
-		// Do this to prevent the data from being reset by Obsidian.
-		this.data = result;
-		// saves the new data to file:
-		if (!this.file) return;
-		await this.app.vault.modify(this.file, result);
-	};
-
-	protected storeAsset = async (id: string, assetFile: TFile): Promise<void> => {
-		const { file } = this;
-		if (!file) return;
-
-		const internalLink = this.plugin.app.fileManager.generateMarkdownLink(assetFile, file.path);
-		const linkBlock = `${internalLink}\n^${id}`;
-
-		// Set to the result of "process" to prevent the data from being reset by Obsidian.
-		this.data = await this.plugin.app.vault.process(file, (data) => {
-			const { start, end } = this.plugin.app.metadataCache.getFileCache(file)?.frontmatterPosition ?? {
-				start: { offset: 0 }, end: { offset: 0 }
-			};
-
-			const frontmatter = data.slice(start.offset, end.offset)
-			const rest = data.slice(end.offset);
-			return `${frontmatter}\n${linkBlock}\n${rest}`;
-		});
+	/**
+	 * Previous version of this plugin utilized a built-in feature of the tldraw package to synchronize drawings across workspace leafs.
+	 * As a result, the tldraw store was persisted in the IndexedDB. Let's check if that is the case for this particular document and
+	 * prompt the user to delete or ignore it.
+	 * 
+	 * @param documentStore 
+	 * @returns A promise that resolves with undefined, or a snapshot that can be used to replace the contents of the store in {@linkcode documentStore}
+	 */
+	private async checkConflictingData(tFile: TFile, documentStore: TLDataDocumentStore) {
+		if(TldrawStoreExistsIndexedDBModal.ignoreIndexedDBStoreModal(this.app.metadataCache, tFile)) {
+			return;
+		}
+		const exists = await TldrawStoreIndexedDB.exists(documentStore.meta.uuid);
+		if (!exists) {
+			return;
+		}
+		return TldrawStoreExistsIndexedDBModal.showResolverModal(this, tFile, documentStore);
 	}
 }
 
+/**
+ * This view displays `.tldr` files.
+ */
+export class TldrawFileView extends TldrawLoadableMixin(TextFileView) {
+	plugin: TldrawPlugin;
+	reactRoot?: Root | undefined;
 
-export class TldrawFileView extends TldrawView {
+	constructor(leaf: WorkspaceLeaf, plugin: TldrawPlugin) {
+		super(leaf);
+		this.plugin = plugin;
+		this.navigation = true;
+	}
+
 	private static isTldrFile(tFile: TFile | null): tFile is TFile & {
 		extension: 'tldr'
 	} {
 		return tFile !== null && tFile.extension === 'tldr';
 	}
+
+	getViewData(): string { return this.data; }
+
+	clear(): void { }
 
 	override getViewType() {
 		return VIEW_TYPE_TLDRAW_FILE;
@@ -129,7 +149,7 @@ export class TldrawFileView extends TldrawView {
 	}
 
 	override setViewData(data: string, clear: boolean): void {
-		this.setTlData({
+		const documentStore = processInitialData({
 			meta: getTLMetaTemplate(this.plugin.manifest.version),
 			...(
 				data.length === 0
@@ -137,21 +157,29 @@ export class TldrawFileView extends TldrawView {
 					: { store: migrateTldrawFileDataIfNecessary(data) }
 			)
 		});
+
+		this.registerOnUnloadFile(() => documentStore.store.dispose());
+
+		const removeListener = documentStore.store.listen(debounce(
+			async () => {
+				if (!TldrawFileView.isTldrFile(this.file)) {
+					// This listener is no longer valid
+					removeListener();
+					return;
+				}
+				this.setFileData(createRawTldrawFile(documentStore.store))
+			},
+			safeSecondsToMs(this.plugin.settings.saveFileDelay),
+			true
+		), { scope: 'document' })
+
+		this.setStore({ tldraw: { store: documentStore.store } });
 	}
 
-	protected override getTldrawOptions(): TldrawAppProps["options"] {
-		return {
-			...super.getTldrawOptions(),
-			persistenceKey: this.file?.path,
-			// Since TldrawFileView is only meant to be used with .tldr files we disable the Obsidian based asset store.
-			assetStore: undefined,
-		}
-	}
-
-	protected override setFileData: SetTldrawFileData = async (data) => {
-		if (!TldrawFileView.isTldrFile(this.file)) return;
-		await this.app.vault.modify(this.file, JSON.stringify(
-			tldrawFileToJson(data.tldrawFile))
-		);
+	protected setFileData = async (tldrawFile: TldrawFile) => {
+		const data = JSON.stringify(tldrawFileToJson(tldrawFile));
+		logClass(TldrawFileView, this.setFileData, 'setFileData');
+		this.data = data;
+		await this.save();
 	}
 }

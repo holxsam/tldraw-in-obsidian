@@ -1,4 +1,4 @@
-import { TLDataDocument } from "src/utils/document";
+import { TldrawAppStoreProps } from "src/components/TldrawApp";
 import { BoxLike, TldrawImageProps } from "tldraw";
 
 export type ViewMode = 'image' | 'interactive';
@@ -10,7 +10,7 @@ export type OnChangeHandlers = {
     onImageBounds: (bounds?: BoxLike) => void;
     onImageSize: (size?: { width: number, height: number }) => void;
     onViewOptions: (options: ImageViewModeOptions) => void;
-    onFileModified: (newInitialData: TLDataDocument) => void
+    onStoreProps: (storeProps: TldrawAppStoreProps) => void
 };
 
 /**
@@ -33,7 +33,7 @@ export type TldrawAppViewModeController = {
     getViewMode: () => ViewMode;
     getViewOptions: () => ImageViewModeOptions;
     onClickAway: () => void;
-    setUpdatedData: (tlDataDocument: TLDataDocument) => void;
+    setStoreProps: (storeProps: TldrawAppStoreProps) => void;
     setShowBackground: (showBg: boolean) => void;
     setViewMode: (viewMode: ViewMode) => void;
     setImageBounds: (bounds?: BoxLike) => void;

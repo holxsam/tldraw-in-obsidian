@@ -3,14 +3,10 @@ import { Root } from "react-dom/client";
 import { TldrawAppProps } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import { PaneTarget, TLDRAW_ICON_NAME, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRAW_FILE, VIEW_TYPE_TLDRAW_READ_ONLY, ViewType } from "src/utils/constants";
-import { parseTLDataDocument } from "src/utils/parse";
 import { TldrawLoadableMixin } from "./TldrawMixins";
-import { logClass } from "src/utils/logging";
 import { TLDRAW_FILE_EXTENSION } from "tldraw";
-import { getTLMetaTemplate } from "src/utils/document";
 import { migrateTldrawFileDataIfNecessary } from "src/utils/migrate/tl-data-to-tlstore";
 import { pluginMenuLabel } from "./menu";
-import { SetTldrawFileData } from "src/hooks/useTldrawAppHook";
 
 export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     plugin: TldrawPlugin;
@@ -45,12 +41,16 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     async onLoadFile(file: TFile): Promise<void> {
         const fileData = await this.app.vault.read(file);
         if (!file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
-            const parsedData = parseTLDataDocument(this.plugin.manifest.version, fileData);
-            await this.setTlData(parsedData);
+            const storeInstance = this.plugin.tlDataDocumentStoreManager.register(file, () => fileData, () => { }, false);
+            this.registerOnUnloadFile(() => storeInstance.unregister());
+            await this.setStore({
+                plugin: storeInstance.documentStore
+            });
         } else {
-            await this.setTlData({
-                meta: getTLMetaTemplate(this.plugin.manifest.version),
-                store: migrateTldrawFileDataIfNecessary(fileData)
+            await this.setStore({
+                tldraw: {
+                    store: migrateTldrawFileDataIfNecessary(fileData)
+                }
             })
         }
     }
@@ -73,10 +73,6 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
             )
     }
 
-    protected override setFileData: SetTldrawFileData = () => {
-        logClass(TldrawReadonly, this.setFileData, 'Ignore saving file due to read only mode.');
-    }
-
     protected override getTldrawOptions(): TldrawAppProps['options'] {
         return {
             ...super.getTldrawOptions(),
@@ -87,15 +83,17 @@ export class TldrawReadonly extends TldrawLoadableMixin(FileView) {
     protected override viewAsMarkdownClicked(): void {
         const { file } = this;
         if (file !== null && file.path.endsWith(TLDRAW_FILE_EXTENSION)) {
-            this.create(file, 'new-tab', 'markdown');
+            this.createAndOpen(file, 'new-tab', 'markdown');
             return;
+        } else {
+            super.viewAsMarkdownClicked()
         }
-        super.viewAsMarkdownClicked()
     }
 
-    private async create(tFile: TFile, location: PaneTarget, viewType: ViewType) {
+    private async createAndOpen(tFile: TFile, location: PaneTarget, viewType: ViewType) {
         // TODO: Add a dialog to confirm the creation of a file.
         const newFile = await this.plugin.createUntitledTldrFile({
+            inMarkdown: true,
             tlStore:
                 // NOTE: Maybe this should be retreiving the current tlStore from the tldraw editor instead of re-reading the file.
                 migrateTldrawFileDataIfNecessary(

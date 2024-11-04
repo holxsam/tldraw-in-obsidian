@@ -2,48 +2,43 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import {
 	Box,
-	createTLStore,
 	DefaultMainMenu,
 	DefaultMainMenuContent,
-	defaultShapeUtils,
 	Editor,
 	TLAssetStore,
 	TLComponents,
 	Tldraw,
-	TldrawFile,
+	TldrawEditorStoreProps,
 	TldrawImage,
 	TldrawUiMenuItem,
 	TldrawUiMenuSubmenu,
-	TLStore,
+	TLStoreSnapshot,
 	useActions,
 } from "tldraw";
 import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION } from "src/utils/file";
 import { uiOverrides } from "src/tldraw/ui-overrides";
-import { TLDataDocument, TldrawPluginMetaData } from "src/utils/document";
 import TldrawPlugin from "src/main";
 import { Platform } from "obsidian";
 import { TldrawAppViewModeController } from "src/obsidian/helpers/TldrawAppEmbedViewController";
-import { SetTldrawFileData, useTldrawAppEffects } from "src/hooks/useTldrawAppHook";
+import { useTldrawAppEffects } from "src/hooks/useTldrawAppHook";
 import { useViewModeState } from "src/hooks/useViewModeController";
 import { useClickAwayListener } from "src/hooks/useClickAwayListener";
 import { nextTick } from "process";
+import { TLDataDocumentStore } from "src/utils/document";
+import useSnapshotFromStoreProps from "src/hooks/useSnapshotFromStoreProps";
 
 type TldrawAppOptions = {
 	controller?: TldrawAppViewModeController;
 	isReadonly?: boolean,
 	autoFocus?: boolean,
 	assetStore?: TLAssetStore,
-	inputFocus?: boolean,
+	focusOnMount?: boolean,
 	initialImageSize?: { width: number, height: number },
 	/**
 	 * Takes precedence over the user's plugin preference
 	 */
 	initialTool?: string,
 	hideUi?: boolean,
-	/**
-	 * If this value is undefined, then the UUID in {@linkcode TLDataDocument.meta} of {@linkcode TldrawAppProps.initialData} will be used.
-	 */
-	persistenceKey?: string,
 	/**
 	 * Whether to call `.selectNone` on the Tldraw editor instance when it is mounted.
 	 */
@@ -54,18 +49,37 @@ type TldrawAppOptions = {
 	 * If {@linkcode TldrawAppOptions.initialBounds} is not provided, then the page bounds are used.
 	 */
 	zoomToBounds?: boolean,
+	/**
+	 * 
+	 * @param snapshot The snapshot that is initially loaded into the editor.
+	 * @returns 
+	 */
+	onInitialSnapshot?: (snapshot: TLStoreSnapshot) => void
+};
+
+/**
+ * Whether to use native tldraw store props or the plugin based store props.
+ */
+export type TldrawAppStoreProps = {
+	plugin?: undefined,
+	/**
+	 * Use the native tldraw store props.
+	 */
+	tldraw: TldrawEditorStoreProps,
+} | {
+	/**
+	 * Use the plugin based store props.
+	 */
+	plugin: TLDataDocumentStore,
+	tldraw?: undefined,
 };
 
 export type TldrawAppProps = {
 	plugin: TldrawPlugin;
 	/**
-	 * The data that is initially loaded onto the {@link Tldraw} or {@link TldrawImage} image component.
+	 * If this value is undefined, then the tldraw document will not be persisted.
 	 */
-	initialData: {
-		meta: TldrawPluginMetaData,
-		initialSnapshot: ReturnType<TLStore['getStoreSnapshot']>,
-	};
-	setFileData: (tldrawFile: TldrawFile) => void;
+	store?: TldrawAppStoreProps,
 	options: TldrawAppOptions;
 };
 
@@ -95,16 +109,21 @@ function LocalFileMenu(props: { plugin: TldrawPlugin }) {
 	);
 }
 
-const TldrawApp = ({ plugin, initialData, setFileData, options: {
+function getEditorStoreProps(storeProps: TldrawAppStoreProps) {
+	return storeProps.tldraw ? storeProps.tldraw : {
+		store: storeProps.plugin.store
+	}
+}
+
+const TldrawApp = ({ plugin, store, options: {
 	assetStore,
-	autoFocus = true,
 	controller,
+	focusOnMount = true,
 	hideUi = false,
 	initialImageSize,
 	initialTool,
-	inputFocus = false,
 	isReadonly = false,
-	persistenceKey,
+	onInitialSnapshot,
 	selectNone = false,
 	zoomToBounds = false,
 } }: TldrawAppProps) => {
@@ -114,13 +133,21 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	})
 	const overridesUi = React.useRef(uiOverrides(plugin))
 	const overridesUiComponents = React.useRef(components(plugin))
+	const [storeProps, setStoreProps] = React.useState(
+		!store ? undefined : getEditorStoreProps(store)
+	);
+	const storeSnapshot = useSnapshotFromStoreProps(storeProps);
 
-	const [editor, setEditor] = React.useState<Editor>()
-	const [storeSnapshot, setSnapshot] = React.useState(initialData.initialSnapshot);
+	const [editor, setEditor] = React.useState<Editor>();
 
+	const [_onInitialSnapshot, setOnInitialSnapshot] = React.useState<typeof onInitialSnapshot>(() => onInitialSnapshot);
 	const setAppState = React.useCallback((editor: Editor) => {
 		setEditor(editor);
-	}, [])
+		if (_onInitialSnapshot) {
+			_onInitialSnapshot(editor.store.getStoreSnapshot());
+			setOnInitialSnapshot(undefined);
+		}
+	}, [_onInitialSnapshot])
 
 	const { displayImage, imageSize, viewOptions: {
 		bounds, ...viewOptionsOther
@@ -129,40 +156,24 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 		initialImageSize,
 		onViewModeChanged(mode) {
 			if (mode !== 'image') return;
-			// We only want to update the snapshot if we are changing over to image mode.
-
-			const { store } = editor ?? {};
-			if (store) {
-				setSnapshot(store.getStoreSnapshot());
-			}
-
-			// We do this, otherwise the view will start bugging out. Do not remove.
 			setEditor(undefined);
 		},
-		onFileModified(newInitialData) {
-			if (!displayImage) {
-				console.log('New document data ignored when in interactive mode');
-				// We are in the the Tldraw editor, i.e. "interactive" mode
-				// The editor view is already kept in-sync when it is using the "persistenceKey" attribute in the Tldraw component,
-				// therefore we do not need to update the snapshot in this case.
-				return;
-			}
-			const newUUID = newInitialData.meta.uuid;
-			const originalUUID = initialData.meta.uuid;
-			if (newUUID !== originalUUID) {
-				throw new Error(`Tldraw document UUID does not match the original: new - ${newUUID}, original - ${originalUUID}`);
-			}
-			setSnapshot(processInitialData(newInitialData).snapshot);
+		onStoreProps(storeProps) {
+			setStoreProps(getEditorStoreProps(storeProps));
 		},
 	});
 
 	const [isFocused, setIsFocused] = React.useState(false);
 
-	const setFocusedEditor = (editor?: Editor) => {
+	const setFocusedEditor = (isMounting: boolean, editor?: Editor) => {
 		const { currTldrawEditor } = plugin;
 		if (currTldrawEditor !== editor) {
 			if (currTldrawEditor) {
 				currTldrawEditor.blur();
+			}
+			if(isMounting && !focusOnMount) {
+				plugin.currTldrawEditor = undefined;
+				return;
 			}
 			if (editor) {
 				editor.focus()
@@ -174,8 +185,9 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 
 	useTldrawAppEffects({
 		bounds, editor, initialTool, isReadonly,
-		setFileData, setFocusedEditor, selectNone, zoomToBounds,
+		selectNone, zoomToBounds,
 		settingsProvider: plugin.settingsProvider,
+		setFocusedEditor: (editor) => setFocusedEditor(true, editor),
 	});
 
 	const editorContainerRef = useClickAwayListener<HTMLDivElement>({
@@ -204,19 +216,25 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 					width: '100%',
 					height: '100%'
 				}}>
-					<div className="ptl-tldraw-image" style={{
-						width: imageSize?.width || undefined,
-						height: imageSize?.height || undefined
-					}}>
-						<TldrawImage
-							snapshot={storeSnapshot}
-							padding={0}
-							assets={assetStore}
-							assetUrls={assetUrls.current}
-							bounds={bounds === undefined ? undefined : Box.From(bounds)}
-							{...viewOptionsOther}
-						/>
-					</div>
+					{
+						!storeSnapshot ? (
+							<>No tldraw data to display</>
+						) : (
+							<div className="ptl-tldraw-image" style={{
+								width: imageSize?.width || undefined,
+								height: imageSize?.height || undefined
+							}}>
+								<TldrawImage
+									snapshot={storeSnapshot}
+									padding={0}
+									assets={assetStore}
+									assetUrls={assetUrls.current}
+									bounds={bounds === undefined ? undefined : Box.From(bounds)}
+									{...viewOptionsOther}
+								/>
+							</div>
+						)
+					}
 				</div>
 			) : (
 				<div
@@ -228,7 +246,7 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 					onTouchStart={(e) => e.stopPropagation()}
 					ref={editorContainerRef}
 					onFocus={(e) => {
-						setFocusedEditor(editor);
+						setFocusedEditor(false, editor);
 					}}
 					style={{
 						width: '100%',
@@ -236,13 +254,11 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 					}}
 				>
 					<Tldraw
-						persistenceKey={persistenceKey ?? initialData.meta.uuid}
-						snapshot={storeSnapshot}
+						{...storeProps}
 						assetUrls={assetUrls.current}
 						hideUi={hideUi}
 						overrides={overridesUi.current}
 						components={overridesUiComponents.current}
-						assets={assetStore}
 						// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
 						autoFocus={false}
 						onMount={setAppState}
@@ -253,52 +269,20 @@ const TldrawApp = ({ plugin, initialData, setFileData, options: {
 	);
 };
 
-function processInitialData(initialData: TLDataDocument) {
-	const { meta, store }: {
-		meta: TldrawPluginMetaData,
-		store: TLStore,
-	} = (() => {
-		if (initialData.store) {
-			return initialData;
-		}
-
-		return {
-			meta: initialData.meta,
-			store: createTLStore({
-				shapeUtils: defaultShapeUtils,
-				initialData: initialData.raw,
-			})
-		}
-	})();
-
-	return {
-		meta,
-		snapshot: store.getStoreSnapshot()
-	};
-}
-
 export const createRootAndRenderTldrawApp = (
 	node: Element,
-	initialData: TLDataDocument,
-	setFileData: SetTldrawFileData,
 	plugin: TldrawPlugin,
-	options: TldrawAppOptions = {}
+	options: {
+		app?: TldrawAppOptions,
+		store?: TldrawAppStoreProps,
+	} = {}
 ) => {
-	const { meta, snapshot } = processInitialData(initialData);
 	const root = createRoot(node);
-
 	root.render(
 		<TldrawApp
-			setFileData={(tldrawFile) => setFileData({
-				meta,
-				tldrawFile
-			})}
-			initialData={{
-				meta,
-				initialSnapshot: snapshot
-			}}
 			plugin={plugin}
-			options={options}
+			store={options.store}
+			options={options.app ?? {}}
 		/>
 	);
 

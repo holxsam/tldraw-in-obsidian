@@ -4,11 +4,10 @@ import TldrawPlugin from "src/main";
 import { TldrawAppViewModeController } from "../helpers/TldrawAppEmbedViewController";
 import { CustomMutationObserver } from "src/utils/debug-mutation-observer";
 import { ConsoleLogParams, LOGGING_ENABLED, logFn } from "src/utils/logging";
-import { parseTLDataDocument } from "src/utils/parse";
 import { createTldrawAppViewModeController } from "../factories/createTldrawAppViewModeController";
 import { Root } from "react-dom/client";
 import { showEmbedContextMenu } from "../helpers/show-embed-context-menu";
-import { ObsidianTLAssetStore } from "src/tldraw/asset-store";
+import { TLDataDocumentStore } from "src/utils/document";
 
 /**
  * Processes the embed view for a tldraw white when including it in another obsidian note.
@@ -147,17 +146,16 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
     //timer to avoid the image flickering when the user is typing
     let timer: NodeJS.Timeout | null = null;
 
-    const parseData = async () => {
-        const fileData = await plugin.app.vault.read(file);
-        return parseTLDataDocument(plugin.manifest.version, fileData);
-    }
+    let storeInstance: undefined | ReturnType<typeof plugin.tlDataDocumentStoreManager['register']>;
 
     const fileListener = plugin.tldrawFileListeners.addListener(file, async () => {
         if (!parent.isConnected) {
             fileListener.remove();
             return;
         }
-        controller.setUpdatedData(await parseData())
+        if (storeInstance) {
+            controller.setStoreProps({ plugin: storeInstance.documentStore });
+        }
     }, { immediatelyPause: true });
 
     const activateReactRoot = async () => {
@@ -166,13 +164,13 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
         }
         try {
             fileListener.isPaused = true;
-            const parsedData = await parseData();
+            storeInstance ??= await (async () => {
+                const fileData = await plugin.app.vault.read(file);
+                return plugin.tlDataDocumentStoreManager.register(file, () => fileData, () => { }, false);
+            })();
+
             reactRoot = await createReactTldrawAppRoot({
-                assetStore: new ObsidianTLAssetStore(plugin, file, {
-                    persistenceKey: parsedData.meta.uuid,
-                    storeAsset: undefined,
-                }),
-                controller, parsedData, plugin, tldrawEmbedViewContent, embedValues
+                controller, documentStore: storeInstance.documentStore, plugin, tldrawEmbedViewContent, embedValues,
             })
             fileListener.isPaused = false;
             // log(`React root loaded.`);
@@ -234,6 +232,8 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
     new CustomMutationObserver(function (m) {
         if (parent.isConnected) return;
         fileListener.remove();
+        storeInstance?.unregister();
+        storeInstance = undefined;
     }, 'markdownTldrawFileListener').observe(parent, { childList: true })
 
     await activateReactRoot();
@@ -249,9 +249,11 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
 }) {
     const tldrawEmbedView = internalEmbedDiv.createDiv({ cls: 'ptl-markdown-embed' },)
 
-    const tldrawEmbedViewContent = tldrawEmbedView.createDiv({ cls: 'ptl-view-content', attr: {
-        'data-showBgDots': showBgDots
-    } })
+    const tldrawEmbedViewContent = tldrawEmbedView.createDiv({
+        cls: 'ptl-view-content', attr: {
+            'data-showBgDots': showBgDots
+        }
+    })
 
     // Prevent the Obsidian editor from selecting the embed link with the editing cursor when a user interacts with the view.
     tldrawEmbedView.addEventListener('click', (ev) => {
@@ -356,10 +358,9 @@ function parseEmbedValues(el: HTMLElement, {
 type EmbedValues = ReturnType<typeof parseEmbedValues>;
 
 async function createReactTldrawAppRoot({
-    assetStore, controller, parsedData, plugin, tldrawEmbedViewContent, embedValues
+    controller, documentStore, plugin, tldrawEmbedViewContent, embedValues,
 }: {
-    assetStore: ObsidianTLAssetStore,
-    parsedData: ReturnType<typeof parseTLDataDocument>,
+    documentStore: TLDataDocumentStore,
     plugin: TldrawPlugin,
     tldrawEmbedViewContent: HTMLElement,
     controller: TldrawAppViewModeController,
@@ -367,20 +368,18 @@ async function createReactTldrawAppRoot({
 }) {
     const { imageSize } = embedValues;
     return createRootAndRenderTldrawApp(tldrawEmbedViewContent,
-        parsedData,
-        (_) => {
-            console.log('Ignore saving file due to read only mode.');
-        },
         plugin,
         {
-            assetStore,
-            isReadonly: true,
-            controller,
-            inputFocus: true,
-            selectNone: true,
-            initialTool: 'hand',
-            initialImageSize: imageSize,
-            zoomToBounds: true,
+            store: { plugin: documentStore },
+            app: {
+                assetStore: documentStore.store.props.assets,
+                isReadonly: true,
+                controller,
+                selectNone: true,
+                initialTool: 'hand',
+                initialImageSize: imageSize,
+                zoomToBounds: true,
+            },
         }
     );
 }

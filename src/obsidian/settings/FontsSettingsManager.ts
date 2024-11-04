@@ -28,7 +28,7 @@ export default class FontsSettingsManager {
     getDownloadConfig(font: FontTypes): DownloadInfo {
         return {
             url: FontsSettingsManager.getFontUrl(font),
-            destination: `${this.plugin.settings.assetsFolder}/fonts/${defaultFonts[font]}`,
+            destination: `${this.plugin.settings.fileDestinations.assetsFolder}/fonts/${defaultFonts[font]}`,
         };
     }
 

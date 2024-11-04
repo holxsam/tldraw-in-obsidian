@@ -36,8 +36,8 @@ export function createTldrawAppViewModeController({
             this.viewOptions.background = showBg;
             this.onChangeHandlers?.onViewOptions(this.viewOptions);
         },
-        setUpdatedData(tlDataDocument) {
-            this.onChangeHandlers?.onFileModified(tlDataDocument);
+        setStoreProps(storeProps) {
+            this.onChangeHandlers?.onStoreProps(storeProps);
         },
         setViewMode(viewMode) {
             this.viewMode = viewMode;
