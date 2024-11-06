@@ -79,7 +79,10 @@ export default class TldrawStoresManager<MainData, InstanceData> {
                     syncToStore(main.store, entry);
                     for (const _instance of _storeGroup.instances) {
                         if (_instance.source.instanceId == instanceId) continue;
-                        syncToStore(_instance.store, entry);
+                        // We want to sync this entry as a remote change so that it doesn't trigger the store listener of this instance.
+                        _instance.store.mergeRemoteChanges(() => {
+                            syncToStore(_instance.store, entry);
+                        });
                     }
                 },
             }
@@ -131,8 +134,12 @@ function createSourceStore<Group extends StoreGroup>(storeGroup: Group, instance
     // NOTE: We want to preserve the assets object that is attached to props, otherwise the context will be lost if provided as a param in createTLStore
     store.props.assets = storeGroup.main.store.props.assets;
 
-    if(syncToMain) {
-        store.listen((entry) => storeGroup.apply(instanceId, entry), { scope: 'document' });
+    if (syncToMain) {
+        store.listen((entry) => storeGroup.apply(instanceId, entry), {
+            scope: 'document',
+            // Only listen to changes made by the user
+            source: 'user' ,
+        });
     }
 
     return store;
