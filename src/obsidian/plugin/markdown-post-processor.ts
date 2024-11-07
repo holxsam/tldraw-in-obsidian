@@ -148,32 +148,35 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
 
     let storeInstance: undefined | ReturnType<typeof plugin.tlDataDocumentStoreManager['register']>;
 
-    const fileListener = plugin.tldrawFileListeners.addListener(file, async () => {
-        if (!parent.isConnected) {
-            fileListener.remove();
-            return;
-        }
-        if (storeInstance) {
-            controller.setStoreProps({ plugin: storeInstance.documentStore });
-        }
-    }, { immediatelyPause: true });
+    const dataUpdated = (_storeInstance: NonNullable<typeof storeInstance>) => {
+        controller.setStoreProps({ plugin: _storeInstance.documentStore });
+        tldrawEmbedViewContent.setAttr('data-has-shape',
+            _storeInstance.documentStore.store.query.record('shape').get() !== undefined
+        );
+    };
+
+    let pauseListener = true;
 
     const activateReactRoot = async () => {
         if (timer) {
             clearTimeout(timer);
         }
         try {
-            fileListener.isPaused = true;
+            pauseListener = true;
             storeInstance ??= await (async () => {
                 const fileData = await plugin.app.vault.read(file);
-                return plugin.tlDataDocumentStoreManager.register(file, () => fileData, () => { }, false);
+                return plugin.tlDataDocumentStoreManager.register(file, () => fileData, () => {
+                    if (pauseListener) return;
+                    if (storeInstance) dataUpdated(storeInstance);
+                }, false);
             })();
+
+            dataUpdated(storeInstance);
 
             reactRoot = await createReactTldrawAppRoot({
                 controller, documentStore: storeInstance.documentStore, plugin, tldrawEmbedViewContent, embedValues,
             })
-            fileListener.isPaused = false;
-            // log(`React root loaded.`);
+            pauseListener = false;
         } catch (e) {
             console.error('There was an error while mounting the tldraw app: ', e);
         }
@@ -216,7 +219,7 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
     const observerParent = new CustomMutationObserver(function markdownParentObserverFn(m) {
         // log(`${markdownParentObserverFn.name} watching`, m, parent);
         if (!parent.contains(internalEmbedDiv)) {
-            fileListener.isPaused = true;
+            pauseListener = true;
             // log(`${markdownParentObserverFn.name}: Unmounting react root`);
             reactRoot?.unmount();
             reactRoot = undefined;
@@ -231,7 +234,6 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
 
     new CustomMutationObserver(function (m) {
         if (parent.isConnected) return;
-        fileListener.remove();
         storeInstance?.unregister();
         storeInstance = undefined;
     }, 'markdownTldrawFileListener').observe(parent, { childList: true })
@@ -262,6 +264,14 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
         }
     })
 
+    tldrawEmbedView.addEventListener('dblclick', (ev) => {
+        if (controller.getViewMode() === 'image') {
+            console.log('double click')
+            plugin.openTldrFile(file, 'new-tab', 'tldraw-view');
+            ev.stopPropagation();
+        }
+    })
+
     tldrawEmbedViewContent.addEventListener('contextmenu', (ev) => {
         if (ev.button === 2) {
             showEmbedContextMenu(ev, {
@@ -278,7 +288,7 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
         let longPressTimer: NodeJS.Timer | undefined;
         tldrawEmbedViewContent.addEventListener('touchstart', (ev) => {
             clearTimeout(longPressTimer)
-            longPressTimer = setTimeout(() => showEmbedContextMenu(undefined, {
+            longPressTimer = setTimeout(() => showEmbedContextMenu(ev, {
                 plugin, controller, focusContainer: tldrawEmbedView,
                 tFile: file
             }), 500)
@@ -286,11 +296,11 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
 
         tldrawEmbedViewContent.addEventListener('touchmove', (ev) => {
             clearTimeout(longPressTimer)
-        });
+        }, { passive: true });
 
         tldrawEmbedViewContent.addEventListener('touchend', (ev) => {
-            clearTimeout(longPressTimer)
-        });
+            clearTimeout(longPressTimer);
+        }, { passive: true });
     }
 
     return {

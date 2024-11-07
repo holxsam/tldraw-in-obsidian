@@ -3,7 +3,7 @@ import { createEmbedMenu } from "../menu/create-embed-menu";
 import { TldrawAppViewModeController } from "./TldrawAppEmbedViewController";
 import { TFile } from "obsidian";
 
-export function showEmbedContextMenu(ev: MouseEvent | undefined, {
+export function showEmbedContextMenu(ev: MouseEvent | TouchEvent, {
     tFile, plugin, controller, focusContainer,
 }: {
     tFile: TFile,
@@ -22,7 +22,10 @@ export function showEmbedContextMenu(ev: MouseEvent | undefined, {
                 clientY: ev.clientY
             }))
         }
-    }).showAtMouseEvent(ev ??
+    }).showAtMouseEvent(ev instanceof MouseEvent ? ev :
         // simulate click when it ev is undefined, e.g. MouseEvent not given because it was a touch event.
-        new MouseEvent('click'));
+        new MouseEvent('click', {
+            clientX: ev.touches.item(0)?.clientX,
+            clientY: ev.touches.item(0)?.clientY,
+        }));
 }
