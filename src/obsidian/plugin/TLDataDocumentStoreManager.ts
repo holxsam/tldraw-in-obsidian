@@ -44,7 +44,6 @@ export default class TLDataDocumentStoreManager {
     } {
         const instanceInfo: InstanceInfo = {
             instanceId: window.crypto.randomUUID(),
-            sharedId: tFile.path,
             syncToMain,
             data: {
                 tFile,
@@ -53,7 +52,10 @@ export default class TLDataDocumentStoreManager {
         };
 
         const storeContext = this.storesManager.registerInstance(instanceInfo,
-            () => this.createMain(instanceInfo, getData)
+            {
+                createMain: () => this.createMain(instanceInfo, getData),
+                getSharedId: () => tFile.path,
+            }
         );
 
         instanceInfo.data.onUpdatedData(storeContext.storeGroup.main.data.fileData);
@@ -77,6 +79,8 @@ export default class TLDataDocumentStoreManager {
         const documentStore = processInitialData(parseTLDataDocument(this.plugin.manifest.version, fileData));
         const debouncedSave = this.createDebouncedSaveStoreListener(documentStore);
         let onExternalModificationsRef: undefined | EventRef;
+        let onFileRenamedRef: undefined | EventRef;
+        let onFileDeletedRef: undefined | EventRef;
         let onQuickPreviewRef: undefined | EventRef;
         let assetStore: undefined | ObsidianTLAssetStore;
         return {
@@ -91,6 +95,16 @@ export default class TLDataDocumentStoreManager {
                     if (!(file instanceof TFile) || file.path !== storeGroup.main.data.tFile.path) return;
                     const data = await vault.cachedRead(file);
                     this.onExternalModification(workspace, storeGroup, data);
+                });
+
+                onFileRenamedRef = vault.on('rename', async (file, oldPath) => {
+                    if (!(file instanceof TFile) || file.path !== storeGroup.main.data.tFile.path) return;
+                    this.storesManager.refreshSharedId(oldPath);
+                });
+
+                onFileDeletedRef = vault.on('delete', async (file) => {
+                    if (!(file instanceof TFile) || file.path !== storeGroup.main.data.tFile.path) return;
+                    storeGroup.unregister();
                 });
 
                 onQuickPreviewRef = workspace.on('quick-preview', (file, data) => {
@@ -111,6 +125,12 @@ export default class TLDataDocumentStoreManager {
                 assetStore?.dispose();
                 if (onExternalModificationsRef) {
                     vault.offref(onExternalModificationsRef);
+                }
+                if (onFileRenamedRef) {
+                    vault.offref(onFileRenamedRef);
+                }
+                if (onFileDeletedRef) {
+                    vault.offref(onFileDeletedRef);
                 }
                 if (onQuickPreviewRef) {
                     workspace.offref(onQuickPreviewRef);

@@ -2,7 +2,6 @@ import { createTLStore, HistoryEntry, TLRecord, TLStore } from "tldraw";
 
 export type StoreInstanceInfo<T> = {
     instanceId: string,
-    sharedId: string,
     syncToMain: boolean,
     data: T,
 };
@@ -29,6 +28,8 @@ export type StoreGroup<MainData = unknown, InstanceData = unknown> = {
      * @returns 
      */
     apply: (instanceId: string, entry: HistoryEntry<TLRecord>) => void,
+    getSharedId: () => string,
+    unregister: () => void,
 };
 
 export type StoreListenerContext<MainData, InstanceData> = {
@@ -67,13 +68,18 @@ export default class TldrawStoresManager<MainData, InstanceData> {
      * @param info
      * @returns An object containing a new {@linkcode TLStore} instance.
      */
-    registerInstance(info: StoreInstanceInfo<InstanceData>, createMain: () => MainStore<MainData, InstanceData>): StoreContext<MainData, InstanceData> {
-        let storeGroup = this.storeGroupMap.get(info.sharedId);
+    registerInstance(info: StoreInstanceInfo<InstanceData>, { createMain, getSharedId }: {
+        createMain: () => MainStore<MainData, InstanceData>,
+        getSharedId: () => string,
+    }): StoreContext<MainData, InstanceData> {
+        const initialSharedId = getSharedId();
+        let storeGroup = this.storeGroupMap.get(initialSharedId);
         if (!storeGroup) {
             const main = createMain();
             const _storeGroup: StoreGroup<MainData, InstanceData> = {
                 main,
                 instances: [],
+                getSharedId,
                 apply: (instanceId, entry) => {
                     // TODO: Find a way to debounce the synchronziation of entry to the other stores.
                     syncToStore(main.store, entry);
@@ -85,9 +91,15 @@ export default class TldrawStoresManager<MainData, InstanceData> {
                         });
                     }
                 },
+                unregister: () => {
+                    const instances = [..._storeGroup.instances];
+                    for (const instance of instances) {
+                        instance.unregister();
+                    }
+                }
             }
+            this.storeGroupMap.set(initialSharedId, storeGroup = _storeGroup);
             main.init(_storeGroup);
-            this.storeGroupMap.set(info.sharedId, storeGroup = _storeGroup);
             this.listenDocumentStore(_storeGroup);
         }
 
@@ -99,7 +111,8 @@ export default class TldrawStoresManager<MainData, InstanceData> {
                 storeGroup.instances.remove(instance);
                 instance.store.dispose();
                 if (storeGroup.instances.length === 0) {
-                    this.storeGroupMap.delete(info.sharedId);
+                    // NOTE: We call .getSharedId() here in case the sharedId was changed.
+                    this.storeGroupMap.delete(storeGroup.getSharedId());
                     storeGroup.main.store.dispose();
                     storeGroup.main.dispose();
                 }
@@ -107,6 +120,15 @@ export default class TldrawStoresManager<MainData, InstanceData> {
         };
         storeGroup.instances.push(instance);
         return { instance, storeGroup };
+    }
+
+    refreshSharedId(oldSharedId: string) {
+        const storeGroup = this.storeGroupMap.get(oldSharedId);
+        if (!storeGroup) return;
+        const newSharedId = storeGroup.getSharedId();
+        if(oldSharedId === newSharedId) return;
+        this.storeGroupMap.delete(oldSharedId);
+        this.storeGroupMap.set(newSharedId, storeGroup);
     }
 
     private listenDocumentStore(storeGroup: StoreGroup<MainData, InstanceData>) {
@@ -138,7 +160,7 @@ function createSourceStore<Group extends StoreGroup>(storeGroup: Group, instance
         store.listen((entry) => storeGroup.apply(instanceId, entry), {
             scope: 'document',
             // Only listen to changes made by the user
-            source: 'user' ,
+            source: 'user',
         });
     }
 

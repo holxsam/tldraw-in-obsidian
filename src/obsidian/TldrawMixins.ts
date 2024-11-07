@@ -30,6 +30,7 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
          * and the "View as markdown" action button.
          */
         override onload(): void {
+            super.onload();
             this.contentEl.addClass("tldraw-view-content");
 
             this.addAction(MARKDOWN_ICON_NAME, "View as markdown", () => this.viewAsMarkdownClicked());
@@ -41,6 +42,7 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
         override onunload(): void {
             this.contentEl.removeClass("tldraw-view-content");
             this.reactRoot?.unmount();
+            super.onunload();
         }
 
         override onUnloadFile(file: TFile): Promise<void> {
