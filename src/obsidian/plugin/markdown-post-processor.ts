@@ -108,6 +108,7 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
         const controller = createTldrawAppViewModeController({
             showBg: embedValues.showBg,
             initialBounds: embedValues.bounds,
+            padding: plugin.settings.embeds.padding,
         });
 
         const { tldrawEmbedViewContent } = createTldrawEmbedView(internalEmbedDiv, {
@@ -202,11 +203,12 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
             clearTimeout(timer);
         }
 
-        const { bounds, imageSize, showBg } = parseEmbedValues(target, {
-            showBgDefault: plugin.settings.embeds.showBg
-        })
 
         timer = setTimeout(async () => {
+            const { bounds, imageSize, showBg } = parseEmbedValues(target, {
+                showBgDefault: plugin.settings.embeds.showBg
+            });
+
             controller.setShowBackground(showBg);
             controller.setImageSize(imageSize)
             controller.setImageBounds(bounds);

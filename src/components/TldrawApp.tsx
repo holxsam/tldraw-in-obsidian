@@ -23,7 +23,6 @@ import { TldrawAppViewModeController } from "src/obsidian/helpers/TldrawAppEmbed
 import { useTldrawAppEffects } from "src/hooks/useTldrawAppHook";
 import { useViewModeState } from "src/hooks/useViewModeController";
 import { useClickAwayListener } from "src/hooks/useClickAwayListener";
-import { nextTick } from "process";
 import { TLDataDocumentStore } from "src/utils/document";
 import useSnapshotFromStoreProps from "src/hooks/useSnapshotFromStoreProps";
 
@@ -194,9 +193,7 @@ const TldrawApp = ({ plugin, store, options: {
 		enableClickAwayListener: isFocused,
 		handler() {
 			editor?.blur();
-			nextTick(() => {
-				controller?.onClickAway();
-			})
+			nextFrame().then(() => controller?.onClickAway());
 			setIsFocused(false);
 			const { currTldrawEditor } = plugin;
 			if (currTldrawEditor) {
@@ -222,7 +219,6 @@ const TldrawApp = ({ plugin, store, options: {
 					}}>
 						<TldrawImage
 							snapshot={storeSnapshot}
-							padding={0}
 							assets={assetStore}
 							assetUrls={assetUrls.current}
 							bounds={bounds === undefined ? undefined : Box.From(bounds)}
