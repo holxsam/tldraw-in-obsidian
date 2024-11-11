@@ -1,4 +1,4 @@
-import { MarkdownPostProcessorContext, TFile } from "obsidian";
+import { Editor, MarkdownPostProcessorContext, TFile } from "obsidian";
 import { createRootAndRenderTldrawApp } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import { TldrawAppViewModeController } from "../helpers/TldrawAppEmbedViewController";
@@ -8,6 +8,12 @@ import { createTldrawAppViewModeController } from "../factories/createTldrawAppV
 import { Root } from "react-dom/client";
 import { showEmbedContextMenu } from "../helpers/show-embed-context-menu";
 import { TLDataDocumentStore } from "src/utils/document";
+import BoundsSelectorTool from "src/tldraw/tools/bounds-selector-tool";
+import BoundsTool from "src/components/BoundsTool";
+import { BoxLike } from "tldraw";
+import EmbedTldrawToolBar from "src/components/EmbedTldrawToolBar";
+import BoundsToolSelectedShapeIndicator from "src/components/BoundsToolSelectedShapesIndicator";
+import { isObsidianThemeDark } from "src/utils/utils";
 
 /**
  * Processes the embed view for a tldraw white when including it in another obsidian note.
@@ -109,6 +115,12 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             showBg: embedValues.showBg,
             initialBounds: embedValues.bounds,
             padding: plugin.settings.embeds.padding,
+            darkMode: (() => {
+                const { themeMode } = plugin.settings;
+                if (themeMode === "dark") return true;
+                else if (themeMode === "light") return false;
+                else return isObsidianThemeDark()
+            })()
         });
 
         const { tldrawEmbedViewContent } = createTldrawEmbedView(internalEmbedDiv, {
@@ -311,6 +323,12 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
     }
 }
 
+function parseAltText(altText: string): Partial<Record<string, string>> {
+    const altSplit = altText.split(';').map((e) => e.trim())
+    const altEntries = altSplit.map((e) => e.split('='))
+    return Object.fromEntries(altEntries);
+}
+
 function parseEmbedValues(el: HTMLElement, {
     showBgDefault,
     imageBounds = {
@@ -328,9 +346,7 @@ function parseEmbedValues(el: HTMLElement, {
     }
 }) {
     const alt = el.attributes.getNamedItem('alt')?.value ?? '';
-    const altSplit = alt.split(';').map((e) => e.trim())
-    const altEntries = altSplit.map((e) => e.split('='))
-    const altNamedProps: Partial<Record<string, string>> = Object.fromEntries(altEntries);
+    const altNamedProps = parseAltText(alt);
 
     const posValue = altNamedProps['pos']?.split(',').map((e) => Number.parseFloat(e)) ?? [];
     const pos = { x: posValue.at(0) ?? imageBounds.pos.x, y: posValue.at(1) ?? imageBounds.pos.y }
@@ -367,7 +383,44 @@ function parseEmbedValues(el: HTMLElement, {
     };
 }
 
+function replaceBoundsProps(bounds: BoxLike | undefined, props: Partial<Record<string, string>>) {
+    if (bounds) {
+        props['pos'] = `${bounds.x.toFixed(0)},${bounds.y.toFixed(0)}`;
+        props['size'] = `${bounds.w.toFixed(0)},${bounds.h.toFixed(0)}`;
+    } else {
+        delete props['pos'];
+        delete props['size'];
+    }
+    return props;
+}
+
+function updateEmbedBoundsAtCursorPostion(bounds: BoxLike | undefined, editor: Editor) {
+    const anchorPos = editor.getCursor('anchor');
+    const token = editor.getClickableTokenAt(anchorPos);
+    if (!token) return;
+
+    if (token.type === 'internal-link') {
+        token.displayText
+        const [altText, ...rest] = token.displayText.split('|');
+        editor.replaceRange(
+            [
+                token.text,
+                Object.entries(replaceBoundsProps(bounds, parseAltText(altText)))
+                    .filter(([key, value]) => key.length > 0 && value !== undefined)
+                    .map(
+                        ([key, value]) => `${key}=${value}`
+                    ).join(';'),
+                ...rest
+            ].join('|'),
+            token.start,
+            token.end
+        );
+    }
+}
+
 type EmbedValues = ReturnType<typeof parseEmbedValues>;
+
+const boundsSelectorToolIconName = `tool-${BoundsSelectorTool.id}`;
 
 async function createReactTldrawAppRoot({
     controller, documentStore, plugin, tldrawEmbedViewContent, embedValues,
@@ -379,6 +432,8 @@ async function createReactTldrawAppRoot({
     embedValues: EmbedValues
 }) {
     const { imageSize } = embedValues;
+    const boundsSelectorIcon = plugin.getEmbedBoundsSelectorIcon();
+
     return createRootAndRenderTldrawApp(tldrawEmbedViewContent,
         plugin,
         {
@@ -386,11 +441,51 @@ async function createReactTldrawAppRoot({
             app: {
                 assetStore: documentStore.store.props.assets,
                 isReadonly: true,
+                components: {
+                    InFrontOfTheCanvas: BoundsTool,
+                    OnTheCanvas: BoundsToolSelectedShapeIndicator,
+                    Toolbar: EmbedTldrawToolBar,
+                },
                 controller,
                 selectNone: true,
+                iconAssetUrls: {
+                    [boundsSelectorToolIconName]: boundsSelectorIcon,
+                },
                 initialTool: 'hand',
                 initialImageSize: imageSize,
                 zoomToBounds: true,
+                tools: [
+                    BoundsSelectorTool.create({
+                        getInitialBounds: () => {
+                            return controller.getViewOptions().bounds;
+                        },
+                        callback: (bounds) => {
+                            const { activeEditor } = plugin.app.workspace;
+                            if (activeEditor && activeEditor.editor) {
+                                updateEmbedBoundsAtCursorPostion(bounds, activeEditor.editor);
+                            } else {
+                                console.warn("No active editor; setting the controller's bounds instead.");
+                                controller.setImageBounds(bounds);
+                            }
+                        }
+                    }),
+                ],
+                uiOverrides: {
+                    tools: (editor, tools, _) => {
+                        return {
+                            ...tools,
+                            [BoundsSelectorTool.id]: {
+                                id: BoundsSelectorTool.id,
+                                label: 'Select embed bounds',
+                                icon: boundsSelectorToolIconName,
+                                readonlyOk: true,
+                                onSelect(_) {
+                                    editor.setCurrentTool(BoundsSelectorTool.id)
+                                },
+                            }
+                        }
+                    },
+                }
             },
         }
     );

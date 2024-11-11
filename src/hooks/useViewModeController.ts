@@ -24,11 +24,7 @@ export function useViewModeState(editor: Editor | undefined,
         const removeViewModeImageListener = controller?.setOnChangeHandlers({
             onViewMode: (mode) => {
                 onViewModeChanged(mode);
-                setDisplayImage(mode === 'image')
-                const bounds = editor?.getViewportPageBounds();
-                if (bounds) {
-                    controller?.setImageBounds(bounds)
-                }
+                setDisplayImage(mode === 'image');
             },
             onImageBounds: (bounds) => setImageViewOptions({
                 ...viewOptions,

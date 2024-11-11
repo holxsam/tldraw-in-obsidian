@@ -12,7 +12,10 @@ import {
 	TldrawImage,
 	TldrawUiMenuItem,
 	TldrawUiMenuSubmenu,
+	TLStateNodeConstructor,
 	TLStoreSnapshot,
+	TLUiAssetUrlOverrides,
+	TLUiOverrides,
 	useActions,
 } from "tldraw";
 import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION } from "src/utils/file";
@@ -28,6 +31,7 @@ import useSnapshotFromStoreProps from "src/hooks/useSnapshotFromStoreProps";
 
 type TldrawAppOptions = {
 	controller?: TldrawAppViewModeController;
+	iconAssetUrls?: TLUiAssetUrlOverrides['icons'],
 	isReadonly?: boolean,
 	autoFocus?: boolean,
 	assetStore?: TLAssetStore,
@@ -42,6 +46,9 @@ type TldrawAppOptions = {
 	 * Whether to call `.selectNone` on the Tldraw editor instance when it is mounted.
 	 */
 	selectNone?: boolean,
+	tools?: readonly TLStateNodeConstructor[],
+	uiOverrides?: TLUiOverrides,
+	components?: TLComponents,
 	/**
 	 * Whether or not to initially zoom to the bounds when the component is mounted.
 	 * 
@@ -116,22 +123,35 @@ function getEditorStoreProps(storeProps: TldrawAppStoreProps) {
 
 const TldrawApp = ({ plugin, store, options: {
 	assetStore,
+	components: otherComponents,
 	controller,
 	focusOnMount = true,
 	hideUi = false,
+	iconAssetUrls,
 	initialImageSize,
 	initialTool,
 	isReadonly = false,
 	onInitialSnapshot,
 	selectNone = false,
+	tools,
+	uiOverrides: otherUiOverrides,
 	zoomToBounds = false,
 } }: TldrawAppProps) => {
 	const assetUrls = React.useRef({
 		fonts: plugin.getFontOverrides(),
-		icons: plugin.getIconOverrides(),
+		icons: {
+			...plugin.getIconOverrides(),
+			...iconAssetUrls,
+		},
 	})
-	const overridesUi = React.useRef(uiOverrides(plugin))
-	const overridesUiComponents = React.useRef(components(plugin))
+	const overridesUi = React.useRef({
+		...uiOverrides(plugin),
+		...otherUiOverrides
+	})
+	const overridesUiComponents = React.useRef({
+		...components(plugin),
+		...otherComponents
+	})
 	const [storeProps, setStoreProps] = React.useState(
 		!store ? undefined : getEditorStoreProps(store)
 	);
@@ -255,6 +275,7 @@ const TldrawApp = ({ plugin, store, options: {
 				// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
 				autoFocus={false}
 				onMount={setAppState}
+				tools={tools}
 			/>
 		</div>
 	);

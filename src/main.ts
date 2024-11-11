@@ -8,6 +8,7 @@ import {
 	normalizePath,
 	moment,
 	Notice,
+	getIcon,
 } from "obsidian";
 import { TldrawFileView, TldrawView } from "./obsidian/TldrawView";
 import {
@@ -76,6 +77,7 @@ export default class TldrawPlugin extends Plugin {
 	currTldrawEditor?: Editor;
 
 	// misc:
+	embedBoundsSelectorIcon: string;
 	settings: TldrawPluginSettings;
 
 	async onload() {
@@ -101,6 +103,9 @@ export default class TldrawPlugin extends Plugin {
 		// icons:
 		addIcon(TLDRAW_ICON_NAME, TLDRAW_ICON);
 		addIcon(MARKDOWN_ICON_NAME, MARKDOWN_ICON);
+		this.embedBoundsSelectorIcon = URL.createObjectURL(new Blob([getIcon('frame')?.outerHTML ?? ''], {
+			type: 'image/svg+xml'
+		}));
 
 		// this creates an icon in the left ribbon:
 		this.addRibbonIcon(TLDRAW_ICON_NAME, RIBBON_NEW_FILE, async () => {
@@ -145,6 +150,7 @@ export default class TldrawPlugin extends Plugin {
 	onunload() {
 		this.unsubscribeToViewModeState();
 		this.statusBarViewModeReactRoot.unmount();
+		URL.revokeObjectURL(this.embedBoundsSelectorIcon);
 	}
 
 	private registerEvents() {
@@ -561,6 +567,10 @@ export default class TldrawPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	getEmbedBoundsSelectorIcon() {
+		return this.embedBoundsSelectorIcon;
 	}
 
 	getFontOverrides() {

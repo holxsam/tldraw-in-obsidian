@@ -7,7 +7,7 @@ declare module "obsidian" {
          * @param path A vault file path
          * @returns 
          */
-        openWithDefaultApp: (path: string) => void
+        openWithDefaultApp(path: string): void
     }
 
     interface Workspace {
@@ -32,7 +32,7 @@ declare module "obsidian" {
          * @param data 
          * @returns 
          */
-        onQuickPreview: (file: TFile, data: string) => void
+        onQuickPreview(file: TFile, data: string): void
     }
 
     interface Vault {
@@ -46,6 +46,24 @@ declare module "obsidian" {
         /**
          * This function is present at runtime in the web developer console in Obsidian, but not in the type definition for some reason.
          */
-        updateSuggestions: () => void;
+        updateSuggestions(): void;
+    }
+
+    interface Editor {
+        getClickableTokenAt(position: EditorPosition): undefined | (
+            {
+                end: EditorPosition,
+                start: EditorPosition,
+                text: string,
+            } & (
+                {
+                    displayText?: undefined,
+                    type: 'blockid' | 'tag',
+                } | {
+                    displayText: string,
+                    type: 'internal-link'
+                }
+            )
+        )
     }
 }

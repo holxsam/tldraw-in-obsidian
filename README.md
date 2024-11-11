@@ -42,6 +42,7 @@ Tldraw in Obsidian is now available on the official community plugins list!
 ## Guides
 
 - [Custom icons and fonts](https://github.com/holxsam/tldraw-in-obsidian/issues/58#issue-2571070259)
+- [Customizing embeds](https://github.com/holxsam/tldraw-in-obsidian/issues/59)
 
 ## Development
 
