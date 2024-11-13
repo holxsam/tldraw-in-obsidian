@@ -546,11 +546,24 @@ export default class TldrawPlugin extends Plugin {
 
 		const embedsMerged = Object.assign({}, embedsDefault, embeds)
 		const fileDestinationsMerged = Object.assign({}, fileDestinationsDefault,
-			{ // Migrate old settings
-				defaultFolder: rest.folder,
-				assetsFolder: rest.assetsFolder,
-				destinationMethod: !rest.useAttachmentsFolder ? undefined : 'attachments-folder',
-			} as Partial<FileDestinationsSettings>,
+			(() => {
+				// Do not migrate if the the old file destination settings were already migrated.
+				if (fileDestinations === undefined) return {};
+				// Migrate old settings
+				const migrated: Partial<FileDestinationsSettings> = {};
+
+				if (rest.folder !== undefined) {
+					migrated.defaultFolder = rest.folder;
+				}
+
+				if (rest.assetsFolder !== undefined) {
+					migrated.assetsFolder = rest.assetsFolder;
+				}
+
+				if (rest.useAttachmentsFolder !== undefined && rest.useAttachmentsFolder) {
+					migrated.destinationMethod = 'attachments-folder';
+				}
+			})(),
 			fileDestinations,
 		);
 		delete rest.folder;
