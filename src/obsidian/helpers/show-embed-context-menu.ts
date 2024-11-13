@@ -3,7 +3,7 @@ import { createEmbedMenu } from "../menu/create-embed-menu";
 import { TldrawAppViewModeController } from "./TldrawAppEmbedViewController";
 import { TFile } from "obsidian";
 
-export function showEmbedContextMenu(ev: MouseEvent | undefined, {
+export function showEmbedContextMenu(ev: MouseEvent | TouchEvent, {
     tFile, plugin, controller, focusContainer,
 }: {
     tFile: TFile,
@@ -11,6 +11,12 @@ export function showEmbedContextMenu(ev: MouseEvent | undefined, {
     controller: TldrawAppViewModeController,
     focusContainer: HTMLElement,
 }) {
+    // This is done so that when editing the embed bounds, the editor knows which range of text belongs to the embed.
+    focusContainer.dispatchEvent(new MouseEvent('click', {
+        bubbles: ev.bubbles,
+        cancelable: ev.cancelable,
+    }));
+
     createEmbedMenu({
         tFile, plugin,
         controller,
@@ -19,10 +25,13 @@ export function showEmbedContextMenu(ev: MouseEvent | undefined, {
                 bubbles: ev.bubbles,
                 cancelable: ev.cancelable,
                 clientX: ev.clientX,
-                clientY: ev.clientY
+                clientY: ev.clientY,
             }))
         }
-    }).showAtMouseEvent(ev ??
+    }).showAtMouseEvent(ev instanceof MouseEvent ? ev :
         // simulate click when it ev is undefined, e.g. MouseEvent not given because it was a touch event.
-        new MouseEvent('click'));
+        new MouseEvent('click', {
+            clientX: ev.touches.item(0)?.clientX,
+            clientY: ev.touches.item(0)?.clientY,
+        }));
 }

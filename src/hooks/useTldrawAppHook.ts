@@ -44,7 +44,6 @@ export function useTldrawAppEffects({
 
     React.useEffect(() => {
         if (!editor) return;
-        setFocusedEditor(editor);
 
         if (selectNone) {
             editor.selectNone();
@@ -78,15 +77,18 @@ export function useTldrawAppEffects({
             isFocusMode: focusMode,
         });
 
-        const zoomBounds = bounds ?? editor.getCurrentPageBounds();
-        if (zoomToBounds && zoomBounds) {
+        if (zoomToBounds) {
+            const zoomBounds = bounds ?? editor.getViewportPageBounds();
             editor.zoomToBounds(zoomBounds, {
                 // Define an inset to 0 so that it is consistent with TldrawImage component
                 inset: 0,
                 animation: { duration: 0 }
             });
+        } else {
+            editor.zoomToFit({ animation: { duration: 0 } });
         }
 
+        setFocusedEditor(editor);
         // NOTE: These could probably be utilized for storing assets as files in the vault instead of tldraw's default indexedDB.
         // editor.registerExternalAssetHandler
         // editor.registerExternalContentHandler

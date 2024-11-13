@@ -2,9 +2,11 @@ import { BoxLike } from "tldraw";
 import { TldrawAppViewModeController, ViewMode, ImageViewModeOptions, OnChangeHandlers } from "../helpers/TldrawAppEmbedViewController";
 
 export function createTldrawAppViewModeController({
-    initialBounds, showBg
+    initialBounds, padding, showBg, darkMode
 }: {
     initialBounds?: BoxLike,
+    padding?: number,
+    darkMode: boolean,
     showBg: boolean,
 }): TldrawAppViewModeController {
     return {
@@ -14,8 +16,10 @@ export function createTldrawAppViewModeController({
             format: 'svg',
             background: showBg,
             bounds: initialBounds,
+            darkMode,
             // FIXME: Image aspect ratio is ruined in reading mode when viewing with png format due to 300px height restriction on `.ptl-markdown-embed .ptl-view-content`
             // format: 'png',
+            padding,
             // preserveAspectRatio: '',
         },
         onChangeHandlers: undefined,

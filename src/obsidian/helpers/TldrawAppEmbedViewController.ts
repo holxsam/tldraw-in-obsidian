@@ -26,6 +26,7 @@ export type ImageViewModeOptions = {
     format?: TldrawImageProps['format'];
     pageId?: TldrawImageProps['pageId'];
     darkMode?: TldrawImageProps['darkMode'];
+    padding?: TldrawImageProps['padding'];
     preserveAspectRatio?: TldrawImageProps['preserveAspectRatio'];
 };
 

@@ -173,6 +173,14 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 	/* Offset for the dotted pattern */
 }
 
+.ptl-markdown-embed .ptl-view-content[data-has-shape="false"] .ptl-tldraw-image::before {
+	display: block;
+	content: "This is an empty tldraw file. Double click to edit in a new tab, or right click for options.";
+	height: 100%;
+	text-align: center;
+	align-content: center;
+}
+
 .ptl-markdown-embed .ptl-tldraw-image-container {
 	display: flex;
 }
@@ -241,14 +249,39 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 }
 
 .ptl-suggestion-item {
-    display: flex;
-    gap: 0.25em;
+	display: flex;
+	gap: 0.25em;
 }
 
 .ptl-suggestion-item-icon {
-    display: contents;
+	display: contents;
 }
 
 .ptl-suggestion-label {
-    font-size: x-small;
+	font-size: x-small;
+}
+
+.ptl-embed-bounds-selection {
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 999;
+}
+
+.ptl-embed-bounds-selection[data-target-bounds="true"] {
+	border: 1px solid var(--color-text-0);
+}
+
+.ptl-embed-bounds-selection[data-target-bounds="false"] {
+	border: 1px dashed var(--color-text-0);
+}
+
+.ptl-embed-bounds-selection[data-shade-bg="true"]::before {
+	position: absolute;
+	content: "";
+	display: block;
+	width: 100%;
+	height: 100%;
+	background-color: var(--color-text-0);
+	opacity: 0.15;
 }

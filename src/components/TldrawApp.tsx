@@ -12,7 +12,10 @@ import {
 	TldrawImage,
 	TldrawUiMenuItem,
 	TldrawUiMenuSubmenu,
+	TLStateNodeConstructor,
 	TLStoreSnapshot,
+	TLUiAssetUrlOverrides,
+	TLUiOverrides,
 	useActions,
 } from "tldraw";
 import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION } from "src/utils/file";
@@ -23,12 +26,12 @@ import { TldrawAppViewModeController } from "src/obsidian/helpers/TldrawAppEmbed
 import { useTldrawAppEffects } from "src/hooks/useTldrawAppHook";
 import { useViewModeState } from "src/hooks/useViewModeController";
 import { useClickAwayListener } from "src/hooks/useClickAwayListener";
-import { nextTick } from "process";
 import { TLDataDocumentStore } from "src/utils/document";
 import useSnapshotFromStoreProps from "src/hooks/useSnapshotFromStoreProps";
 
 type TldrawAppOptions = {
 	controller?: TldrawAppViewModeController;
+	iconAssetUrls?: TLUiAssetUrlOverrides['icons'],
 	isReadonly?: boolean,
 	autoFocus?: boolean,
 	assetStore?: TLAssetStore,
@@ -43,6 +46,9 @@ type TldrawAppOptions = {
 	 * Whether to call `.selectNone` on the Tldraw editor instance when it is mounted.
 	 */
 	selectNone?: boolean,
+	tools?: readonly TLStateNodeConstructor[],
+	uiOverrides?: TLUiOverrides,
+	components?: TLComponents,
 	/**
 	 * Whether or not to initially zoom to the bounds when the component is mounted.
 	 * 
@@ -117,22 +123,35 @@ function getEditorStoreProps(storeProps: TldrawAppStoreProps) {
 
 const TldrawApp = ({ plugin, store, options: {
 	assetStore,
+	components: otherComponents,
 	controller,
 	focusOnMount = true,
 	hideUi = false,
+	iconAssetUrls,
 	initialImageSize,
 	initialTool,
 	isReadonly = false,
 	onInitialSnapshot,
 	selectNone = false,
+	tools,
+	uiOverrides: otherUiOverrides,
 	zoomToBounds = false,
 } }: TldrawAppProps) => {
 	const assetUrls = React.useRef({
 		fonts: plugin.getFontOverrides(),
-		icons: plugin.getIconOverrides(),
+		icons: {
+			...plugin.getIconOverrides(),
+			...iconAssetUrls,
+		},
 	})
-	const overridesUi = React.useRef(uiOverrides(plugin))
-	const overridesUiComponents = React.useRef(components(plugin))
+	const overridesUi = React.useRef({
+		...uiOverrides(plugin),
+		...otherUiOverrides
+	})
+	const overridesUiComponents = React.useRef({
+		...components(plugin),
+		...otherComponents
+	})
 	const [storeProps, setStoreProps] = React.useState(
 		!store ? undefined : getEditorStoreProps(store)
 	);
@@ -171,7 +190,7 @@ const TldrawApp = ({ plugin, store, options: {
 			if (currTldrawEditor) {
 				currTldrawEditor.blur();
 			}
-			if(isMounting && !focusOnMount) {
+			if (isMounting && !focusOnMount) {
 				plugin.currTldrawEditor = undefined;
 				return;
 			}
@@ -194,9 +213,7 @@ const TldrawApp = ({ plugin, store, options: {
 		enableClickAwayListener: isFocused,
 		handler() {
 			editor?.blur();
-			nextTick(() => {
-				controller?.onClickAway();
-			})
+			nextFrame().then(() => controller?.onClickAway());
 			setIsFocused(false);
 			const { currTldrawEditor } = plugin;
 			if (currTldrawEditor) {
@@ -207,64 +224,59 @@ const TldrawApp = ({ plugin, store, options: {
 		}
 	});
 
-	return (
+	return displayImage ? (
+		<div className="ptl-tldraw-image-container" style={{
+			width: '100%',
+			height: '100%'
+		}}>
+			{
+				!storeSnapshot ? (
+					<>No tldraw data to display</>
+				) : (
+					<div className="ptl-tldraw-image" style={{
+						width: imageSize?.width || undefined,
+						height: imageSize?.height || undefined
+					}}>
+						<TldrawImage
+							snapshot={storeSnapshot}
+							assets={assetStore}
+							assetUrls={assetUrls.current}
+							bounds={bounds === undefined ? undefined : Box.From(bounds)}
+							{...viewOptionsOther}
+						/>
+					</div>
+				)
+			}
+		</div>
+	) : (
 		<div
 			className="tldraw-view-root"
+			// e.stopPropagation(); this line should solve the mobile swipe menus bug
+			// The bug only happens on the mobile version of Obsidian.
+			// When a user tries to interact with the tldraw canvas,
+			// Obsidian thinks they're swiping down, left, or right so it opens various menus.
+			// By preventing the event from propagating, we can prevent those actions menus from opening.
+			onTouchStart={(e) => e.stopPropagation()}
+			ref={editorContainerRef}
+			onFocus={(e) => {
+				setFocusedEditor(false, editor);
+			}}
+			style={{
+				width: '100%',
+				height: '100%',
+			}}
 		>
-			{displayImage ? (
-				<div className="ptl-tldraw-image-container" style={{
-					width: '100%',
-					height: '100%'
-				}}>
-					{
-						!storeSnapshot ? (
-							<>No tldraw data to display</>
-						) : (
-							<div className="ptl-tldraw-image" style={{
-								width: imageSize?.width || undefined,
-								height: imageSize?.height || undefined
-							}}>
-								<TldrawImage
-									snapshot={storeSnapshot}
-									padding={0}
-									assets={assetStore}
-									assetUrls={assetUrls.current}
-									bounds={bounds === undefined ? undefined : Box.From(bounds)}
-									{...viewOptionsOther}
-								/>
-							</div>
-						)
-					}
-				</div>
-			) : (
-				<div
-					// e.stopPropagation(); this line should solve the mobile swipe menus bug
-					// The bug only happens on the mobile version of Obsidian.
-					// When a user tries to interact with the tldraw canvas,
-					// Obsidian thinks they're swiping down, left, or right so it opens various menus.
-					// By preventing the event from propagating, we can prevent those actions menus from opening.
-					onTouchStart={(e) => e.stopPropagation()}
-					ref={editorContainerRef}
-					onFocus={(e) => {
-						setFocusedEditor(false, editor);
-					}}
-					style={{
-						width: '100%',
-						height: '100%',
-					}}
-				>
-					<Tldraw
-						{...storeProps}
-						assetUrls={assetUrls.current}
-						hideUi={hideUi}
-						overrides={overridesUi.current}
-						components={overridesUiComponents.current}
-						// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
-						autoFocus={false}
-						onMount={setAppState}
-					/>
-				</div>
-			)}
+			<Tldraw
+				{...storeProps}
+				assetUrls={assetUrls.current}
+				hideUi={hideUi}
+				overrides={overridesUi.current}
+				components={overridesUiComponents.current}
+				// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.
+				autoFocus={false}
+				onMount={setAppState}
+				tools={tools}
+			/>
 		</div>
 	);
 };

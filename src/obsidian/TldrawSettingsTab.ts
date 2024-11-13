@@ -116,6 +116,7 @@ export interface TldrawPluginSettings extends DeprecatedFileDestinationSettings 
 		overrides?: IconOverrides
 	}
 	embeds: {
+		padding: number;
 		/**
 		 * Default value to control whether to show the background for markdown embeds
 		 */
@@ -145,6 +146,7 @@ export const DEFAULT_SETTINGS = {
 		colocationSubfolder: "",
 	},
 	embeds: {
+		padding: 0,
 		showBg: true,
 		showBgDots: true,
 	},
@@ -464,6 +466,22 @@ export class TldrawSettingsTab extends PluginSettingTab {
 		containerEl.createEl('p', {
 			text: 'Reload Obsidian to apply changes'
 		})
+
+		new Setting(containerEl)
+			.setName("Padding")
+			.setDesc(
+				"The amount of padding to use by default for each embed image preview. This must be a non-negative number."
+			)
+			.addText((text) => text.setValue(`${this.plugin.settings.embeds.padding}`)
+				.onChange(async (value) => {
+					const padding = parseInt(value);
+					if(isNaN(padding) || padding < 0) {
+						return;
+					}
+					this.plugin.settings.embeds.padding = padding;
+					await this.plugin.saveSettings();
+				})
+			)
 
 		new Setting(containerEl)
 			.setName("Show background")
