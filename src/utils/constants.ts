@@ -14,7 +14,7 @@ export const VIEW_TYPES = [VIEW_TYPE_MARKDOWN, VIEW_TYPE_TLDRAW, VIEW_TYPE_TLDRA
 export const PANE_TARGETS = ["new-window", "new-tab", "current-tab", "split-tab"] as const;
 
 
-export const TLDRAW_VERSION = "3.2.0";
+export const TLDRAW_VERSION = "3.4.1";
 export const FILE_EXTENSION = ".md";
 export const FRONTMATTER_KEY = "tldraw-file";
 export const TLDATA_DELIMITER_START =
