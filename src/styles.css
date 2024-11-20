@@ -159,7 +159,7 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 	display: flex;
 }
 
-.ptl-markdown-embed .ptl-view-content {
+.ptl-markdown-embed .ptl-view-content .tldraw-view-root {
 	height: 300px;
 }
 
@@ -183,6 +183,12 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 
 .ptl-markdown-embed .ptl-tldraw-image-container {
 	display: flex;
+	justify-content: center;
+}
+
+.canvas-node .ptl-markdown-embed .ptl-tldraw-image {
+    height: var(--canvas-node-height);
+    width: var(--canvas-node-width);
 }
 
 .ptl-markdown-embed .ptl-tldraw-image {
@@ -191,7 +197,6 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 
 .ptl-markdown-embed .ptl-tldraw-image img {
 	object-fit: contain;
-	object-position: top;
 }
 
 .ptl-download-error {

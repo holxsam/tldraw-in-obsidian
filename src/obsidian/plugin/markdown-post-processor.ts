@@ -74,12 +74,13 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
     if (internalEmbedDiv === undefined) return; //https://github.com/zsviczian/obsidian-excalidraw-plugin/issues/835
 
 
-
     const markdownEmbed = internalEmbedDiv.hasClass("markdown-embed");
     const markdownReadingView = internalEmbedDiv.hasClass("markdown-reading-view");
     const isMarkdownView = markdownEmbed || markdownReadingView;
     const isInternal = internalEmbedDiv.hasClass("internal-embed");
-    if (isInternal && isMarkdownView) {
+    const isCanvas = internalEmbedDiv.hasClass("canvas-node-content");
+    const isEmbed = isInternal || isCanvas;
+    if (isEmbed && isMarkdownView) {
         const codeblock = element.querySelector("code.language-json");
 
         if (!codeblock) {
@@ -137,7 +138,7 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
         });
 
         return;
-    } else if (!isInternal && isMarkdownView) {
+    } else if (!isEmbed && isMarkdownView) {
         throw new Error(`${markdownPostProcessor.name}: Unexpected`);
     }
     throw new Error(`${markdownPostProcessor.name}: Unexpected`);

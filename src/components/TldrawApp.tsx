@@ -261,10 +261,6 @@ const TldrawApp = ({ plugin, store, options: {
 			onFocus={(e) => {
 				setFocusedEditor(false, editor);
 			}}
-			style={{
-				width: '100%',
-				height: '100%',
-			}}
 		>
 			<Tldraw
 				{...storeProps}
