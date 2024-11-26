@@ -189,6 +189,22 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
 
             reactRoot = await createReactTldrawAppRoot({
                 controller, documentStore: storeInstance.documentStore, plugin, tldrawEmbedViewContent, embedValues,
+                onUpdatedBounds: (bounds) => {
+                    if (
+                        'cmView' in internalEmbedDiv
+                        && typeof internalEmbedDiv.cmView === 'object'
+                        && internalEmbedDiv.cmView
+                        && 'widget' in internalEmbedDiv.cmView
+                    ) {
+                        const widget = internalEmbedDiv.cmView.widget as InternalEmbedWidget;
+                        // @ts-ignore
+                        const editor = widget.editor.owner.editor as Editor;
+                        updateEmbedBounds(widget, bounds, editor);
+                    } else {
+                        console.warn("No active editor; setting the controller's bounds instead.");
+                        controller.setImageBounds(bounds);
+                    }
+                }
             })
             pauseListener = false;
         } catch (e) {
@@ -395,28 +411,60 @@ function replaceBoundsProps(bounds: BoxLike | undefined, props: Partial<Record<s
     return props;
 }
 
-function updateEmbedBoundsAtCursorPostion(bounds: BoxLike | undefined, editor: Editor) {
-    const anchorPos = editor.getCursor('anchor');
-    const token = editor.getClickableTokenAt(anchorPos);
-    if (!token) return;
+type InternalEmbedWidget = {
+    start: number,
+    end: number,
+    /**
+     * The filename of the embed
+     */
+    href: string,
+    /**
+     * This is corresponds to the "alt", "width", and "height" attribute of the internaleEmbedDiv.
+     * 
+     * ```js
+     * `${alt}|${width}x${height}`
+     * ```
+     */
+    title: string,
+};
 
-    if (token.type === 'internal-link') {
-        token.displayText
-        const [altText, ...rest] = token.displayText.split('|');
-        editor.replaceRange(
-            [
-                token.text,
-                Object.entries(replaceBoundsProps(bounds, parseAltText(altText)))
-                    .filter(([key, value]) => key.length > 0 && value !== undefined)
-                    .map(
-                        ([key, value]) => `${key}=${value}`
-                    ).join(';'),
-                ...rest
-            ].join('|'),
-            token.start,
-            token.end
-        );
+function updateEmbedBounds(widget: InternalEmbedWidget, bounds: BoxLike | undefined, editor: Editor) {
+    const token = editor.getClickableTokenAt(editor.offsetToPos(widget.end));
+
+    if (!token || token.type !== 'internal-link') {
+        console.warn(`No internal link token at end position ${widget.end}`, widget);
+        return;
     }
+
+    if (widget.href !== token.text) {
+        console.warn(`Internal link token does not match the provided widget`, {
+            widget, token,
+        });
+        return;
+    }
+
+    updateEmbedBoundsAtInternalLink(token, bounds, editor);
+}
+
+type InternalLinkToken = Extract<ReturnType<Editor['getClickableTokenAt']>, {
+    type: 'internal-link'
+}>;
+
+function updateEmbedBoundsAtInternalLink(token: InternalLinkToken, bounds: BoxLike | undefined, editor: Editor) {
+    const [altText, ...rest] = token.displayText.split('|');
+    editor.replaceRange(
+        [
+            token.text,
+            Object.entries(replaceBoundsProps(bounds, parseAltText(altText)))
+                .filter(([key, value]) => key.length > 0 && value !== undefined)
+                .map(
+                    ([key, value]) => `${key}=${value}`
+                ).join(';'),
+            ...rest
+        ].join('|'),
+        token.start,
+        token.end
+    );
 }
 
 type EmbedValues = ReturnType<typeof parseEmbedValues>;
@@ -425,12 +473,19 @@ const boundsSelectorToolIconName = `tool-${BoundsSelectorTool.id}`;
 
 async function createReactTldrawAppRoot({
     controller, documentStore, plugin, tldrawEmbedViewContent, embedValues,
+    onUpdatedBounds,
 }: {
     documentStore: TLDataDocumentStore,
     plugin: TldrawPlugin,
     tldrawEmbedViewContent: HTMLElement,
     controller: TldrawAppViewModeController,
-    embedValues: EmbedValues
+    embedValues: EmbedValues,
+    /**
+     * Called whenever the bounds are updated using the {@linkcode BoundsSelectorTool}
+     * @param bounds 
+     * @returns 
+     */
+    onUpdatedBounds: (bounds?: BoxLike) => void,
 }) {
     const { imageSize } = embedValues;
     const boundsSelectorIcon = plugin.getEmbedBoundsSelectorIcon();
@@ -460,15 +515,7 @@ async function createReactTldrawAppRoot({
                         getInitialBounds: () => {
                             return controller.getViewOptions().bounds;
                         },
-                        callback: (bounds) => {
-                            const { activeEditor } = plugin.app.workspace;
-                            if (activeEditor && activeEditor.editor) {
-                                updateEmbedBoundsAtCursorPostion(bounds, activeEditor.editor);
-                            } else {
-                                console.warn("No active editor; setting the controller's bounds instead.");
-                                controller.setImageBounds(bounds);
-                            }
-                        }
+                        callback: onUpdatedBounds,
                     }),
                 ],
                 uiOverrides: {

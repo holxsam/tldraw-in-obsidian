@@ -11,12 +11,6 @@ export function showEmbedContextMenu(ev: MouseEvent | TouchEvent, {
     controller: TldrawAppViewModeController,
     focusContainer: HTMLElement,
 }) {
-    // This is done so that when editing the embed bounds, the editor knows which range of text belongs to the embed.
-    focusContainer.dispatchEvent(new MouseEvent('click', {
-        bubbles: ev.bubbles,
-        cancelable: ev.cancelable,
-    }));
-
     createEmbedMenu({
         tFile, plugin,
         controller,
