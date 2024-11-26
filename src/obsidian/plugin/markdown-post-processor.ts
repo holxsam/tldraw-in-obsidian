@@ -26,12 +26,7 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
     const log = (...args: ConsoleLogParams) => !LOGGING_ENABLED ? () => { } : logFn(markdownPostProcessor, args[0], ...args.slice(1));
     log();
 
-    // https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/94fbac38bfc5036187a81c7883c03830a622bc1d/src/MarkdownPostProcessor.ts#L739
-    const embeddedItems = element.querySelectorAll(".internal-embed");
-
-    if (embeddedItems.length !== 0) {
-        return;
-    }
+    // Inspired by: https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/94fbac38bfc5036187a81c7883c03830a622bc1d/src/MarkdownPostProcessor.ts#L575
 
     const file = plugin.app.vault.getAbstractFileByPath(context.sourcePath);
 
