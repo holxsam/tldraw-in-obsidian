@@ -213,7 +213,7 @@ const TldrawApp = ({ plugin, store, options: {
 		enableClickAwayListener: isFocused,
 		handler() {
 			editor?.blur();
-			nextFrame().then(() => controller?.onClickAway());
+			Promise.resolve().then(() => controller?.onClickAway());
 			setIsFocused(false);
 			const { currTldrawEditor } = plugin;
 			if (currTldrawEditor) {
