@@ -290,3 +290,15 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 	background-color: var(--color-text-0);
 	opacity: 0.15;
 }
+
+@media print {
+	.ptl-markdown-embed {
+		/* Prevent the embeds from being split across multiple pages */
+		break-inside: avoid;
+	}
+
+	.ptl-markdown-embed .ptl-tldraw-image img {
+		/* Prevent an embed from being larger than the print page size */
+		max-height: 85vh;
+	}
+}
