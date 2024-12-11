@@ -1,9 +1,9 @@
 import { Editor, TldrawFile } from "tldraw";
 import * as React from "react";
-import { useViewModeState } from "src/hooks/useViewModeController";
 import TldrawPlugin from "src/main";
 import { TldrawPluginMetaData } from "src/utils/document";
 import { isObsidianThemeDark } from "src/utils/utils";
+import { ImageViewModeOptions } from "src/obsidian/helpers/TldrawAppEmbedViewController";
 
 export type SetTldrawFileData = (data: {
     meta: TldrawPluginMetaData
@@ -15,7 +15,7 @@ export function useTldrawAppEffects({
     setFocusedEditor, zoomToBounds
 }: {
     editor?: Editor,
-    bounds: ReturnType<typeof useViewModeState>['viewOptions']['bounds']
+    bounds: ImageViewModeOptions['bounds']
     initialTool?: string,
     isReadonly: boolean,
     settingsProvider: TldrawPlugin['settingsProvider'],

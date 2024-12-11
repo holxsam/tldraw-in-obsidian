@@ -1,6 +1,5 @@
 import TldrawPlugin from "src/main";
-import { createEmbedMenu } from "../menu/create-embed-menu";
-import { TldrawAppViewModeController } from "./TldrawAppEmbedViewController";
+import { createEmbedMenu, TldrAppControllerForMenu } from "../menu/create-embed-menu";
 import { TFile } from "obsidian";
 
 export function showEmbedContextMenu(ev: MouseEvent | TouchEvent, {
@@ -8,7 +7,7 @@ export function showEmbedContextMenu(ev: MouseEvent | TouchEvent, {
 }: {
     tFile: TFile,
     plugin: TldrawPlugin,
-    controller: TldrawAppViewModeController,
+    controller: TldrAppControllerForMenu,
     focusContainer: HTMLElement,
 }) {
     createEmbedMenu({

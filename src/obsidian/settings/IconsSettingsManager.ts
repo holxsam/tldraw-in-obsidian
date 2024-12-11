@@ -50,8 +50,6 @@ export default class IconsSettingsManager {
         }
         await this.plugin.saveSettings();
 
-        console.log(this.overrides)
-
         if (updates === null) {
             for (const callback of this.onChangedCallbacks.values()) {
                 callback();

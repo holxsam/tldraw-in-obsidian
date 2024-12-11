@@ -195,6 +195,16 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 	max-inline-size: max-content;
 }
 
+.ptl-view-content:empty {
+    min-width: var(--ptl-placeholder-width);
+    min-height: var(--ptl-placeholder-height);
+}
+
+.ptl-tldraw-image:not(:has(div > img)) {
+    min-width: var(--ptl-placeholder-width);
+    min-height: var(--ptl-placeholder-height);
+}
+
 .ptl-markdown-embed .ptl-tldraw-image img {
 	object-fit: contain;
 }

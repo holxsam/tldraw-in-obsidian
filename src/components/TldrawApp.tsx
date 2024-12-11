@@ -1,15 +1,13 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import {
-	Box,
+	BoxLike,
 	DefaultMainMenu,
 	DefaultMainMenuContent,
 	Editor,
-	TLAssetStore,
 	TLComponents,
 	Tldraw,
 	TldrawEditorStoreProps,
-	TldrawImage,
 	TldrawUiMenuItem,
 	TldrawUiMenuSubmenu,
 	TLStateNodeConstructor,
@@ -22,25 +20,20 @@ import { OPEN_FILE_ACTION, SAVE_FILE_COPY_ACTION, SAVE_FILE_COPY_IN_VAULT_ACTION
 import { uiOverrides } from "src/tldraw/ui-overrides";
 import TldrawPlugin from "src/main";
 import { Platform } from "obsidian";
-import { TldrawAppViewModeController } from "src/obsidian/helpers/TldrawAppEmbedViewController";
 import { useTldrawAppEffects } from "src/hooks/useTldrawAppHook";
-import { useViewModeState } from "src/hooks/useViewModeController";
 import { useClickAwayListener } from "src/hooks/useClickAwayListener";
 import { TLDataDocumentStore } from "src/utils/document";
-import useSnapshotFromStoreProps from "src/hooks/useSnapshotFromStoreProps";
 
 type TldrawAppOptions = {
-	controller?: TldrawAppViewModeController;
 	iconAssetUrls?: TLUiAssetUrlOverrides['icons'],
 	isReadonly?: boolean,
 	autoFocus?: boolean,
-	assetStore?: TLAssetStore,
 	focusOnMount?: boolean,
-	initialImageSize?: { width: number, height: number },
 	/**
 	 * Takes precedence over the user's plugin preference
 	 */
 	initialTool?: string,
+	initialBounds?: BoxLike,
 	hideUi?: boolean,
 	/**
 	 * Whether to call `.selectNone` on the Tldraw editor instance when it is mounted.
@@ -60,7 +53,13 @@ type TldrawAppOptions = {
 	 * @param snapshot The snapshot that is initially loaded into the editor.
 	 * @returns 
 	 */
-	onInitialSnapshot?: (snapshot: TLStoreSnapshot) => void
+	onInitialSnapshot?: (snapshot: TLStoreSnapshot) => void,
+	/**
+	 * 
+	 * @param event 
+	 * @returns `true` if the editor should be blurred.
+	 */
+	onClickAwayBlur?: (event: PointerEvent) => boolean,
 };
 
 /**
@@ -122,15 +121,14 @@ function getEditorStoreProps(storeProps: TldrawAppStoreProps) {
 }
 
 const TldrawApp = ({ plugin, store, options: {
-	assetStore,
 	components: otherComponents,
-	controller,
 	focusOnMount = true,
 	hideUi = false,
 	iconAssetUrls,
-	initialImageSize,
+	initialBounds,
 	initialTool,
 	isReadonly = false,
+	onClickAwayBlur,
 	onInitialSnapshot,
 	selectNone = false,
 	tools,
@@ -152,10 +150,8 @@ const TldrawApp = ({ plugin, store, options: {
 		...components(plugin),
 		...otherComponents
 	})
-	const [storeProps, setStoreProps] = React.useState(
-		!store ? undefined : getEditorStoreProps(store)
-	);
-	const storeSnapshot = useSnapshotFromStoreProps(storeProps);
+
+	const storeProps = React.useMemo(() => !store ? undefined : getEditorStoreProps(store), [store])
 
 	const [editor, setEditor] = React.useState<Editor>();
 
@@ -167,20 +163,6 @@ const TldrawApp = ({ plugin, store, options: {
 			setOnInitialSnapshot(undefined);
 		}
 	}, [_onInitialSnapshot])
-
-	const { displayImage, imageSize, viewOptions: {
-		bounds, ...viewOptionsOther
-	} } = useViewModeState(editor, {
-		controller,
-		initialImageSize,
-		onViewModeChanged(mode) {
-			if (mode !== 'image') return;
-			setEditor(undefined);
-		},
-		onStoreProps(storeProps) {
-			setStoreProps(getEditorStoreProps(storeProps));
-		},
-	});
 
 	const [isFocused, setIsFocused] = React.useState(false);
 
@@ -203,7 +185,7 @@ const TldrawApp = ({ plugin, store, options: {
 	}
 
 	useTldrawAppEffects({
-		bounds, editor, initialTool, isReadonly,
+		bounds: initialBounds, editor, initialTool, isReadonly,
 		selectNone, zoomToBounds,
 		settingsProvider: plugin.settingsProvider,
 		setFocusedEditor: (editor) => setFocusedEditor(true, editor),
@@ -211,9 +193,10 @@ const TldrawApp = ({ plugin, store, options: {
 
 	const editorContainerRef = useClickAwayListener<HTMLDivElement>({
 		enableClickAwayListener: isFocused,
-		handler() {
+		handler(ev) {
+			const blurEditor = onClickAwayBlur?.(ev);
+			if (blurEditor !== undefined && !blurEditor) return;
 			editor?.blur();
-			Promise.resolve().then(() => controller?.onClickAway());
 			setIsFocused(false);
 			const { currTldrawEditor } = plugin;
 			if (currTldrawEditor) {
@@ -224,31 +207,7 @@ const TldrawApp = ({ plugin, store, options: {
 		}
 	});
 
-	return displayImage ? (
-		<div className="ptl-tldraw-image-container" style={{
-			width: '100%',
-			height: '100%'
-		}}>
-			{
-				!storeSnapshot ? (
-					<>No tldraw data to display</>
-				) : (
-					<div className="ptl-tldraw-image" style={{
-						width: imageSize?.width || undefined,
-						height: imageSize?.height || undefined
-					}}>
-						<TldrawImage
-							snapshot={storeSnapshot}
-							assets={assetStore}
-							assetUrls={assetUrls.current}
-							bounds={bounds === undefined ? undefined : Box.From(bounds)}
-							{...viewOptionsOther}
-						/>
-					</div>
-				)
-			}
-		</div>
-	) : (
+	return (
 		<div
 			className="tldraw-view-root"
 			// e.stopPropagation(); this line should solve the mobile swipe menus bug
