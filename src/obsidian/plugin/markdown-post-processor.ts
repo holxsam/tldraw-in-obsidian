@@ -94,12 +94,8 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             // internalEmbedDiv.addClass("image-embed");
         }
 
-        const embedValues = parseEmbedValues(internalEmbedDiv, {
-            showBgDefault: plugin.settings.embeds.showBg
-        });
-
         const component = await loadEmbedTldraw({
-            embedValues, file, internalEmbedDiv, plugin,
+            file, internalEmbedDiv, plugin,
         });
 
         context.addChild(component);
@@ -127,9 +123,8 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
 }
 
 async function loadEmbedTldraw({
-    embedValues, file, internalEmbedDiv, plugin,
+    file, internalEmbedDiv, plugin,
 }: {
-    embedValues: ReturnType<typeof parseEmbedValues>,
     file: TFile,
     internalEmbedDiv: HTMLElement,
     plugin: TldrawPlugin,
@@ -143,21 +138,22 @@ async function loadEmbedTldraw({
         plugin,
         {
             tFile: file,
-            initialEmbedValues: embedValues,
+            initialEmbedValues: parseEmbedValues(internalEmbedDiv, {
+                showBgDefault: plugin.settings.embeds.showBg
+            }),
             onUpdatedBounds: (bounds) => {
-                if (
-                    'cmView' in internalEmbedDiv
-                    && typeof internalEmbedDiv.cmView === 'object'
-                    && internalEmbedDiv.cmView
-                    && 'widget' in internalEmbedDiv.cmView
-                ) {
-                    const widget = internalEmbedDiv.cmView.widget as InternalEmbedWidget;
-                    // @ts-ignore
-                    const editor = widget.editor.owner.editor as Editor;
-                    updateEmbedBounds(widget, bounds, editor);
+                const widget = getCmViewWidget(internalEmbedDiv);
+                if (widget) {
+                    updateEmbedBounds(widget, bounds, widget.editor.editor);
                 } else {
                     console.warn("No active editor; setting the controller's bounds instead.");
                     component.updateBounds(bounds);
+                }
+            },
+            onUpdatedSize: (size) => {
+                const widget = getCmViewWidget(internalEmbedDiv);
+                if (widget) {
+                    updateEmbed(widget.editor.editor, widget, { size });
                 }
             },
             deferUntilIsShown: (cb) => {
@@ -213,9 +209,28 @@ async function loadEmbedTldraw({
             }
         }
     });
-    workspaceLeafElObserver.observe(workspaceLeafEl, { attributeFilter: ['style'] })
+    workspaceLeafElObserver.observe(workspaceLeafEl, { attributeFilter: ['style'] });
 
     return component;
+}
+
+function getCmViewWidget(element: HTMLElement) {
+    if (
+        'cmView' in element
+        && typeof element.cmView === 'object'
+        && element.cmView
+        && 'widget' in element.cmView
+        && typeof element.cmView.widget === 'object'
+        && element.cmView.widget
+        && 'editor' in element.cmView.widget
+        && typeof element.cmView.widget.editor === 'object'
+        && element.cmView.widget.editor
+        && 'editor' in element.cmView.widget.editor
+        && element.cmView.widget.editor.editor instanceof Editor
+    ) {
+        return element.cmView.widget as InternalEmbedWidget;
+    }
+    return undefined;
 }
 
 function parseAltText(altText: string): Partial<Record<string, string>> {
@@ -304,9 +319,16 @@ type InternalEmbedWidget = {
      * ```
      */
     title: string,
+    editor: {
+        editor: Editor,
+    }
 };
 
 function updateEmbedBounds(widget: InternalEmbedWidget, bounds: BoxLike | undefined, editor: Editor) {
+    return updateEmbed(editor, widget, { bounds });
+}
+
+function updateEmbed(editor: Editor, widget: InternalEmbedWidget, update: EmbedUpdate) {
     const token = editor.getClickableTokenAt(editor.offsetToPos(widget.end));
 
     if (!token || token.type !== 'internal-link') {
@@ -321,24 +343,75 @@ function updateEmbedBounds(widget: InternalEmbedWidget, bounds: BoxLike | undefi
         return;
     }
 
-    updateEmbedBoundsAtInternalLink(token, bounds, editor);
+    updateEmbedAtInternalLink(editor, token, update);
 }
 
 type InternalLinkToken = Extract<ReturnType<Editor['getClickableTokenAt']>, {
     type: 'internal-link'
 }>;
 
-function updateEmbedBoundsAtInternalLink(token: InternalLinkToken, bounds: BoxLike | undefined, editor: Editor) {
+function formatDisplaySize(size: { width: number, height: number }) {
+    if (Number.isNaN(size.width) && Number.isNaN(size.height)) return '';
+    if (Number.isNaN(size.height)) return size.width.toFixed();
+    const widthString = Number.isNaN(size.width) ? '0' : size.width.toFixed();
+    return `${widthString}x${size.height.toFixed()}`;
+}
+
+type EmbedUpdate = Partial<{
+    bounds: BoxLike,
+    size: { width: number, height: number }
+}>;
+
+function updateEmbedAtInternalLink(editor: Editor, token: InternalLinkToken, update: EmbedUpdate) {
+    const { size, bounds } = update;
     const [altText, ...rest] = token.displayText.split('|');
+    const restButSize = rest.splice(0, rest.length - 1);
+    /**
+     * After the splice, rest should either contain only the size portion of the display text or no elements.
+     */
+    const maybeOnlySize = rest;
+    const maybeSize = size === undefined && ('size' in update) ? undefined : size ?? (
+        /**
+         * If no string was in the size slot, return undefined. Otherwise,
+         * 
+         * split the string by the `x` character and if the first string parses as NaN, then return the original string.
+         * 
+         * If the first number was parsed as non-NaN then use it as the width, and parse the next number as the height regardless
+         * of the the next number parsing as NaN.
+         */
+        () => {
+            const maybeSize = maybeOnlySize.at(0);
+            if (!maybeSize) return undefined;
+            const sizeSplit = maybeSize.split('x');
+            const width = Number.parseInt(sizeSplit.at(0) ?? '');
+            if (Number.isNaN(width)) return maybeSize;
+            const height = Number.parseInt(sizeSplit.at(1) ?? '');
+            return {
+                width,
+                height,
+            };
+        }
+    )();
+
     editor.replaceRange(
         [
             token.text,
-            Object.entries(replaceBoundsProps(bounds, parseAltText(altText)))
-                .filter(([key, value]) => key.length > 0 && value !== undefined)
-                .map(
-                    ([key, value]) => `${key}=${value}`
-                ).join(';'),
-            ...rest
+            (() => {
+                if (bounds === undefined && !('bounds' in update)) {
+                    return altText;
+                }
+                return Object.entries(replaceBoundsProps(bounds, parseAltText(altText)))
+                    .filter(([key, value]) => key.length > 0 && value !== undefined)
+                    .map(
+                        ([key, value]) => `${key}=${value}`
+                    ).join(';')
+            })(),
+            ...restButSize,
+            ...(
+                maybeSize === undefined ? []
+                    : typeof maybeSize === 'string' ? [maybeSize]
+                        : [formatDisplaySize(maybeSize)]
+            )
         ].join('|'),
         token.start,
         token.end

@@ -134,6 +134,7 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
              * @returns 
              */
             onUpdatedBounds: (bounds?: BoxLike) => void,
+            onUpdatedSize: (size: { width: number, height: number }) => void,
             /**
              * 
              * @param cb Callback to invoke when the workspace leaf is visible again.
@@ -282,6 +283,18 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
                     if (menu === this.#currentMenu) {
                         this.#currentMenu = undefined;
                     }
+                }
+            },
+            setHeight: (height, preview) => {
+                const size = {
+                    width: this.#previewImage.size.width,
+                    height: Math.max(height, 0),
+                };
+                if (!preview) {
+                    this.context.onUpdatedSize(size);
+                } else {
+                    this.#previewImage.size = size;
+                    this.#previewImage.sizeCallback?.();
                 }
             },
             plugin: this.plugin,
@@ -504,20 +517,25 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
 }
 
 function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
-    file, plugin, controller, showBgDots,
+    file, plugin, controller, showBgDots, setHeight
 }: {
     file: TFile,
     plugin: TldrawPlugin,
     controller: TldrAppControllerForMenu,
+    setHeight: (height: number, preview: boolean) => void,
     showBgDots: boolean,
 }) {
-    const tldrawEmbedView = internalEmbedDiv.createDiv({ cls: 'ptl-markdown-embed' },)
+    const tldrawEmbedView = internalEmbedDiv.createDiv({ cls: 'ptl-markdown-embed' },);
 
     const tldrawEmbedViewContent = tldrawEmbedView.createDiv({
         cls: 'ptl-view-content', attr: {
             'data-showBgDots': showBgDots,
         }
     })
+
+    const resizeHandle = tldrawEmbedView.createDiv({
+        cls: 'ptl-embed-resize-handle'
+    });
 
     // Prevent the Obsidian editor from selecting the embed link with the editing cursor when a user interacts with the view.
     tldrawEmbedView.addEventListener('click', (ev) => {
@@ -526,7 +544,7 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
         }
     })
 
-    tldrawEmbedView.addEventListener('dblclick', (ev) => {
+    tldrawEmbedViewContent.addEventListener('dblclick', (ev) => {
         if (controller.getViewMode() === 'image') {
             plugin.openTldrFile(file, 'new-tab', 'tldraw-view');
             ev.stopPropagation();
@@ -562,7 +580,43 @@ function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
         tldrawEmbedViewContent.addEventListener('touchend', (ev) => {
             clearTimeout(longPressTimer);
         }, { passive: true });
+
+        resizeHandle.addEventListener('touchstart', function touchStart(ev) {
+            // Helps with responsiveness of the the resizing.
+            ev.preventDefault();
+            // Stops the command pallette from opening when dragging down.
+            ev.stopPropagation();
+        });
     }
+
+
+    resizeHandle.addEventListener('pointerdown', function pointerDown(ev) {
+        // Prevent text from being selected during mousemove.
+        ev.preventDefault();
+
+        let isResizing = true;
+        const startY = ev.clientY;
+        const startHeight = parseInt(resizeHandle.doc.defaultView!.getComputedStyle(tldrawEmbedViewContent).height)
+
+        function updateHeight(ev: MouseEvent, preview = true) {
+            const dy = ev.clientY - startY;
+            const newHeight = startHeight + dy;
+            setHeight(newHeight, preview);
+        }
+        function pointerMove(ev: MouseEvent) {
+            if (!isResizing) return;
+            updateHeight(ev);
+        }
+        function pointerUp(ev: MouseEvent) {
+            isResizing = false;
+            resizeHandle.doc.removeEventListener('pointermove', pointerMove);
+            resizeHandle.doc.removeEventListener('pointerup', pointerUp);
+            updateHeight(ev, false);
+        }
+
+        resizeHandle.doc.addEventListener('pointermove', pointerMove);
+        resizeHandle.doc.addEventListener('pointerup', pointerUp)
+    });
 
     return {
         tldrawEmbedView,
