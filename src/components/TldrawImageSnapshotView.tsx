@@ -130,7 +130,7 @@ function TldrawImageContextProviders({
 
     return (
         <PluginTldrawImageContext.Provider value={ptlTldrawImageContextValue}>
-            <TldrawImageContext.Provider value={tldrawImageContextValue}>
+            <TldrawImageContext.Provider key={tldrawImageContextValue?.props.pageId} value={tldrawImageContextValue}>
                 {children}
             </TldrawImageContext.Provider>
         </PluginTldrawImageContext.Provider>

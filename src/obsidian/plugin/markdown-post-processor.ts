@@ -138,6 +138,7 @@ async function loadEmbedTldraw({
         plugin,
         {
             tFile: file,
+            refreshTimeoutDelay: 500,
             initialEmbedValues: parseEmbedValues(internalEmbedDiv, {
                 showBgDefault: plugin.settings.embeds.showBg
             }),
@@ -283,6 +284,9 @@ function parseEmbedValues(el: HTMLElement, {
                 return showBgDefault;
         }
     })()
+
+    const page = altNamedProps['page'];
+
     return {
         bounds: bounds === undefined ? undefined : {
             ...bounds.pos,
@@ -290,6 +294,7 @@ function parseEmbedValues(el: HTMLElement, {
         },
         imageSize,
         showBg,
+        page,
     };
 }
 
@@ -400,7 +405,8 @@ function updateEmbedAtInternalLink(editor: Editor, token: InternalLinkToken, upd
                 if (bounds === undefined && !('bounds' in update)) {
                     return altText;
                 }
-                return Object.entries(replaceBoundsProps(bounds, parseAltText(altText)))
+                const props = parseAltText(altText);
+                return Object.entries(replaceBoundsProps(bounds, props))
                     .filter(([key, value]) => key.length > 0 && value !== undefined)
                     .map(
                         ([key, value]) => `${key}=${value}`

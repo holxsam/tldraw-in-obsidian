@@ -7,7 +7,7 @@ import TldrawApp, { TldrawAppStoreProps } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import BoundsSelectorTool from "src/tldraw/tools/bounds-selector-tool";
 import { ImageViewModeOptions, ViewMode } from "../helpers/TldrawAppEmbedViewController";
-import { BoxLike, Store } from "tldraw";
+import { BoxLike, pageIdValidator, Store, TLPageId } from "tldraw";
 import TLDataDocumentStoreManager from "../plugin/TLDataDocumentStoreManager";
 import { showEmbedContextMenu } from "../helpers/show-embed-context-menu";
 import { SnapshotPreviewSyncStore, TldrawImageSnapshot, TldrawImageSnapshotView } from "src/components/TldrawImageSnapshotView";
@@ -25,6 +25,12 @@ function getEditorStoreProps(storeProps: TldrawAppStoreProps) {
     return storeProps.tldraw ? storeProps.tldraw : {
         store: storeProps.plugin.store
     }
+}
+
+function _pageId(page?: string) {
+    return page === undefined || page.length === 0 ? undefined : (
+        !pageIdValidator.isValid(`page:${page}`) ? undefined : `page:${page}` as TLPageId
+    )
 }
 
 export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
@@ -123,10 +129,12 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
         plugin: TldrawPlugin,
         public readonly context: {
             tFile: TFile,
+            refreshTimeoutDelay: number,
             initialEmbedValues: {
                 imageSize: { width: number, height: number },
                 bounds?: BoxLike,
                 showBg: boolean,
+                page?: string,
             },
             /**
              * Called whenever the bounds are updated using the {@linkcode BoundsSelectorTool}
@@ -148,11 +156,13 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
         this.plugin = plugin;
         this.#previewImage = {
             size: context.initialEmbedValues.imageSize,
+            refreshTimeoutDelay: context.refreshTimeoutDelay,
             options: {
                 assetUrls: {
                     fonts: plugin.getFontOverrides(),
                     icons: plugin.getIconOverrides(),
                 },
+                pageId: _pageId(context.initialEmbedValues.page),
                 background: context.initialEmbedValues.showBg,
                 bounds: context.initialEmbedValues.bounds,
                 padding: plugin.settings.embeds.padding,
@@ -369,10 +379,13 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
         }
     }
 
-    refreshPreview() {
+    refreshPreview(options?: ImageViewModeOptions) {
         clearTimeout(this.#previewImage.refreshTimeout);
         this.#previewImage.rendered = undefined;
-        this.#previewImage.refreshTimeout = setTimeout(async () => {
+        this.#previewImage.refreshTimeout = setTimeout(() => {
+            if (options) {
+                this.#previewImage.options = options;
+            }
             this.#previewImage.optionsCallback?.();
         }, this.#previewImage.refreshTimeoutDelay);
     }
@@ -385,26 +398,34 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
     updateEmbedValues({
         bounds,
         imageSize,
-        showBg
+        showBg,
+        page,
     }: {
         bounds?: BoxLike,
         imageSize: { width: number, height: number },
         showBg: boolean,
+        page?: string,
     }) {
-        this.#previewImage.size = imageSize;
-        this.#previewImage.sizeCallback?.();
+        const { options: currOptions } = this.#previewImage;
+        if (imageSize.height !== this.#previewImage.size.height || imageSize.width !== this.#previewImage.size.width) {
+            this.#previewImage.size = imageSize;
+            this.#previewImage.sizeCallback?.();
+        }
 
-        if (this.#previewImage.options.background === showBg
-            && this.#previewImage.options.bounds?.h === bounds?.h
-            && this.#previewImage.options.bounds?.w === bounds?.w
-            && this.#previewImage.options.bounds?.x === bounds?.x
-            && this.#previewImage.options.bounds?.y === bounds?.y
+        const pageId = _pageId(page);
+        if (currOptions.background === showBg
+            && currOptions.bounds?.h === bounds?.h
+            && currOptions.bounds?.w === bounds?.w
+            && currOptions.bounds?.x === bounds?.x
+            && currOptions.bounds?.y === bounds?.y
+            && currOptions.pageId === pageId
         ) return;
 
-        this.setPreviewImageOptions({
-            ...this.#previewImage.options,
+        this.refreshPreview({
+            ...currOptions,
             background: showBg,
             bounds,
+            pageId,
         });
     }
 
