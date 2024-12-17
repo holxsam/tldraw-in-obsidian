@@ -57,7 +57,9 @@ export function TldrawLoadableMixin<T extends abstract new (...args: any[]) => F
         }
 
         protected getTldrawOptions(): TldrawAppProps['options'] {
-            return {};
+            return {
+                onEditorMount: (editor) => editor.zoomToFit()
+            };
         }
 
         private createReactRoot(entryPoint: Element, store: TldrawAppStoreProps) {

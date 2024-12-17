@@ -1,6 +1,5 @@
 import { Editor, TldrawFile } from "tldraw";
 import * as React from "react";
-import { useViewModeState } from "src/hooks/useViewModeController";
 import TldrawPlugin from "src/main";
 import { TldrawPluginMetaData } from "src/utils/document";
 import { isObsidianThemeDark } from "src/utils/utils";
@@ -11,17 +10,17 @@ export type SetTldrawFileData = (data: {
 }) => void;
 
 export function useTldrawAppEffects({
-    editor, bounds, initialTool, isReadonly, settingsProvider, selectNone,
-    setFocusedEditor, zoomToBounds
+    editor, initialTool, isReadonly, settingsProvider, selectNone,
+    onEditorMount,
+    setFocusedEditor,
 }: {
     editor?: Editor,
-    bounds: ReturnType<typeof useViewModeState>['viewOptions']['bounds']
     initialTool?: string,
     isReadonly: boolean,
     settingsProvider: TldrawPlugin['settingsProvider'],
     selectNone: boolean,
-    zoomToBounds: boolean,
     setFocusedEditor: (editor: Editor) => void,
+    onEditorMount?: (editor: Editor) => void,
 }) {
     const [settings, setSettings] = React.useState(() => settingsProvider.getCurrent());
 
@@ -77,18 +76,8 @@ export function useTldrawAppEffects({
             isFocusMode: focusMode,
         });
 
-        if (zoomToBounds) {
-            const zoomBounds = bounds ?? editor.getViewportPageBounds();
-            editor.zoomToBounds(zoomBounds, {
-                // Define an inset to 0 so that it is consistent with TldrawImage component
-                inset: 0,
-                animation: { duration: 0 }
-            });
-        } else {
-            editor.zoomToFit({ animation: { duration: 0 } });
-        }
-
         setFocusedEditor(editor);
+        onEditorMount?.(editor);
         // NOTE: These could probably be utilized for storing assets as files in the vault instead of tldraw's default indexedDB.
         // editor.registerExternalAssetHandler
         // editor.registerExternalContentHandler

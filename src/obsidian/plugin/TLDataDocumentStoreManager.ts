@@ -31,6 +31,8 @@ export default class TLDataDocumentStoreManager {
         public readonly plugin: TldrawPlugin,
     ) { }
 
+    dispose() { this.storesManager.dispose(); }
+
     /**
      * 
      * @param tFile 
@@ -41,7 +43,7 @@ export default class TLDataDocumentStoreManager {
     register(tFile: TFile, getData: () => string, onUpdatedData: (data: string) => void, syncToMain: boolean): {
         documentStore: TLDataDocumentStore,
         unregister: () => void,
-    } {
+    } & Pick<ReturnType<typeof this.storesManager.registerInstance>['instance'], 'syncToMain' | 'isSynchronizingToMain'> {
         const instanceInfo: InstanceInfo = {
             instanceId: window.crypto.randomUUID(),
             syncToMain,
@@ -67,7 +69,9 @@ export default class TLDataDocumentStoreManager {
             },
             unregister: () => {
                 storeContext.instance.unregister();
-            }
+            },
+            syncToMain: (sync: boolean) => storeContext.instance.syncToMain(sync),
+            isSynchronizingToMain: () => storeContext.instance.isSynchronizingToMain(),
         };
     }
 

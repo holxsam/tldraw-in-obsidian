@@ -10,6 +10,10 @@ declare module "obsidian" {
         openWithDefaultApp(path: string): void
     }
 
+    interface Menu {
+        dom: HTMLElement;
+    }
+
     interface Workspace {
         /**
          * This isn't provided by the Obsidian API, but we can still call it.

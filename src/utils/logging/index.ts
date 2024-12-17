@@ -4,11 +4,14 @@ export function logClass<
     T extends new (...args: unknown[]) => unknown,
     U extends (this: T, ...args: never) => unknown
 >(targetClass: T, target: U, ...args: ConsoleLogParams) {
-    console.log(`${targetClass.name}.${target.name}: ${args[0]}`, ...args.slice(1));
+    console.log(`${targetClass.name}.${target.name}:`, ...args);
 }
 
 export function logFn<T extends CallableFunction>(target: T, ...args: ConsoleLogParams) {
-    console.log(`${target.name}:`, args[0], ...args.slice(1));
+    console.log(`${target.name}:`, ...args);
 }
 
 export const LOGGING_ENABLED = false;
+export const MARKDOWN_POST_PROCESSING_LOGGING = LOGGING_ENABLED && false;
+export const TLDRAW_COMPONENT_LOGGING = LOGGING_ENABLED && false;
+export const TLDRAW_STORES_MANAGER_LOGGING = LOGGING_ENABLED && false;

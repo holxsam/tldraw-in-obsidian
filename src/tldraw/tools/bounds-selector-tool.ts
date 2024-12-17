@@ -1,7 +1,7 @@
 /**
  * Followed example from https://tldraw.dev/examples/shapes/tools/screenshot-tool
  */
-import { atom, Box, BoxLike, StateNode, TLCancelEventInfo, TLPointerEventInfo, TLShape, TLStateNodeConstructor } from "tldraw";
+import { atom, Box, BoxLike, StateNode, TLCancelEventInfo, TLPageId, TLPointerEventInfo, TLShape, TLStateNodeConstructor } from "tldraw";
 
 class IdleBoundsState extends StateNode {
     static override id = 'bounds-idle';
@@ -47,7 +47,7 @@ export class BoundsDraggingState extends StateNode {
     boundsBox = atom(BOUNDS_BOX, new Box())
     shapesBox = atom<Box | null>(BOUNDS_BOX, new Box())
     boundsUsingAspectRatio = atom(BOUNDS_USING_ASPECT_RATIO, false);
-    selectedShapes =  atom<TLShape[]>(BOUNDS_SELECTED_SHAPES, []);
+    selectedShapes = atom<TLShape[]>(BOUNDS_SELECTED_SHAPES, []);
 
     private get _parent(): BoundsSelectorTool {
         return this.parent as BoundsSelectorTool;
@@ -84,9 +84,9 @@ export class BoundsDraggingState extends StateNode {
         const shapesBox = this.shapesBox.get();
 
         if (editor.inputs.ctrlKey && shapesBox) {
-            this._parent.onBounds(shapesBox);
+            this._parent.onBounds(this.editor.getCurrentPageId(), shapesBox);
         } else {
-            this._parent.onBounds(box);
+            this._parent.onBounds(this.editor.getCurrentPageId(), box);
         }
 
         this.complete();
@@ -158,8 +158,17 @@ type AspectRatio = {
     h: number,
 };
 
+type PageBounds = {
+    /**
+     * If this is undefined, then the bounds should be applied to all pages.
+     */
+    pageId?: TLPageId,
+    bounds: Box,
+};
+
 export const BOUNDS_ASPECT_RATIO = 'bounds aspect ratio';
 export const BOUNDS_CURRENT_BOX = 'bounds current box';
+export const BOUNDS_CURRENT_PAGE_BOUNDS = 'bounds current page bounds';
 export const BOUNDS_SELECTOR_INITIALIZED = 'bounds selector initialized';
 
 export default class BoundsSelectorTool extends StateNode {
@@ -183,20 +192,37 @@ export default class BoundsSelectorTool extends StateNode {
         getInitialBounds,
         callback,
     }: {
-        callback: BoundsSelectorTool['onBounds'],
-        getInitialBounds?: () => BoxLike | undefined,
+        callback: (pageId: TLPageId, bounds?: Box) => void,
+        getInitialBounds?: (pageId: TLPageId) => {
+            /**
+             * Is the bounds specific to the provided page.
+             * 
+             * `true` if the bounds is for the provided page
+             * 
+             * `false` if the bounds is not for a specific page, i.e. it is default for all pages.
+             */
+            isSpecific: boolean,
+            bounds: BoxLike,
+        } | undefined,
     }): TLStateNodeConstructor {
         class _BoundsSelectorTool extends BoundsSelectorTool {
             override init() {
-                const bounds = getInitialBounds?.();
-                // We don't want to trigger the callback when the tool is initialized, so we call the super method instead.
-                super.onBounds(!bounds ? undefined : Box.From(bounds));
+                const pageId = this.editor.getCurrentPageId();
+                const bounds = getInitialBounds?.(pageId);
+                if (!bounds) {
+                    this.currentPageBounds.set(undefined)
+                } else {
+                    this.currentPageBounds.set({
+                        pageId: !bounds.isSpecific ? undefined : pageId,
+                        bounds: Box.From(bounds.bounds),
+                    });
+                }
                 super.init();
             }
 
-            override onBounds(bounds?: Box) {
-                super.onBounds(bounds);
-                callback(bounds);
+            override onBounds(pageId: TLPageId, bounds?: Box) {
+                super.onBounds(pageId, bounds);
+                callback(pageId, bounds);
             }
         }
         return _BoundsSelectorTool;
@@ -205,7 +231,7 @@ export default class BoundsSelectorTool extends StateNode {
     private aspectRatioIndex = 0;
 
     aspectRatio = atom<AspectRatio>(BOUNDS_ASPECT_RATIO, BoundsSelectorTool.aspectRatios[0]);
-    currentBounds = atom<Box | undefined>(BOUNDS_CURRENT_BOX, undefined);
+    currentPageBounds = atom<PageBounds | undefined>(BOUNDS_CURRENT_PAGE_BOUNDS, undefined);
     boundsSelectorInitialized = atom<boolean>(BOUNDS_SELECTOR_INITIALIZED, false);
 
     override onEnter() {
@@ -216,8 +242,8 @@ export default class BoundsSelectorTool extends StateNode {
         this.editor.setCursor({ type: 'default', rotation: 0 });
     }
 
-    onBounds(bounds?: Box) {
-        this.currentBounds.set(bounds);
+    onBounds(pageId: TLPageId, bounds?: Box) {
+        this.currentPageBounds.set(!bounds ? undefined : { pageId, bounds });
     }
 
     /**
@@ -232,5 +258,14 @@ export default class BoundsSelectorTool extends StateNode {
 
     init() {
         this.boundsSelectorInitialized.set(true);
+    }
+
+    zoomToBounds() {
+        const bounds = this.currentPageBounds.get()?.bounds;
+        if (bounds) {
+            this.editor.zoomToBounds(bounds);
+        } else {
+            this.editor.zoomToFit();
+        }
     }
 }

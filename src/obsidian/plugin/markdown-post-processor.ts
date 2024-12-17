@@ -1,19 +1,9 @@
 import { Editor, MarkdownPostProcessorContext, TFile } from "obsidian";
-import { createRootAndRenderTldrawApp } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
-import { TldrawAppViewModeController } from "../helpers/TldrawAppEmbedViewController";
 import { CustomMutationObserver } from "src/utils/debug-mutation-observer";
-import { ConsoleLogParams, LOGGING_ENABLED, logFn } from "src/utils/logging";
-import { createTldrawAppViewModeController } from "../factories/createTldrawAppViewModeController";
-import { Root } from "react-dom/client";
-import { showEmbedContextMenu } from "../helpers/show-embed-context-menu";
-import { TLDataDocumentStore } from "src/utils/document";
-import BoundsSelectorTool from "src/tldraw/tools/bounds-selector-tool";
-import BoundsTool from "src/components/BoundsTool";
+import { ConsoleLogParams, MARKDOWN_POST_PROCESSING_LOGGING, logFn } from "src/utils/logging";
 import { BoxLike } from "tldraw";
-import EmbedTldrawToolBar from "src/components/EmbedTldrawToolBar";
-import BoundsToolSelectedShapeIndicator from "src/components/BoundsToolSelectedShapesIndicator";
-import { isObsidianThemeDark } from "src/utils/utils";
+import { TldrawMarkdownRenderChild } from "../components/tldraw-component";
 
 /**
  * Processes the embed view for a tldraw white when including it in another obsidian note.
@@ -23,15 +13,10 @@ import { isObsidianThemeDark } from "src/utils/utils";
  * @returns 
  */
 export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLElement, context: MarkdownPostProcessorContext) {
-    const log = (...args: ConsoleLogParams) => !LOGGING_ENABLED ? () => { } : logFn(markdownPostProcessor, args[0], ...args.slice(1));
+    const log = (...args: ConsoleLogParams) => !MARKDOWN_POST_PROCESSING_LOGGING ? () => { } : logFn(markdownPostProcessor, args[0], ...args.slice(1));
     log();
 
-    // https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/94fbac38bfc5036187a81c7883c03830a622bc1d/src/MarkdownPostProcessor.ts#L739
-    const embeddedItems = element.querySelectorAll(".internal-embed");
-
-    if (embeddedItems.length !== 0) {
-        return;
-    }
+    // Inspired by: https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/94fbac38bfc5036187a81c7883c03830a622bc1d/src/MarkdownPostProcessor.ts#L575
 
     const file = plugin.app.vault.getAbstractFileByPath(context.sourcePath);
 
@@ -74,12 +59,13 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
     if (internalEmbedDiv === undefined) return; //https://github.com/zsviczian/obsidian-excalidraw-plugin/issues/835
 
 
-
     const markdownEmbed = internalEmbedDiv.hasClass("markdown-embed");
     const markdownReadingView = internalEmbedDiv.hasClass("markdown-reading-view");
     const isMarkdownView = markdownEmbed || markdownReadingView;
     const isInternal = internalEmbedDiv.hasClass("internal-embed");
-    if (isInternal && isMarkdownView) {
+    const isCanvas = internalEmbedDiv.hasClass("canvas-node-content");
+    const isEmbed = isInternal || isCanvas;
+    if (isEmbed && isMarkdownView) {
         const codeblock = element.querySelector("code.language-json");
 
         if (!codeblock) {
@@ -108,101 +94,92 @@ export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLE
             // internalEmbedDiv.addClass("image-embed");
         }
 
-        const embedValues = parseEmbedValues(internalEmbedDiv, {
-            showBgDefault: plugin.settings.embeds.showBg
-        });
-        const controller = createTldrawAppViewModeController({
-            showBg: embedValues.showBg,
-            initialBounds: embedValues.bounds,
-            padding: plugin.settings.embeds.padding,
-            darkMode: (() => {
-                const { themeMode } = plugin.settings;
-                if (themeMode === "dark") return true;
-                else if (themeMode === "light") return false;
-                else return isObsidianThemeDark()
-            })()
+        const component = await loadEmbedTldraw({
+            file, internalEmbedDiv, plugin,
         });
 
-        const { tldrawEmbedViewContent } = createTldrawEmbedView(internalEmbedDiv, {
-            file, plugin, controller,
-            showBgDots: plugin.settings.embeds.showBgDots
-        });
+        context.addChild(component);
 
-        const parent = internalEmbedDiv.parentElement;
+        const awaitInitialLoad = () => component.awaitInitialLoad(2500).catch(errorLoading);
+        const errorLoading = (e: unknown) => {
+            // const errorDiv = internalEmbedDiv.createDiv();
+            // errorDiv.createEl('p', {
+            //     text: e instanceof Error ? e.message : 'Error'
+            // });
+            // new ButtonComponent(errorDiv).setButtonText('Reload').onClick(() => {
+            //     errorDiv.remove();
+            //     if (component.isContentLoaded()) return;
+            //     component.unload();
+            //     component.load();
+            //     awaitInitialLoad();
+            // });
+        };
 
-        if (parent === null) throw Error(`${markdownPostProcessor.name}: No parent element for internalEmbedDiv.\n\n\tIt is needed to ensure the attached react root component is unmounted properly.`);
-
-        await loadEmbedTldraw(tldrawEmbedViewContent, {
-            controller, embedValues, file, internalEmbedDiv, parent, plugin
-        });
-
-        return;
-    } else if (!isInternal && isMarkdownView) {
+        return awaitInitialLoad();
+    } else if (!isEmbed && isMarkdownView) {
         throw new Error(`${markdownPostProcessor.name}: Unexpected`);
     }
     throw new Error(`${markdownPostProcessor.name}: Unexpected`);
 }
 
-async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
-    controller, embedValues, file, internalEmbedDiv, parent, plugin,
+async function loadEmbedTldraw({
+    file, internalEmbedDiv, plugin,
 }: {
-    controller: TldrawAppViewModeController,
-    embedValues: ReturnType<typeof parseEmbedValues>,
     file: TFile,
     internalEmbedDiv: HTMLElement,
-    parent: HTMLElement,
     plugin: TldrawPlugin,
 }) {
-    let reactRoot: undefined | Root;
-
-    // https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/94fbac38bfc5036187a81c7883c03830a622bc1d/src/MarkdownPostProcessor.ts#L710C3-L731C6
-    //timer to avoid the image flickering when the user is typing
-    let timer: NodeJS.Timeout | null = null;
-
-    let storeInstance: undefined | ReturnType<typeof plugin.tlDataDocumentStoreManager['register']>;
-
-    const dataUpdated = (_storeInstance: NonNullable<typeof storeInstance>) => {
-        controller.setStoreProps({ plugin: _storeInstance.documentStore });
-        tldrawEmbedViewContent.setAttr('data-has-shape',
-            _storeInstance.documentStore.store.query.record('shape').get() !== undefined
-        );
-    };
-
-    let pauseListener = true;
-
-    const activateReactRoot = async () => {
-        if (timer) {
-            clearTimeout(timer);
+    const parent = internalEmbedDiv.parentElement;
+    /**
+     * #NOTE: When the page is printing to pdf, then this does not exist.
+     */
+    const workspaceLeafEl = internalEmbedDiv.closest('.workspace-leaf');
+    if (parent === null) throw Error(`${markdownPostProcessor.name}: No parent element for internalEmbedDiv.\n\n\tIt is needed to ensure the attached react root component is unmounted properly.`);
+    const deferrables = new Set<() => void>();
+    const component = new TldrawMarkdownRenderChild(
+        internalEmbedDiv,
+        plugin,
+        {
+            tFile: file,
+            refreshTimeoutDelay: 500,
+            initialEmbedValues: parseEmbedValues(internalEmbedDiv, {
+                showBgDefault: plugin.settings.embeds.showBg
+            }),
+            onUpdatedBounds: (page, bounds) => {
+                const widget = getCmViewWidget(internalEmbedDiv);
+                if (widget) {
+                    updateEmbedBounds(widget, { page, bounds }, widget.editor.editor);
+                } else {
+                    console.warn("No active editor; setting the controller's bounds instead.");
+                    component.updateBounds(bounds);
+                }
+            },
+            onUpdatedSize: (size) => {
+                const widget = getCmViewWidget(internalEmbedDiv);
+                if (widget) {
+                    updateEmbed(widget.editor.editor, widget, { size });
+                }
+            },
+            deferUntilIsShown: (cb) => {
+                deferrables.add(cb);
+                return () => {
+                    deferrables.delete(cb);
+                }
+            },
+            isWorkspaceLeafShown: () => {
+                if (workspaceLeafEl?.instanceOf(HTMLElement)) return workspaceLeafEl.isShown();
+                return false;
+            }
         }
-        try {
-            pauseListener = true;
-            storeInstance ??= await (async () => {
-                const fileData = await plugin.app.vault.read(file);
-                return plugin.tlDataDocumentStoreManager.register(file, () => fileData, () => {
-                    if (pauseListener) return;
-                    if (storeInstance) dataUpdated(storeInstance);
-                }, false);
-            })();
+    );
 
-            dataUpdated(storeInstance);
+    await component.loadRoot();
 
-            reactRoot = await createReactTldrawAppRoot({
-                controller, documentStore: storeInstance.documentStore, plugin, tldrawEmbedViewContent, embedValues,
-            })
-            pauseListener = false;
-        } catch (e) {
-            console.error('There was an error while mounting the tldraw app: ', e);
-        }
-    }
-
-    const markdownObserverFn: MutationCallback = (m) => {
-        // log(`${markdownObserverFn.name}`, m)
-
-        if (reactRoot === undefined) {
-            // log('Reactivating observer parent and react root');
-            activateReactRoot().then(() => {
+    const observer = new CustomMutationObserver((m) => {
+        if (component?.root === undefined) {
+            component.loadRoot().then(() => {
                 observerParent.observe(parent, { childList: true });
-            })
+            });
             return;
         }
 
@@ -211,116 +188,58 @@ async function loadEmbedTldraw(tldrawEmbedViewContent: HTMLElement, {
             return;
         }
 
-        if (timer) {
-            clearTimeout(timer);
-        }
-
-
-        timer = setTimeout(async () => {
-            const { bounds, imageSize, showBg } = parseEmbedValues(target, {
-                showBgDefault: plugin.settings.embeds.showBg
-            });
-
-            controller.setShowBackground(showBg);
-            controller.setImageSize(imageSize)
-            controller.setImageBounds(bounds);
-        }, 500);
-    }
-
-    const observer = new CustomMutationObserver(markdownObserverFn, "markdownPostProcessorObserverFn");
+        component.updateEmbedValues(parseEmbedValues(target, {
+            showBgDefault: plugin.settings.embeds.showBg
+        }));
+    }, "markdownPostProcessorObserverFn");
     observer.observe(internalEmbedDiv, { attributes: true });
 
     const observerParent = new CustomMutationObserver(function markdownParentObserverFn(m) {
-        // log(`${markdownParentObserverFn.name} watching`, m, parent);
         if (!parent.contains(internalEmbedDiv)) {
-            pauseListener = true;
-            // log(`${markdownParentObserverFn.name}: Unmounting react root`);
-            reactRoot?.unmount();
-            reactRoot = undefined;
-            if (timer) {
-                clearTimeout(timer);
-            }
+            component.unloadRoot()
             observerParent.disconnect();
             return;
         }
     }, "markdownPostProcessorObserverFn");
     observerParent.observe(parent, { childList: true });
 
-    new CustomMutationObserver(function (m) {
-        if (parent.isConnected) return;
-        storeInstance?.unregister();
-        storeInstance = undefined;
-    }, 'markdownTldrawFileListener').observe(parent, { childList: true })
+    if (workspaceLeafEl?.instanceOf(HTMLElement)) {
+        /**
+         * This observer is interested in the style attribute of the workspace leaf element since it includes
+         * display: none; whenever the leaf is behind a tab.
+         */
+        const workspaceLeafElObserver = new MutationObserver((_) => {
+            if (workspaceLeafEl.isShown() && deferrables.size) {
+                const _deferrables = [...deferrables];
+                deferrables.clear();
+                for (const deferrable of _deferrables) {
+                    deferrable();
+                }
+            }
+        });
+        workspaceLeafElObserver.observe(workspaceLeafEl, { attributeFilter: ['style'] });
+    }
 
-    await activateReactRoot();
+    return component;
 }
 
-function createTldrawEmbedView(internalEmbedDiv: HTMLElement, {
-    file, plugin, controller, showBgDots
-}: {
-    file: TFile,
-    plugin: TldrawPlugin,
-    controller: TldrawAppViewModeController,
-    showBgDots: boolean,
-}) {
-    const tldrawEmbedView = internalEmbedDiv.createDiv({ cls: 'ptl-markdown-embed' },)
-
-    const tldrawEmbedViewContent = tldrawEmbedView.createDiv({
-        cls: 'ptl-view-content', attr: {
-            'data-showBgDots': showBgDots
-        }
-    })
-
-    // Prevent the Obsidian editor from selecting the embed link with the editing cursor when a user interacts with the view.
-    tldrawEmbedView.addEventListener('click', (ev) => {
-        if (controller.getViewMode() === 'interactive') {
-            ev.stopPropagation();
-        }
-    })
-
-    tldrawEmbedView.addEventListener('dblclick', (ev) => {
-        if (controller.getViewMode() === 'image') {
-            console.log('double click')
-            plugin.openTldrFile(file, 'new-tab', 'tldraw-view');
-            ev.stopPropagation();
-        }
-    })
-
-    tldrawEmbedViewContent.addEventListener('contextmenu', (ev) => {
-        if (ev.button === 2) {
-            showEmbedContextMenu(ev, {
-                plugin, controller, focusContainer: internalEmbedDiv,
-                tFile: file
-            })
-        }
-        // Prevent default: On mobile without this the embed image view will zoom in, which is unwanted behavior when showing the context menu.
-        ev.preventDefault()
-    })
-
-
-    {// Mobile
-        let longPressTimer: NodeJS.Timer | undefined;
-        tldrawEmbedViewContent.addEventListener('touchstart', (ev) => {
-            clearTimeout(longPressTimer)
-            longPressTimer = setTimeout(() => showEmbedContextMenu(ev, {
-                plugin, controller, focusContainer: tldrawEmbedView,
-                tFile: file
-            }), 500)
-        }, { passive: true })
-
-        tldrawEmbedViewContent.addEventListener('touchmove', (ev) => {
-            clearTimeout(longPressTimer)
-        }, { passive: true });
-
-        tldrawEmbedViewContent.addEventListener('touchend', (ev) => {
-            clearTimeout(longPressTimer);
-        }, { passive: true });
+function getCmViewWidget(element: HTMLElement) {
+    if (
+        'cmView' in element
+        && typeof element.cmView === 'object'
+        && element.cmView
+        && 'widget' in element.cmView
+        && typeof element.cmView.widget === 'object'
+        && element.cmView.widget
+        && 'editor' in element.cmView.widget
+        && typeof element.cmView.widget.editor === 'object'
+        && element.cmView.widget.editor
+        && 'editor' in element.cmView.widget.editor
+        && element.cmView.widget.editor.editor instanceof Editor
+    ) {
+        return element.cmView.widget as InternalEmbedWidget;
     }
-
-    return {
-        tldrawEmbedView,
-        tldrawEmbedViewContent,
-    }
+    return undefined;
 }
 
 function parseAltText(altText: string): Partial<Record<string, string>> {
@@ -373,6 +292,9 @@ function parseEmbedValues(el: HTMLElement, {
                 return showBgDefault;
         }
     })()
+
+    const page = altNamedProps['page'];
+
     return {
         bounds: bounds === undefined ? undefined : {
             ...bounds.pos,
@@ -380,113 +302,140 @@ function parseEmbedValues(el: HTMLElement, {
         },
         imageSize,
         showBg,
+        page,
     };
 }
 
-function replaceBoundsProps(bounds: BoxLike | undefined, props: Partial<Record<string, string>>) {
+function replaceBoundsProps(pageBounds: EmbedUpdate['pageBounds'], props: Partial<Record<string, string>>) {
+    const bounds = pageBounds?.bounds;
     if (bounds) {
+        props['page'] = pageBounds.page;
         props['pos'] = `${bounds.x.toFixed(0)},${bounds.y.toFixed(0)}`;
         props['size'] = `${bounds.w.toFixed(0)},${bounds.h.toFixed(0)}`;
     } else {
+        delete props['page'];
         delete props['pos'];
         delete props['size'];
     }
     return props;
 }
 
-function updateEmbedBoundsAtCursorPostion(bounds: BoxLike | undefined, editor: Editor) {
-    const anchorPos = editor.getCursor('anchor');
-    const token = editor.getClickableTokenAt(anchorPos);
-    if (!token) return;
+type InternalEmbedWidget = {
+    start: number,
+    end: number,
+    /**
+     * The filename of the embed
+     */
+    href: string,
+    /**
+     * This is corresponds to the "alt", "width", and "height" attribute of the internaleEmbedDiv.
+     * 
+     * ```js
+     * `${alt}|${width}x${height}`
+     * ```
+     */
+    title: string,
+    editor: {
+        editor: Editor,
+    }
+};
 
-    if (token.type === 'internal-link') {
-        token.displayText
-        const [altText, ...rest] = token.displayText.split('|');
-        editor.replaceRange(
-            [
-                token.text,
-                Object.entries(replaceBoundsProps(bounds, parseAltText(altText)))
+function updateEmbedBounds(widget: InternalEmbedWidget, pageBounds: EmbedUpdate['pageBounds'], editor: Editor) {
+    return updateEmbed(editor, widget, { pageBounds });
+}
+
+function updateEmbed(editor: Editor, widget: InternalEmbedWidget, update: EmbedUpdate) {
+    const token = editor.getClickableTokenAt(editor.offsetToPos(widget.end));
+
+    if (!token || token.type !== 'internal-link') {
+        console.warn(`No internal link token at end position ${widget.end}`, widget);
+        return;
+    }
+
+    if (widget.href !== token.text) {
+        console.warn(`Internal link token does not match the provided widget`, {
+            widget, token,
+        });
+        return;
+    }
+
+    updateEmbedAtInternalLink(editor, token, update);
+}
+
+type InternalLinkToken = Extract<ReturnType<Editor['getClickableTokenAt']>, {
+    type: 'internal-link'
+}>;
+
+function formatDisplaySize(size: { width: number, height: number }) {
+    if (Number.isNaN(size.width) && Number.isNaN(size.height)) return '';
+    if (Number.isNaN(size.height)) return size.width.toFixed();
+    const widthString = Number.isNaN(size.width) ? '0' : size.width.toFixed();
+    return `${widthString}x${size.height.toFixed()}`;
+}
+
+type EmbedUpdate = Partial<{
+    pageBounds: {
+        page: string,
+        bounds?: BoxLike,
+    }
+    size: { width: number, height: number }
+}>;
+
+function updateEmbedAtInternalLink(editor: Editor, token: InternalLinkToken, update: EmbedUpdate) {
+    const { size, pageBounds } = update;
+    const [altText, ...rest] = token.displayText.split('|');
+    const restButSize = rest.splice(0, rest.length - 1);
+    /**
+     * After the splice, rest should either contain only the size portion of the display text or no elements.
+     */
+    const maybeOnlySize = rest;
+    const maybeSize = size === undefined && ('size' in update) ? undefined : size ?? (
+        /**
+         * If no string was in the size slot, return undefined. Otherwise,
+         * 
+         * split the string by the `x` character and if the first string parses as NaN, then return the original string.
+         * 
+         * If the first number was parsed as non-NaN then use it as the width, and parse the next number as the height regardless
+         * of the the next number parsing as NaN.
+         */
+        () => {
+            const maybeSize = maybeOnlySize.at(0);
+            if (!maybeSize) return undefined;
+            const sizeSplit = maybeSize.split('x');
+            const width = Number.parseInt(sizeSplit.at(0) ?? '');
+            if (Number.isNaN(width)) return maybeSize;
+            const height = Number.parseInt(sizeSplit.at(1) ?? '');
+            return {
+                width,
+                height,
+            };
+        }
+    )();
+
+    editor.replaceRange(
+        [
+            token.text,
+            (() => {
+                if (pageBounds === undefined && !('pageBounds' in update)) {
+                    return altText;
+                }
+                const props = parseAltText(altText);
+                return Object.entries(replaceBoundsProps(pageBounds, props))
                     .filter(([key, value]) => key.length > 0 && value !== undefined)
                     .map(
                         ([key, value]) => `${key}=${value}`
-                    ).join(';'),
-                ...rest
-            ].join('|'),
-            token.start,
-            token.end
-        );
-    }
-}
-
-type EmbedValues = ReturnType<typeof parseEmbedValues>;
-
-const boundsSelectorToolIconName = `tool-${BoundsSelectorTool.id}`;
-
-async function createReactTldrawAppRoot({
-    controller, documentStore, plugin, tldrawEmbedViewContent, embedValues,
-}: {
-    documentStore: TLDataDocumentStore,
-    plugin: TldrawPlugin,
-    tldrawEmbedViewContent: HTMLElement,
-    controller: TldrawAppViewModeController,
-    embedValues: EmbedValues
-}) {
-    const { imageSize } = embedValues;
-    const boundsSelectorIcon = plugin.getEmbedBoundsSelectorIcon();
-
-    return createRootAndRenderTldrawApp(tldrawEmbedViewContent,
-        plugin,
-        {
-            store: { plugin: documentStore },
-            app: {
-                assetStore: documentStore.store.props.assets,
-                isReadonly: true,
-                components: {
-                    InFrontOfTheCanvas: BoundsTool,
-                    OnTheCanvas: BoundsToolSelectedShapeIndicator,
-                    Toolbar: EmbedTldrawToolBar,
-                },
-                controller,
-                selectNone: true,
-                iconAssetUrls: {
-                    [boundsSelectorToolIconName]: boundsSelectorIcon,
-                },
-                initialTool: 'hand',
-                initialImageSize: imageSize,
-                zoomToBounds: true,
-                tools: [
-                    BoundsSelectorTool.create({
-                        getInitialBounds: () => {
-                            return controller.getViewOptions().bounds;
-                        },
-                        callback: (bounds) => {
-                            const { activeEditor } = plugin.app.workspace;
-                            if (activeEditor && activeEditor.editor) {
-                                updateEmbedBoundsAtCursorPostion(bounds, activeEditor.editor);
-                            } else {
-                                console.warn("No active editor; setting the controller's bounds instead.");
-                                controller.setImageBounds(bounds);
-                            }
-                        }
-                    }),
-                ],
-                uiOverrides: {
-                    tools: (editor, tools, _) => {
-                        return {
-                            ...tools,
-                            [BoundsSelectorTool.id]: {
-                                id: BoundsSelectorTool.id,
-                                label: 'Select embed bounds',
-                                icon: boundsSelectorToolIconName,
-                                readonlyOk: true,
-                                onSelect(_) {
-                                    editor.setCurrentTool(BoundsSelectorTool.id)
-                                },
-                            }
-                        }
-                    },
-                }
-            },
-        }
+                    ).join(';')
+            })(),
+            ...restButSize,
+            ...(
+                maybeSize === undefined ? []
+                    : typeof maybeSize === 'string' ? [maybeSize]
+                        : [formatDisplaySize(maybeSize)]
+            )
+        ].join('|'),
+        token.start,
+        token.end
     );
+    // NOTE: We do this in order to force an immediate update to the internalEmbedDiv, and allow the observer to update the TldrawMarkdownRenderChild component
+    editor.setCursor(token.start);
 }

@@ -156,12 +156,11 @@ export default class TldrawStoreExistsIndexedDBModal extends Modal {
         this.reset();
 
         const sharedAppProps = {
-            assetStore: this.documentStore.store.props.assets,
             focusOnMount: false,
             isReadonly: true,
             selectNone: true,
             initialTool: 'hand',
-            zoomToBounds: true,
+            onEditorMount: (editor) => editor.zoomToFit(),
         } satisfies TldrawAppProps['options'];
 
         this.markdownTldrawRoot = createRootAndRenderTldrawApp(
@@ -180,7 +179,7 @@ export default class TldrawStoreExistsIndexedDBModal extends Modal {
                     tldraw: {
                         persistenceKey: this.documentStore.meta.uuid,
                         // We use share the same asset store since some assets may have been stored in the markdown.
-                        assets: sharedAppProps.assetStore,
+                        assets: this.documentStore.store.props.assets,
                     }
                 },
                 app: {

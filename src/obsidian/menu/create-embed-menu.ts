@@ -5,9 +5,13 @@ import TldrawPlugin from "src/main";
 import { pluginMenuLabel } from ".";
 import { BoxLike } from "tldraw";
 
-type TldrAppControllerForMenu = Pick<
+export type TldrAppControllerForMenu = Pick<
     TldrawAppViewModeController, 'getViewMode' | 'toggleInteractive' | 'toggleBackground' | 'getViewOptions'
->;
+> & {
+    setCurrentMenu: (menu: Menu) => void,
+    unsetMenu: (menu: Menu) => void,
+    enableEditing: () => void,
+};
 
 function background(menuItem: MenuItem, controller: TldrAppControllerForMenu) {
     return menuItem.setTitle('Show background')
@@ -32,6 +36,12 @@ function openMdNewTab(menuItem: MenuItem) {
         .setTitle('Open as markdown (new tab)');
 }
 
+function editInteractive(menuItem: MenuItem) {
+    return menuItem
+        .setIcon('pencil')
+        .setTitle('Edit drawing (interactive)');
+}
+
 function editNewTab(menuItem: MenuItem) {
     return menuItem
         .setIcon('pencil')
@@ -49,14 +59,31 @@ function boundsText(bounds: BoxLike) {
     return `size=${w.toFixed(0)},${h.toFixed(0)};pos=${x.toFixed(0)},${y.toFixed(0)}`;
 }
 
+class _Menu extends Menu {
+    constructor(
+        public readonly controller: TldrAppControllerForMenu,
+    ) { super(); }
+
+    onload(): void {
+        super.onload();
+        this.controller.setCurrentMenu(this);
+    }
+
+    onunload(): void {
+        super.onunload();
+        this.controller.unsetMenu(this);
+    }
+}
+
 export function createEmbedMenu({
     controller, plugin, selectEmbedLinkText, tFile
-}: { controller: TldrAppControllerForMenu, plugin: TldrawPlugin, 
+}: {
+    controller: TldrAppControllerForMenu, plugin: TldrawPlugin,
     selectEmbedLinkText: (ev: MouseEvent) => void,
     tFile: TFile,
 }) {
     const bounds = controller.getViewOptions().bounds;
-    return new Menu().addItem((item) => pluginMenuLabel(item, {
+    return new _Menu(controller).addItem((item) => pluginMenuLabel(item, {
         title: tFile.name
     })).addItem((item) => (
         background(item, controller).onClick(() => {
@@ -68,6 +95,8 @@ export function createEmbedMenu({
             controller.toggleInteractive();
             interactiveMode(item, controller);
         })
+    )).addItem((item) => (
+        editInteractive(item).onClick(() => controller.enableEditing())
     )).addItem((item) => (
         item.setTitle('Select embed link text')
             .setIcon('text-cursor')
@@ -87,18 +116,16 @@ export function createEmbedMenu({
     )).addSeparator().addItem((item) => (
         item.setIsLabel(true)
             .setIcon('info')
-            .setTitle(`Bounds: ${bounds ? boundsText(bounds) : '[No bounds set]'
-                }`)
+            .setTitle(`Bounds: ${bounds ? boundsText(bounds) : '[No bounds set]'}`)
+    )).addItem((item) => (
+        item.setIcon('frame')
+            .setTitle('Copy bounds')
+            .setDisabled(bounds === undefined)
+            .onClick(() => {
+                if (bounds) {
+                    window.navigator.clipboard.writeText(boundsText(bounds));
+                }
+            })
     ))
-        .addItem((item) => (
-            item.setIcon('frame')
-                .setTitle('Copy bounds')
-                .setDisabled(bounds === undefined)
-                .onClick(() => {
-                    if (bounds) {
-                        window.navigator.clipboard.writeText(boundsText(bounds));
-                    }
-                })
-        ))
         ;
 }

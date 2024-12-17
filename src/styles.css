@@ -159,7 +159,7 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 	display: flex;
 }
 
-.ptl-markdown-embed .ptl-view-content {
+.ptl-markdown-embed .ptl-view-content .tldraw-view-root {
 	height: 300px;
 }
 
@@ -183,15 +183,30 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 
 .ptl-markdown-embed .ptl-tldraw-image-container {
 	display: flex;
+	justify-content: center;
+}
+
+.canvas-node .ptl-markdown-embed .ptl-tldraw-image {
+	height: var(--canvas-node-height);
+	width: var(--canvas-node-width);
 }
 
 .ptl-markdown-embed .ptl-tldraw-image {
 	max-inline-size: max-content;
 }
 
+.ptl-view-content:empty {
+	min-width: var(--ptl-placeholder-width);
+	min-height: var(--ptl-placeholder-height);
+}
+
+.ptl-tldraw-image:not(:has(div > img)) {
+	min-width: var(--ptl-placeholder-width);
+	min-height: var(--ptl-placeholder-height);
+}
+
 .ptl-markdown-embed .ptl-tldraw-image img {
 	object-fit: contain;
-	object-position: top;
 }
 
 .ptl-download-error {
@@ -284,4 +299,32 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 	height: 100%;
 	background-color: var(--color-text-0);
 	opacity: 0.15;
+}
+
+@media print {
+	.ptl-markdown-embed {
+		/* Prevent the embeds from being split across multiple pages */
+		break-inside: avoid;
+	}
+
+	.ptl-markdown-embed .ptl-tldraw-image img {
+		/* Prevent an embed from being larger than the print page size */
+		max-height: 85vh;
+	}
+
+	.ptl-embed-resize-handle {
+		display: none;
+	}
+}
+
+.ptl-embed-resize-handle {
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	width: 0;
+	height: 0;
+	border-style: solid;
+	border-width: 0 0 16px 16px;
+	border-color: transparent transparent var(--background-modifier-border) transparent;
+	cursor: row-resize;
 }
