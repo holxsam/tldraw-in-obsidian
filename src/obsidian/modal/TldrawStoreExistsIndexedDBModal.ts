@@ -160,7 +160,7 @@ export default class TldrawStoreExistsIndexedDBModal extends Modal {
             isReadonly: true,
             selectNone: true,
             initialTool: 'hand',
-            zoomToBounds: true,
+            onEditorMount: (editor) => editor.zoomToFit(),
         } satisfies TldrawAppProps['options'];
 
         this.markdownTldrawRoot = createRootAndRenderTldrawApp(

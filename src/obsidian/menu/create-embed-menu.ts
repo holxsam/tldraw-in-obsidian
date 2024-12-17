@@ -10,6 +10,7 @@ export type TldrAppControllerForMenu = Pick<
 > & {
     setCurrentMenu: (menu: Menu) => void,
     unsetMenu: (menu: Menu) => void,
+    enableEditing: () => void,
 };
 
 function background(menuItem: MenuItem, controller: TldrAppControllerForMenu) {
@@ -33,6 +34,12 @@ function openMdNewTab(menuItem: MenuItem) {
     return menuItem
         .setIcon(MARKDOWN_ICON_NAME)
         .setTitle('Open as markdown (new tab)');
+}
+
+function editInteractive(menuItem: MenuItem) {
+    return menuItem
+        .setIcon('pencil')
+        .setTitle('Edit drawing (interactive)');
 }
 
 function editNewTab(menuItem: MenuItem) {
@@ -88,6 +95,8 @@ export function createEmbedMenu({
             controller.toggleInteractive();
             interactiveMode(item, controller);
         })
+    )).addItem((item) => (
+        editInteractive(item).onClick(() => controller.enableEditing())
     )).addItem((item) => (
         item.setTitle('Select embed link text')
             .setIcon('text-cursor')

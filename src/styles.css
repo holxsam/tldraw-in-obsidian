@@ -311,6 +311,10 @@ div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
 		/* Prevent an embed from being larger than the print page size */
 		max-height: 85vh;
 	}
+
+	.ptl-embed-resize-handle {
+		display: none;
+	}
 }
 
 .ptl-embed-resize-handle {

@@ -7,14 +7,14 @@ import TldrawApp, { TldrawAppStoreProps } from "src/components/TldrawApp";
 import TldrawPlugin from "src/main";
 import BoundsSelectorTool from "src/tldraw/tools/bounds-selector-tool";
 import { ImageViewModeOptions, ViewMode } from "../helpers/TldrawAppEmbedViewController";
-import { BoxLike, pageIdValidator, Store, TLPageId } from "tldraw";
+import { BoxLike, Editor, pageIdValidator, Store, TLPageId } from "tldraw";
 import TLDataDocumentStoreManager from "../plugin/TLDataDocumentStoreManager";
 import { showEmbedContextMenu } from "../helpers/show-embed-context-menu";
 import { SnapshotPreviewSyncStore, TldrawImageSnapshot, TldrawImageSnapshotView } from "src/components/TldrawImageSnapshotView";
 import { ComponentProps, createElement } from "react";
 import { TldrAppControllerForMenu } from "../menu/create-embed-menu";
 import { isObsidianThemeDark } from "src/utils/utils";
-import { logClass, LOGGING_ENABLED } from "src/utils/logging";
+import { logClass, TLDRAW_COMPONENT_LOGGING } from "src/utils/logging";
 
 const boundsSelectorToolIconName = `tool-${BoundsSelectorTool.id}`;
 
@@ -33,11 +33,15 @@ function _pageId(page?: string) {
     )
 }
 
+type EmbedPageOptions = Pick<ImageViewModeOptions, 'bounds'>;
+
 export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
     #storeInstance?: DocumentStoreInstance;
     #currentMenu?: Menu;
     #viewContentEl?: HTMLElement;
     #viewMode: ViewMode = 'image';
+    #currentPage?: TLPageId;
+    #embedPagesOptions: Partial<Record<TLPageId, EmbedPageOptions>> = {};
     #previewImage: {
         /**
          * The timeout that is used to update the preview.
@@ -68,11 +72,15 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
         sizeCallback?: () => void;
         optionsCallback?: () => void;
         snapshotCallback?: () => void;
+        placeHolderCallback?: () => void;
     };
     /**
      * Used with the `useSyncExternalStore` hook
      */
     #snapshotPreviewStore = {
+        getPlaceHolder: () => {
+            return this.#previewImage.rendered;
+        },
         getPreviewSize: () => {
             return this.#previewImage.size;
         },
@@ -119,6 +127,14 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
                 }
             };
         },
+        syncPlaceHolder: (cb) => {
+            this.#previewImage.placeHolderCallback = cb;
+            return () => {
+                if (this.#previewImage.placeHolderCallback === cb) {
+                    this.#previewImage.placeHolderCallback = undefined;
+                }
+            };
+        },
     } satisfies SnapshotPreviewSyncStore;
 
     plugin: TldrawPlugin;
@@ -141,7 +157,7 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
              * @param bounds 
              * @returns 
              */
-            onUpdatedBounds: (bounds?: BoxLike) => void,
+            onUpdatedBounds: (page: string, bounds?: BoxLike) => void,
             onUpdatedSize: (size: { width: number, height: number }) => void,
             /**
              * 
@@ -154,6 +170,13 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
     ) {
         super(containerEl);
         this.plugin = plugin;
+        const pageId = _pageId(context.initialEmbedValues.page);
+        if (pageId) {
+            this.#currentPage = pageId;
+            this.#embedPagesOptions = {
+                [pageId]: { bounds: context.initialEmbedValues.bounds }
+            };
+        }
         this.#previewImage = {
             size: context.initialEmbedValues.imageSize,
             refreshTimeoutDelay: context.refreshTimeoutDelay,
@@ -162,7 +185,7 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
                     fonts: plugin.getFontOverrides(),
                     icons: plugin.getIconOverrides(),
                 },
-                pageId: _pageId(context.initialEmbedValues.page),
+                pageId,
                 background: context.initialEmbedValues.showBg,
                 bounds: context.initialEmbedValues.bounds,
                 padding: plugin.settings.embeds.padding,
@@ -193,8 +216,18 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
         this.#updateHasShape();
     }
 
+    get lastPreviewImageBounds() { return this.#previewImage.options.bounds; }
+
     #setUpTldrawOptions(): ComponentProps<typeof TldrawApp> {
         const boundsSelectorIcon = this.plugin.getEmbedBoundsSelectorIcon();
+
+        function zoomToEmbedPageBounds(editor: Editor) {
+            const selectorTool = editor.getStateDescendant<BoundsSelectorTool>(BoundsSelectorTool.id);
+            if (!selectorTool) return;
+            // Update the bounding box indicator
+            selectorTool.init();
+            selectorTool.zoomToBounds();
+        }
 
         return {
             plugin: this.plugin,
@@ -203,13 +236,10 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
                 // assetStore: documentStore.store.props.assets,
                 onClickAwayBlur: (ev) => {
                     if (this.#currentMenu && this.#currentMenu.dom.contains(ev.targetNode)) return false;
-                    Promise.resolve().then(() => {
-                        this.#viewMode = 'image';
-                        this.renderRoot();
-                    });
+                    Promise.resolve().then(() => this.setViewMode('image'));
                     return true;
                 },
-                isReadonly: true,
+                isReadonly: this.#storeInstance?.isSynchronizingToMain() !== true,
                 components: {
                     InFrontOfTheCanvas: BoundsTool,
                     OnTheCanvas: BoundsToolSelectedShapeIndicator,
@@ -220,14 +250,29 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
                     [boundsSelectorToolIconName]: boundsSelectorIcon,
                 },
                 initialTool: 'hand',
-                initialBounds: this.#previewImage.options.bounds,
-                zoomToBounds: true,
                 tools: [
                     BoundsSelectorTool.create({
-                        getInitialBounds: () => {
-                            return this.#previewImage.options.bounds;
+                        getInitialBounds: (pageId) => {
+                            if (!this.#currentPage) {
+                                const bounds = this.lastPreviewImageBounds;
+                                return !bounds ? undefined : {
+                                    isSpecific: false,
+                                    bounds,
+                                };
+                            }
+                            const bounds = this.#embedPagesOptions[pageId]?.bounds;
+                            return !bounds ? undefined : {
+                                isSpecific: true,
+                                bounds,
+                            };
                         },
-                        callback: (bounds) => this.context.onUpdatedBounds(bounds),
+                        callback: (pageId, bounds) => {
+                            if (!pageId.startsWith('page:')) {
+                                console.warn('Page id does not start with "page:"', { pageId })
+                                return;
+                            }
+                            this.context.onUpdatedBounds(pageId.substring(5), bounds);
+                        },
                     }),
                 ],
                 uiOverrides: {
@@ -245,6 +290,16 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
                             }
                         }
                     },
+                },
+                onEditorMount: (editor) => {
+                    if (this.#currentPage) {
+                        editor.setCurrentPage(this.#currentPage);
+                    }
+                    zoomToEmbedPageBounds(editor);
+                },
+                onUiEvent: (editor, name, data) => {
+                    if (!editor || name !== 'change-page') return;
+                    zoomToEmbedPageBounds(editor)
                 }
             },
         };
@@ -279,11 +334,10 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
                 },
                 toggleInteractive: () => {
                     if (this.#viewMode !== 'image') {
-                        this.#viewMode = 'image';
+                        this.setViewMode('image');
                     } else {
-                        this.#viewMode = 'interactive';
+                        this.setViewMode('interactive');
                     }
-                    this.renderRoot();
                 },
                 setCurrentMenu: (menu) => {
                     this.#currentMenu?.hide();
@@ -293,6 +347,11 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
                     if (menu === this.#currentMenu) {
                         this.#currentMenu = undefined;
                     }
+                },
+                enableEditing: () => {
+                    this.#storeInstance?.syncToMain(true);
+                    this.#viewMode = 'interactive';
+                    this.renderRoot();
                 }
             },
             setHeight: (height, preview) => {
@@ -359,6 +418,14 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
         this.root = createRoot?.();
     }
 
+    setViewMode(mode: ViewMode) {
+        if (mode === 'image' && this.#storeInstance?.isSynchronizingToMain()) {
+            this.#storeInstance.syncToMain(false);
+        }
+        this.#viewMode = mode;
+        this.renderRoot();
+    }
+
     /**
      * The purpose of this method is to only notify "snapshot observers" that an image should be rendered when the
      * workspace leaf is visible to the user.
@@ -381,11 +448,13 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
 
     refreshPreview(options?: ImageViewModeOptions) {
         clearTimeout(this.#previewImage.refreshTimeout);
-        this.#previewImage.rendered = undefined;
         this.#previewImage.refreshTimeout = setTimeout(() => {
             if (options) {
                 this.#previewImage.options = options;
             }
+            this.#currentPage = this.#previewImage.options.pageId;
+            this.#previewImage.rendered = undefined;
+            this.#previewImage.placeHolderCallback?.();
             this.#previewImage.optionsCallback?.();
         }, this.#previewImage.refreshTimeoutDelay);
     }
@@ -413,6 +482,20 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
         }
 
         const pageId = _pageId(page);
+        if (pageId) {
+            const page = this.#storeInstance?.documentStore.store.query.records('page').get().find((value) => (
+                value.id === pageId
+            ));
+
+            if (!page) {
+                console.warn('Not updating preview, since the page not found in tldraw document:', { pageId, tFile: this.context.tFile });
+                return;
+            }
+            this.#embedPagesOptions = {
+                [pageId]: { bounds }
+            };
+        }
+
         if (currOptions.background === showBg
             && currOptions.bounds?.h === bounds?.h
             && currOptions.bounds?.w === bounds?.w
@@ -478,7 +561,6 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
             this.#viewMode === 'image' ? (
                 createElement(TldrawImageSnapshotView, {
                     previewStore: this.#snapshotPreviewStore,
-                    getPlaceHolderImage: () => this.#previewImage.rendered,
                 })
             ) : (
                 createElement(TldrawApp, this.#setUpTldrawOptions())
@@ -505,7 +587,7 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
     }
 
     async loadRoot() {
-        LOGGING_ENABLED && logClass(TldrawMarkdownRenderChild, this.loadRoot, this);
+        TLDRAW_COMPONENT_LOGGING && logClass(TldrawMarkdownRenderChild, this.loadRoot, this);
         this.#updateHasShape();
         await this.lazyLoadStoreInstance();
         this.#observePreviewImage();
@@ -513,7 +595,7 @@ export class TldrawMarkdownRenderChild extends MarkdownRenderChild {
     }
 
     unloadRoot() {
-        LOGGING_ENABLED && logClass(TldrawMarkdownRenderChild, this.unloadRoot, this);
+        TLDRAW_COMPONENT_LOGGING && logClass(TldrawMarkdownRenderChild, this.unloadRoot, this);
         clearTimeout(this.#previewImage.refreshTimeout);
         this.#observePreviewImageDisconnect();
         this.#setPlaceHolderSize();

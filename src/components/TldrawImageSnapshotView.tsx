@@ -18,10 +18,6 @@ const PluginTldrawImageContext = createContext<
          * What to display when the snapshot is undefined.
          */
         fallback?: ReactNode,
-        /**
-         * The placeholder image to use if snapshot is undefined.
-         */
-        getPlaceHolderImage?: () => HTMLElement | undefined,
         props?: {
             style?: CSSProperties
         }
@@ -56,35 +52,34 @@ function PluginTldrawImage({
 }
 
 function PluginTldrawImageContainer({
-    snapshot, props
+    snapshot, props, imagePlaceHolderStore
 }: {
     snapshot?: ComponentProps<typeof TldrawImage>['snapshot'],
+    /**
+     * The place holder to show in place of the tldraw image component.
+     */
+    imagePlaceHolderStore: SnapshotImagePlaceHolderSyncStore,
     props?: {
         style?: CSSProperties
     }
 }) {
+    const placeHolder = useSyncExternalStore(imagePlaceHolderStore.syncPlaceHolder, imagePlaceHolderStore.getPlaceHolder);
     return (
         <div className="ptl-tldraw-image-container" {...{ ...props }}>
             <PluginTldrawImageContext.Consumer>
                 {
                     (value) => (
-                        !value?.getPlaceHolderImage?.() ? (
+                        !placeHolder ? (
                             !snapshot ? value?.fallback : (
                                 <PluginTldrawImage snapshot={snapshot} props={value?.props} />
                             )
                         ) : (
-                            () => {
-                                const placeHolder = value.getPlaceHolderImage();
-                                if (!placeHolder) return value?.fallback;
-                                return (
-                                    <div className="ptl-tldraw-image ptl-tldraw-image-placeholder" {...value?.props}
-                                        ref={(ref) => {
-                                            ref?.appendChild(placeHolder)
-                                        }}
-                                    />
-                                )
-                            }
-                        )()
+                            <div className="ptl-tldraw-image ptl-tldraw-image-placeholder" {...value?.props}
+                                ref={(ref) => {
+                                    ref?.appendChild(placeHolder)
+                                }}
+                            />
+                        )
                     )
                 }
             </PluginTldrawImageContext.Consumer>
@@ -95,18 +90,15 @@ function PluginTldrawImageContainer({
 function TldrawImageContextProviders({
     children,
     previewStore,
-    getPlaceHolderImage,
 }: {
     children: ReactNode,
     previewStore: SnapshotPreviewSyncStore,
-    getPlaceHolderImage?: NonNullable<ContextType<typeof PluginTldrawImageContext>>['getPlaceHolderImage'],
 }) {
     const previewSize = useSyncExternalStore(previewStore.onPreviewSize, previewStore.getPreviewSize);
     const previewOptions = useSyncExternalStore(previewStore.onPreviewOptions, previewStore.getPreviewOptions);
     const ptlTldrawImageContextValue = useMemo((): ContextType<typeof PluginTldrawImageContext> => (
         {
             fallback: defaultNoSnapshotFallback,
-            getPlaceHolderImage,
             props: {
                 style: previewSize === undefined ? undefined : {
                     width: previewSize.width || undefined,
@@ -114,7 +106,7 @@ function TldrawImageContextProviders({
                 }
             }
         }
-    ), [previewSize, getPlaceHolderImage])
+    ), [previewSize])
 
     const tldrawImageContextValue = useMemo((): ContextType<typeof TldrawImageContext> => {
         const { bounds, ...rest } = previewOptions;
@@ -152,23 +144,28 @@ type SnapshotImagePreviewSizeSyncStore = {
     onPreviewOptions(cb: () => void): (() => void),
 }
 
+type SnapshotImagePlaceHolderSyncStore = {
+    getPlaceHolder(): HTMLElement | undefined,
+    syncPlaceHolder(cb: () => void): (() => void),
+}
+
 export type SnapshotPreviewSyncStore = (
     SnapshotSyncStore
     & SnapshotImagePreviewSizeSyncStore
     & SnapshotImagePreviewOptionsSyncStore
+    & SnapshotImagePlaceHolderSyncStore
 );
 
 export function TldrawImageSnapshotView({
     previewStore,
-    getPlaceHolderImage,
 }: {
     previewStore: SnapshotPreviewSyncStore,
-    getPlaceHolderImage?: ComponentProps<typeof TldrawImageContextProviders>['getPlaceHolderImage'],
 }) {
     const snapshot = useSyncExternalStore(previewStore.onSnapshot, previewStore.getSnapshot);
     return (
-        <TldrawImageContextProviders previewStore={previewStore} getPlaceHolderImage={getPlaceHolderImage}>
+        <TldrawImageContextProviders previewStore={previewStore}>
             <PluginTldrawImageContainer snapshot={snapshot}
+                imagePlaceHolderStore={previewStore}
                 props={{
                     style: {
                         width: '100%',

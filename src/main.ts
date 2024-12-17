@@ -148,6 +148,7 @@ export default class TldrawPlugin extends Plugin {
 	}
 
 	onunload() {
+		this.tlDataDocumentStoreManager.dispose()
 		this.unsubscribeToViewModeState();
 		this.statusBarViewModeReactRoot.unmount();
 		URL.revokeObjectURL(this.embedBoundsSelectorIcon);

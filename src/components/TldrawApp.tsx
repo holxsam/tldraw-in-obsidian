@@ -1,7 +1,6 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import {
-	BoxLike,
 	DefaultMainMenu,
 	DefaultMainMenuContent,
 	Editor,
@@ -13,6 +12,7 @@ import {
 	TLStateNodeConstructor,
 	TLStoreSnapshot,
 	TLUiAssetUrlOverrides,
+	TLUiEventHandler,
 	TLUiOverrides,
 	useActions,
 } from "tldraw";
@@ -33,7 +33,6 @@ type TldrawAppOptions = {
 	 * Takes precedence over the user's plugin preference
 	 */
 	initialTool?: string,
-	initialBounds?: BoxLike,
 	hideUi?: boolean,
 	/**
 	 * Whether to call `.selectNone` on the Tldraw editor instance when it is mounted.
@@ -42,12 +41,7 @@ type TldrawAppOptions = {
 	tools?: readonly TLStateNodeConstructor[],
 	uiOverrides?: TLUiOverrides,
 	components?: TLComponents,
-	/**
-	 * Whether or not to initially zoom to the bounds when the component is mounted.
-	 * 
-	 * If {@linkcode TldrawAppOptions.initialBounds} is not provided, then the page bounds are used.
-	 */
-	zoomToBounds?: boolean,
+	onEditorMount?: (editor: Editor) => void,
 	/**
 	 * 
 	 * @param snapshot The snapshot that is initially loaded into the editor.
@@ -60,6 +54,7 @@ type TldrawAppOptions = {
 	 * @returns `true` if the editor should be blurred.
 	 */
 	onClickAwayBlur?: (event: PointerEvent) => boolean,
+	onUiEvent?: (editor: Editor | undefined, ...rest: Parameters<TLUiEventHandler>) => void,
 };
 
 /**
@@ -125,15 +120,15 @@ const TldrawApp = ({ plugin, store, options: {
 	focusOnMount = true,
 	hideUi = false,
 	iconAssetUrls,
-	initialBounds,
 	initialTool,
 	isReadonly = false,
+	onEditorMount,
 	onClickAwayBlur,
 	onInitialSnapshot,
+	onUiEvent: _onUiEvent,
 	selectNone = false,
 	tools,
 	uiOverrides: otherUiOverrides,
-	zoomToBounds = false,
 } }: TldrawAppProps) => {
 	const assetUrls = React.useRef({
 		fonts: plugin.getFontOverrides(),
@@ -149,7 +144,7 @@ const TldrawApp = ({ plugin, store, options: {
 	const overridesUiComponents = React.useRef({
 		...components(plugin),
 		...otherComponents
-	})
+	});
 
 	const storeProps = React.useMemo(() => !store ? undefined : getEditorStoreProps(store), [store])
 
@@ -163,6 +158,10 @@ const TldrawApp = ({ plugin, store, options: {
 			setOnInitialSnapshot(undefined);
 		}
 	}, [_onInitialSnapshot])
+
+	const onUiEvent = React.useCallback<TLUiEventHandler>((...args) => {
+		_onUiEvent?.(editor, ...args)
+	}, [_onUiEvent, editor]);
 
 	const [isFocused, setIsFocused] = React.useState(false);
 
@@ -185,9 +184,10 @@ const TldrawApp = ({ plugin, store, options: {
 	}
 
 	useTldrawAppEffects({
-		bounds: initialBounds, editor, initialTool, isReadonly,
-		selectNone, zoomToBounds,
+		editor, initialTool, isReadonly,
+		selectNone,
 		settingsProvider: plugin.settingsProvider,
+		onEditorMount,
 		setFocusedEditor: (editor) => setFocusedEditor(true, editor),
 	});
 
@@ -225,6 +225,7 @@ const TldrawApp = ({ plugin, store, options: {
 				{...storeProps}
 				assetUrls={assetUrls.current}
 				hideUi={hideUi}
+				onUiEvent={onUiEvent}
 				overrides={overridesUi.current}
 				components={overridesUiComponents.current}
 				// Set this flag to false when a tldraw document is embed into markdown to prevent it from gaining focus when it is loaded.

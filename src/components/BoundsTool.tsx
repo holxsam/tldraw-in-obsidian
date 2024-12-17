@@ -8,8 +8,8 @@ import BoundsSelectorTool, {
     BOUNDS_SHAPES_BOX,
     BOUNDS_USING_ASPECT_RATIO,
     BOUNDS_ASPECT_RATIO,
-    BOUNDS_CURRENT_BOX,
-    BOUNDS_SELECTOR_INITIALIZED
+    BOUNDS_SELECTOR_INITIALIZED,
+    BOUNDS_CURRENT_PAGE_BOUNDS
 } from "src/tldraw/tools/bounds-selector-tool";
 import { Box, Editor, useEditor, useValue } from "tldraw";
 
@@ -38,14 +38,13 @@ export default function BoundsTool() {
         [toolInitialized]
     );
 
-    const currentBox = useValue(BOUNDS_CURRENT_BOX,
+    const currentBounds = useValue(BOUNDS_CURRENT_PAGE_BOUNDS,
         () => {
             const selectorTool = editor.getStateDescendant<BoundsSelectorTool>(BoundsSelectorTool.id);
-            const box = selectorTool?.currentBounds.get()
+            const pageBounds = selectorTool?.currentPageBounds.get()
+            if (!pageBounds || pageBounds.pageId && editor.getCurrentPageId() !== pageBounds.pageId) return;
 
-            if (!box) return;
-
-            return calculateBoundingBoxInEditor(box, editor);
+            return calculateBoundingBoxInEditor(pageBounds.bounds, editor);
         }, [editor],
     );
 
@@ -84,14 +83,14 @@ export default function BoundsTool() {
     return (
         <>
             {
-                !currentBox ? <></> : (
+                !currentBounds ? <></> : (
                     <div
                         className="ptl-embed-bounds-selection"
                         style={{
                             pointerEvents: 'none',
-                            transform: `translate(${currentBox.x}px, ${currentBox.y}px)`,
-                            width: currentBox.w,
-                            height: currentBox.h,
+                            transform: `translate(${currentBounds.x}px, ${currentBounds.y}px)`,
+                            width: currentBounds.w,
+                            height: currentBounds.h,
                         }}
                         data-target-bounds={!boundsBox}
                     />

@@ -1,7 +1,7 @@
 import { Editor, MarkdownPostProcessorContext, TFile } from "obsidian";
 import TldrawPlugin from "src/main";
 import { CustomMutationObserver } from "src/utils/debug-mutation-observer";
-import { ConsoleLogParams, LOGGING_ENABLED, logFn } from "src/utils/logging";
+import { ConsoleLogParams, MARKDOWN_POST_PROCESSING_LOGGING, logFn } from "src/utils/logging";
 import { BoxLike } from "tldraw";
 import { TldrawMarkdownRenderChild } from "../components/tldraw-component";
 
@@ -13,7 +13,7 @@ import { TldrawMarkdownRenderChild } from "../components/tldraw-component";
  * @returns 
  */
 export async function markdownPostProcessor(plugin: TldrawPlugin, element: HTMLElement, context: MarkdownPostProcessorContext) {
-    const log = (...args: ConsoleLogParams) => !LOGGING_ENABLED ? () => { } : logFn(markdownPostProcessor, args[0], ...args.slice(1));
+    const log = (...args: ConsoleLogParams) => !MARKDOWN_POST_PROCESSING_LOGGING ? () => { } : logFn(markdownPostProcessor, args[0], ...args.slice(1));
     log();
 
     // Inspired by: https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/94fbac38bfc5036187a81c7883c03830a622bc1d/src/MarkdownPostProcessor.ts#L575
@@ -130,8 +130,11 @@ async function loadEmbedTldraw({
     plugin: TldrawPlugin,
 }) {
     const parent = internalEmbedDiv.parentElement;
+    /**
+     * #NOTE: When the page is printing to pdf, then this does not exist.
+     */
     const workspaceLeafEl = internalEmbedDiv.closest('.workspace-leaf');
-    if (parent === null || !(workspaceLeafEl instanceof HTMLElement)) throw Error(`${markdownPostProcessor.name}: No parent element for internalEmbedDiv.\n\n\tIt is needed to ensure the attached react root component is unmounted properly.`);
+    if (parent === null) throw Error(`${markdownPostProcessor.name}: No parent element for internalEmbedDiv.\n\n\tIt is needed to ensure the attached react root component is unmounted properly.`);
     const deferrables = new Set<() => void>();
     const component = new TldrawMarkdownRenderChild(
         internalEmbedDiv,
@@ -142,10 +145,10 @@ async function loadEmbedTldraw({
             initialEmbedValues: parseEmbedValues(internalEmbedDiv, {
                 showBgDefault: plugin.settings.embeds.showBg
             }),
-            onUpdatedBounds: (bounds) => {
+            onUpdatedBounds: (page, bounds) => {
                 const widget = getCmViewWidget(internalEmbedDiv);
                 if (widget) {
-                    updateEmbedBounds(widget, bounds, widget.editor.editor);
+                    updateEmbedBounds(widget, { page, bounds }, widget.editor.editor);
                 } else {
                     console.warn("No active editor; setting the controller's bounds instead.");
                     component.updateBounds(bounds);
@@ -163,7 +166,10 @@ async function loadEmbedTldraw({
                     deferrables.delete(cb);
                 }
             },
-            isWorkspaceLeafShown: () => workspaceLeafEl.isShown()
+            isWorkspaceLeafShown: () => {
+                if (workspaceLeafEl?.instanceOf(HTMLElement)) return workspaceLeafEl.isShown();
+                return false;
+            }
         }
     );
 
@@ -197,20 +203,22 @@ async function loadEmbedTldraw({
     }, "markdownPostProcessorObserverFn");
     observerParent.observe(parent, { childList: true });
 
-    /**
-     * This observer is interested in the style attribute of the workspace leaf element since it includes
-     * display: none; whenever the leaf is behind a tab.
-     */
-    const workspaceLeafElObserver = new MutationObserver((_) => {
-        if (workspaceLeafEl.isShown() && deferrables.size) {
-            const _deferrables = [...deferrables];
-            deferrables.clear();
-            for (const deferrable of _deferrables) {
-                deferrable();
+    if (workspaceLeafEl?.instanceOf(HTMLElement)) {
+        /**
+         * This observer is interested in the style attribute of the workspace leaf element since it includes
+         * display: none; whenever the leaf is behind a tab.
+         */
+        const workspaceLeafElObserver = new MutationObserver((_) => {
+            if (workspaceLeafEl.isShown() && deferrables.size) {
+                const _deferrables = [...deferrables];
+                deferrables.clear();
+                for (const deferrable of _deferrables) {
+                    deferrable();
+                }
             }
-        }
-    });
-    workspaceLeafElObserver.observe(workspaceLeafEl, { attributeFilter: ['style'] });
+        });
+        workspaceLeafElObserver.observe(workspaceLeafEl, { attributeFilter: ['style'] });
+    }
 
     return component;
 }
@@ -298,11 +306,14 @@ function parseEmbedValues(el: HTMLElement, {
     };
 }
 
-function replaceBoundsProps(bounds: BoxLike | undefined, props: Partial<Record<string, string>>) {
+function replaceBoundsProps(pageBounds: EmbedUpdate['pageBounds'], props: Partial<Record<string, string>>) {
+    const bounds = pageBounds?.bounds;
     if (bounds) {
+        props['page'] = pageBounds.page;
         props['pos'] = `${bounds.x.toFixed(0)},${bounds.y.toFixed(0)}`;
         props['size'] = `${bounds.w.toFixed(0)},${bounds.h.toFixed(0)}`;
     } else {
+        delete props['page'];
         delete props['pos'];
         delete props['size'];
     }
@@ -329,8 +340,8 @@ type InternalEmbedWidget = {
     }
 };
 
-function updateEmbedBounds(widget: InternalEmbedWidget, bounds: BoxLike | undefined, editor: Editor) {
-    return updateEmbed(editor, widget, { bounds });
+function updateEmbedBounds(widget: InternalEmbedWidget, pageBounds: EmbedUpdate['pageBounds'], editor: Editor) {
+    return updateEmbed(editor, widget, { pageBounds });
 }
 
 function updateEmbed(editor: Editor, widget: InternalEmbedWidget, update: EmbedUpdate) {
@@ -363,12 +374,15 @@ function formatDisplaySize(size: { width: number, height: number }) {
 }
 
 type EmbedUpdate = Partial<{
-    bounds: BoxLike,
+    pageBounds: {
+        page: string,
+        bounds?: BoxLike,
+    }
     size: { width: number, height: number }
 }>;
 
 function updateEmbedAtInternalLink(editor: Editor, token: InternalLinkToken, update: EmbedUpdate) {
-    const { size, bounds } = update;
+    const { size, pageBounds } = update;
     const [altText, ...rest] = token.displayText.split('|');
     const restButSize = rest.splice(0, rest.length - 1);
     /**
@@ -402,11 +416,11 @@ function updateEmbedAtInternalLink(editor: Editor, token: InternalLinkToken, upd
         [
             token.text,
             (() => {
-                if (bounds === undefined && !('bounds' in update)) {
+                if (pageBounds === undefined && !('pageBounds' in update)) {
                     return altText;
                 }
                 const props = parseAltText(altText);
-                return Object.entries(replaceBoundsProps(bounds, props))
+                return Object.entries(replaceBoundsProps(pageBounds, props))
                     .filter(([key, value]) => key.length > 0 && value !== undefined)
                     .map(
                         ([key, value]) => `${key}=${value}`
@@ -422,4 +436,6 @@ function updateEmbedAtInternalLink(editor: Editor, token: InternalLinkToken, upd
         token.start,
         token.end
     );
+    // NOTE: We do this in order to force an immediate update to the internalEmbedDiv, and allow the observer to update the TldrawMarkdownRenderChild component
+    editor.setCursor(token.start);
 }
